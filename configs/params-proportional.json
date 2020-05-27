@@ -1,0 +1,112 @@
+{
+  "dataset_reader": {
+    "type": "machamp_universal_reader",
+    "lazy": false,
+    "token_indexers": {
+      "tokens": {
+        "type": "single_id",
+        "lowercase_tokens": false
+      },
+      "bert": {
+        "type": "machamp-bert-pretrained",
+        "pretrained_model": "configs/archive/bert-base-multilingual-cased/vocab.txt",
+        "do_lowercase": false,
+        "use_starting_offsets": true
+      }
+    }
+  },
+  "model": {
+    "type": "machamp_model",
+    "word_dropout": 0.1,
+    "weight_embeddings": true,
+    "mix_embedding": true,
+    "layer_dropout": 0.1,
+    "text_field_embedder": {
+      "type": "machamp_embedder",
+      "dropout": 0.5,
+      "allow_unmatched_keys": true,
+      "embedder_to_indexer_map": {
+        "bert": ["bert", "bert-offsets", "bert-type-ids", "bert-task-level-ids"]
+      },
+      "token_embedders": {
+        "bert": {
+          "type": "machamp-bert-pretrained",
+          "pretrained_model": "bert-base-multilingual-cased",
+          "requires_grad": true,
+          "dropout": 0.1,
+          "layer_dropout": 0.1,
+          "combine_layers": "all"
+        }
+      }
+    },
+    "encoder": {
+      "type": "pass_through",
+      "input_dim": 768
+    },
+    "default_decoder": {
+      "label_smoothing": 0.03,
+      "dropout": 0.3,
+      "order":0,
+      "layer":12,
+      "loss_weight":1.0,
+      "prev_task_embed_dim": 0,
+      "encoder": {
+        "type": "pass_through",
+        "input_dim": 768
+      },
+      "adaptive": true,
+      "metric": "acc"
+    },
+    "default_dataset":{
+      "copy_other_columns": false,
+      "order": 1
+    }
+  },
+  "iterator": {
+    "type": "data-type-bucket",
+    "sorting_keys": [["tokens", "num_tokens"]],
+    "biggest_batch_first": true,
+//    "track_epoch": true
+    "batch_size": 32,
+    "proportional_sampling": true,
+    "maximum_samples_per_batch": ["num_tokens", 32 * 100]
+  },
+  "trainer": {
+    "validation_metric": "+.run/.sum",
+    "should_log_parameter_statistics": false,
+    "grad_norm": 5.0,
+    "grad_clipping": 10.0,
+    "cuda_device": -1,
+    "num_epochs": 200,
+    "patience": 5,
+    "num_serialized_models_to_keep": 1,
+    "should_log_learning_rate": true,
+    "summary_interval": 100,
+    "optimizer": {
+      "type": "bert_adam",
+      "b1": 0.9,
+      "b2": 0.99,
+      "weight_decay": 0.01,
+      "lr": 1e-3,
+      "parameter_groups": [
+        [["^text_field_embedder.*.bert_model.embeddings",
+          "^text_field_embedder.*.bert_model.encoder"], {}],
+        [["^text_field_embedder.*._scalar_mix",
+          "^text_field_embedder.*.pooler",
+          "^scalar_mix",
+          "^decoders",
+          "^shared_encoder"], {}]
+      ]
+    },
+    "learning_rate_scheduler": {
+      "type": "ulmfit_sqrt",
+      "model_size": 1,
+      "warmup_steps": 115,
+      "start_step": 115,
+      "factor": 5.0,
+      "gradual_unfreezing": true,
+      "discriminative_fine_tuning": true,
+      "decay_factor": 0.04
+    }
+  }
+}

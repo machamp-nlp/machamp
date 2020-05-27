@@ -1,0 +1,30 @@
+{
+    "PMB": {
+        "train_data_path": "data/pmb.train",
+        "validation_data_path": "data/pmb.dev",
+        "word_idx": 0,
+        "tasks": {
+            "lemma2": {
+                "task_type": "string2string",
+                "column_idx": 1
+            },
+            "semtag": {
+                "task_type": "seq",
+                "column_idx": 2
+            },
+            "supertag":{
+                "task_type": "seq",
+                "column_idx": 3
+            },
+            "wordnet": {
+                "task_type": "string2string",
+                "column_idx": 4
+            },
+            "verbnet":{
+                "task_type": "seq",
+                "column_idx": 5
+            }
+        }
+    }
+}
+
