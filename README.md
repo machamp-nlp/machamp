@@ -1,4 +1,4 @@
-# MaChAmp: Massive Choice, Ample Tasks
+# MaChAmp: Massive Choice, Ample Tasks (0.1)
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -193,14 +193,4 @@ Q: I would like to copy over the annotations of the tasks which are not predicte
 
 A: specify this in the `default_dataset` in params.json, or on the dataset level in the `dataset_config`: `copy_other_columns: true`
 
-Q: This is great!, what should I cite?
-
-A:
-```
-TODO
-```
-
-Q: Amazing stuff!, but I was looking for resources on Machamps language:
-
-A: No problem, we have collected a dataset from utterances transcribed from wild Machamps as well as Machamps belonging to Pokémon trainers. It can be found on TODO
 
