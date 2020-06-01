@@ -94,7 +94,7 @@ and corresponding configuration files, these can be found in `scripts` and the
 * `dependency`: uses a deep biaffine parser, needs to read from two columns (first head index, second dependency label).
 * `classification`: sentence level classification, predicts a label for an utterance of text.
 
-For all the word-level tasks (first five), the data should be formatted similar
+For all the word-level tasks (first three), the data should be formatted similar
 to the conllu format; comments start with a `#`, there is one word per line,
 and the annotations are directly behind it (tab-separated). Lines are seperated
 by an empty line. Make sure all words have the same number of columns. 
