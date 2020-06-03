@@ -6,9 +6,8 @@
 
 > One arm alone can move mountains. 
 
-
 This code base is a wrapper for the [AllenNLP]() library with a focus on
-multi-task learning.  It has support for training on multiple datasets for
+multi-task learning, described in [Massive Choice, Ample Tasks (MaChAmp): A Toolkit for Multi-task Learning in NLP](https://arxiv.org/abs/2005.14672).  It has support for training on multiple datasets for
 multiple types of tasks:
 
 * sequence labeling
@@ -193,4 +192,16 @@ Q: I would like to copy over the annotations of the tasks which are not predicte
 
 A: specify this in the `default_dataset` in params.json, or on the dataset level in the `dataset_config`: `copy_other_columns: true`
 
+## CITATION
+If you use MaChAmp in your work, please cite the following:
 
+```
+@misc{goot2020massive,
+    title={Massive Choice, Ample Tasks (MaChAmp): A Toolkit for Multi-task Learning in NLP},
+    author={Rob van der Goot and Ahmet Üstün and Alan Ramponi and Barbara Plank},
+    year={2020},
+    eprint={2005.14672},
+    archivePrefix={arXiv},
+    primaryClass={cs.CL}
+}
+```
