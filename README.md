@@ -1,5 +1,7 @@
 # MaChAmp: Massive Choice, Ample Tasks (0.1)
 
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 [![Machamp](machamp.png)]()
 
 > One arm alone can move mountains. 
