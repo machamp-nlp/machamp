@@ -84,15 +84,15 @@ class MachampPredictor(Predictor):
         firstTaskIdx = outputs['tasks'].index(firstTask)
         if outputs['task_types'][firstTaskIdx] == 'classification':
             tok = outputs['fullData']
-            import pprint
-            pprint.pprint(outputs)
-            print(tok)
+            #import pprint
+            #pprint.pprint(outputs)
+            #print(tok)
             for taskIdx, task in enumerate(outputs['tasks'] if type(outputs['tasks']) is list else [outputs['tasks']]):
                 if task in outputs['colIdxs']:
                     colIdx = outputs['colIdxs'][task]
                     tok[colIdx] = outputs[task][0]
-            print(tok)
-            print()
+            #print(tok)
+            #print()
             return '\t'.join(tok) + '\n'
 
         else: # sequence labeling
