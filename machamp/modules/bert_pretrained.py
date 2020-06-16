@@ -271,7 +271,7 @@ class WordpieceIndexer(TokenIndexer[int]):
         # to correspond to the remaining tokens after truncation, which
         # is captured by the offsets.
         mask = [1 for _ in offsets]
-
+        print("somewhere", token_type_ids)
         return {
             index_name: wordpiece_ids,
             f"{index_name}-offsets": offsets,
@@ -367,7 +367,7 @@ class PretrainedBertIndexer(WordpieceIndexer):
                          do_lowercase=do_lowercase,
                          never_lowercase=never_lowercase,
                          start_tokens=["[CLS]"],
-                         end_tokens=["[SEP]"],
+                         end_tokens=["[unused1]"],
                          separator_token="[SEP]",
                          truncate_long_sequences=truncate_long_sequences)
 
@@ -397,6 +397,7 @@ def _get_token_type_ids(wordpiece_ids: List[int],
         else:
             cursor += 1
             token_type_ids.append(type_id)
+    print('get', token_type_ids)
     return token_type_ids
 
 
@@ -480,6 +481,8 @@ class BertEmbedder(TokenEmbedder):
             the second sentence should have type 1.  If you don't provide this
             (the default BertIndexer doesn't) then it's assumed to be all 0s.
         """
+        print('forward', token_type_ids)
+        exit(1)
         # pylint: disable=arguments-differ
         batch_size, full_seq_len = input_ids.size(0), input_ids.size(-1)
         initial_dims = list(input_ids.shape[:-1])
@@ -513,6 +516,7 @@ class BertEmbedder(TokenEmbedder):
             padding_amount = self.max_pieces - last_window_size
             split_token_type_ids[-1] = F.pad(split_token_type_ids[-1], pad=[0, padding_amount], value=0)
             token_type_ids = torch.cat(split_token_type_ids, dim=0)
+        
 
         if token_type_ids is None:
             token_type_ids = torch.zeros_like(input_ids)
@@ -520,7 +524,19 @@ class BertEmbedder(TokenEmbedder):
 
         # input_ids may have extra dimensions, so we reshape down to 2-d
         # before calling the BERT model and then reshape back at the end.
-        all_encoder_layers, pooled_output = self.bert_model(input_ids=util.combine_initial_dims(input_ids),
+        token_type_ids = torch.zeros_like(input_ids)
+        print(input_ids.shape)
+        print(token_type_ids.shape)
+        print(input_mask.shape)
+
+        print(input_ids)
+        print(token_type_ids)
+        print(input_mask)
+
+        print(util.combine_initial_dims(input_ids).shape)
+        print(util.combine_initial_dims(token_type_ids).shape)
+        print(util.combine_initial_dims(input_mask).shape)
+        all_encoder_layers, _ = self.bert_model(input_ids=util.combine_initial_dims(input_ids),
                                                 token_type_ids=util.combine_initial_dims(token_type_ids),
                                                 attention_mask=util.combine_initial_dims(input_mask))
         all_encoder_layers = torch.stack(all_encoder_layers)
