@@ -522,7 +522,7 @@ class BertEmbedder(TokenEmbedder):
         # before calling the BERT model and then reshape back at the end.
         token_type_ids = torch.zeros_like(input_ids)
 
-        all_encoder_layers, _ = self.bert_model(input_ids=util.combine_initial_dims(input_ids),
+        all_encoder_layers, pooled_output = self.bert_model(input_ids=util.combine_initial_dims(input_ids),
                                                 token_type_ids=util.combine_initial_dims(token_type_ids),
                                                 attention_mask=util.combine_initial_dims(input_mask))
         all_encoder_layers = torch.stack(all_encoder_layers)
