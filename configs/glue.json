@@ -98,16 +98,16 @@
             }
         }
     },
-    /*"WNLI": {
+    "WNLI": {
         "train_data_path": "data/glue/WNLI.train",
         "validation_data_path": "data/glue/WNLI.dev",
         "sent_idxs": [0,1],
         "tasks": {
-            "wnli": {
+            "sst": {
                 "column_idx": 2,
                 "task_type": "classification"
             }
         }
-    }*/
+    }
 }
 

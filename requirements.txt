@@ -1,2 +1,4 @@
-allennlp==0.9.0
-tensorflow
+allennlp==1.3
+transformers==4.0.0
+torch==1.7.0
+networkx

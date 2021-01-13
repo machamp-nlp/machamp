@@ -6,7 +6,7 @@ https://github.com/CoNLL-UD-2018/UDPipe-Future
 """
 
 
-def min_edit_script(source, target, allow_copy=False):
+def min_edit_script(source, target, allow_copy=True):
     """
     Finds the minimum edit script to transform the source to the target
     """
@@ -25,7 +25,7 @@ def min_edit_script(source, target, allow_copy=False):
     return a[-1][-1][1]
 
 
-def gen_lemma_rule(form, lemma, allow_copy=False):
+def gen_lemma_rule(form, lemma, allow_copy=True):
     """
     Generates a lemma rule to transform the source to the target
     """
@@ -65,6 +65,8 @@ def apply_lemma_rule(form, lemma_rule):
     """
     Applies the lemma rule to the form to generate the lemma
     """
+    if lemma_rule.startswith('@@'): # for @@UNK, to avoid crash
+        return form
     casing, rule = lemma_rule.split(";", 1)
     if rule.startswith("a"):
         lemma = rule[1:]

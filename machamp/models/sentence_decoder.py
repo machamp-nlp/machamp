@@ -1,66 +1,58 @@
-from typing import Dict, Optional, List, Any
-
-from overrides import overrides
-import torch
-import numpy
 import logging
+from typing import Dict
 
-from allennlp.data import Vocabulary
+import torch
+from allennlp.data import TextFieldTensors, Vocabulary
 from allennlp.models.model import Model
-from allennlp.modules import FeedForward, Seq2SeqEncoder
-from allennlp.nn import InitializerApplicator
 from allennlp.training.metrics import CategoricalAccuracy
-from machamp.metrics.fbeta_measure import FBetaMeasure
+from overrides import overrides
 
 logger = logging.getLogger(__name__)
 
-
-@Model.register("machamp_sentence_classifier")
-class BasicClassifier(Model):
+@Model.register("machamp_sentence_decoder")
+class MachampClassifier(Model):
+    """
+    This `Model` implements a basic text classifier. After embedding the text into
+    a text field, we will optionally encode the embeddings with a `Seq2SeqEncoder`. The
+    resulting sequence is pooled using a `Seq2VecEncoder` and then passed to
+    a linear classification layer, which projects into the label space. If a
+    `Seq2SeqEncoder` is not provided, we will pass the embedded text directly to the
+    `Seq2VecEncoder`.
+    Registered as a `Model` with name "basic_classifier".
+    # Parameters
+    vocab : `Vocabulary`
+    text_field_embedder : `TextFieldEmbedder`
+        Used to embed the input text into a `TextField`
+    initializer : `InitializerApplicator`, optional (default=`InitializerApplicator()`)
+        If provided, will be used to initialize the model parameters.
+    """
 
     def __init__(
         self,
-        vocab: Vocabulary,
         task: str,
-        encoder: Seq2SeqEncoder,
-        feedforward: Optional[FeedForward] = None,
-        prev_task: str = None,
-        prev_task_embed_dim: int = None,
-        label_smoothing: float = 0.0,
-        adaptive: bool = False,
-        loss_weight: float = 1.0,
-        dropout: float = None,
-        label_namespace: str = "labels",
-        metric: str = 'acc',
-        task_types: List[str] = None,
-        tasks: List[str] = None,
-        initializer: InitializerApplicator = InitializerApplicator(),
+        vocab: Vocabulary,
+        input_dim: int,
+        loss_weight: float=1.0,
+        dataset_embeds_dim: int = 0,
+        metric: str = "acc",
         **kwargs,
     ) -> None:
 
-        super().__init__(vocab)
+        super().__init__(vocab, **kwargs)
 
         self.task = task
-        self.encoder = encoder
-        self.metric = metric
-
-        self._feedforward = feedforward
-        if feedforward is not None:
-            self._classifier_input_dim = self._feedforward.get_output_dim()
-        else:
-            self._classifier_input_dim = self.encoder.get_output_dim()
-
-        if dropout:
-            self._dropout = torch.nn.Dropout(dropout)
-        else:
-            self._dropout = None
-        self._label_namespace = label_namespace
-
-        self.num_classes = self.vocab.get_vocab_size(task)
-
-        self._classification_layer = torch.nn.Linear(self._classifier_input_dim, self.num_classes)
+        self.vocab = vocab
+        self.input_dim = input_dim + dataset_embeds_dim
         self.loss_weight = loss_weight
+        self.metric = metric
+        self.num_labels = self.vocab.get_vocab_size(namespace=task)
 
+        self._classifier_input_dim = self.input_dim
+
+        self._classification_layer = torch.nn.Linear(self._classifier_input_dim, self.num_labels)
+        self._loss = torch.nn.CrossEntropyLoss()
+
+        self._accuracy = CategoricalAccuracy()
         if self.metric == "acc":
             self.metrics = {"acc": CategoricalAccuracy()}
         elif self.metric == "micro-f1":
@@ -72,72 +64,66 @@ class BasicClassifier(Model):
             self.metrics = {"acc": CategoricalAccuracy()}
 
 
+    def forward(  # type: ignore
+        self, 
+        embedded_text: TextFieldTensors, 
+        gold_labels: torch.LongTensor = []
+    ) -> Dict[str, torch.Tensor]:
 
-        self._loss = torch.nn.CrossEntropyLoss()
-        initializer(self)
-
-    @overrides
-    def forward(self,
-                encoded_text: torch.FloatTensor,
-                mask: torch.LongTensor,
-                gold_tags: Dict[str, torch.LongTensor],
-                prev_task_classes: torch.LongTensor = None,
-                metadata: List[Dict[str, Any]] = None) -> Dict[str, torch.Tensor]:
-
-
-        hidden = encoded_text
-        embedded_text = self.encoder(hidden)
-
-        if self._dropout:
-            embedded_text = self._dropout(embedded_text)
-
-        if self._feedforward is not None:
-            embedded_text = self._feedforward(embedded_text)
-
-        batch_size, _ = embedded_text.size()
-        output_dim = [batch_size, self.num_classes]
-
+        """
+        # Parameters
+        tokens : `TextFieldTensors`
+            From a `TextField`
+        label : `torch.IntTensor`, optional (default = `None`)
+            From a `LabelField`
+        # Returns
+        An output dictionary consisting of:
+            - `logits` (`torch.FloatTensor`) :
+                A tensor of shape `(batch_size, num_labels)` representing
+                unnormalized log probabilities of the label.
+            - `probs` (`torch.FloatTensor`) :
+                A tensor of shape `(batch_size, num_labels)` representing
+                probabilities of the label.
+            - `loss` : (`torch.FloatTensor`, optional) :
+                A scalar loss to be optimised.
+        """
         logits = self._classification_layer(embedded_text)
         probs = torch.nn.functional.softmax(logits, dim=-1)
 
         output_dict = {"logits": logits, "class_probabilities": probs}
 
-        # gold_label per sentence
-        if self.task in gold_tags:
-            gold_tags = gold_tags.get(self.task, None)[:, 0]
-            loss = self._loss(logits, gold_tags.view(-1))
-            output_dict["loss"] = self.loss_weight * loss
-
+        if gold_labels != None:
+            output_dict['loss'] = self._loss(logits, gold_labels.long().view(-1)) * self.loss_weight
             for metric in self.metrics.values():
-                metric(logits, gold_tags)
+                metric(logits, gold_labels)
 
         return output_dict
 
     @overrides
-    def decode(self, output_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        all_words = output_dict["words"]
-        all_predictions = output_dict["class_probabilities"][self.task].cpu().data.numpy()
-        if all_predictions.ndim == 3:
-            predictions_list = [all_predictions[i] for i in range(all_predictions.shape[0])]
+    def make_output_human_readable(
+        self, predictions: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Does a simple argmax over the probabilities, converts index to string label, and
+        add `"label"` key to the dictionary with the result.
+        """
+        if predictions.dim() == 2:
+            predictions_list = [predictions[i] for i in range(predictions.shape[0])]
         else:
-            predictions_list = [all_predictions]
-        all_tags = []
-        for predictions in predictions_list:
-            argmax_indices = numpy.argmax(predictions, axis=-1)
-            tag = self.vocab.get_token_from_index(argmax_indices[0], namespace=self.task)
-        all_tags.append(tag)
+            predictions_list = [predictions]
+        classes = []
+        for prediction in predictions_list:
+            label_idx = prediction.argmax(dim=-1).item()
+            label_str = self.vocab.get_index_to_token_vocabulary(self.task).get(
+                label_idx, str(label_idx)
+            )
+            classes.append(label_str)
+        return classes
 
-        # if it needs to be token level:
-        output_dict[self.task] = [all_tags*len(all_words[0])]
-
-        return output_dict
-
-    @overrides
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
-
         main_metrics = {
             f".run/{self.task}/{metric_name}": metric.get_metric(reset)
             for metric_name, metric in self.metrics.items()
         }
-
         return {**main_metrics}
+

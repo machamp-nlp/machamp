@@ -1,20 +1,21 @@
-from typing import Dict, Union, Sequence, Set, Optional, cast, Iterator, List
 import logging
+from typing import Dict, Union, Sequence, Set, Optional, cast, Iterator, List
 
-from overrides import overrides
 import torch
-
-from allennlp.data.fields.field import Field
-from allennlp.common.util import pad_sequence_to_length
-from allennlp.data.vocabulary import Vocabulary
 from allennlp.common.checks import ConfigurationError
+from allennlp.data.fields.field import Field
 from allennlp.data.fields.sequence_field import SequenceField
+from allennlp.data.vocabulary import Vocabulary
+from overrides import overrides
 
 logger = logging.getLogger(__name__)
 
 
 class SequenceMultiLabelField(Field[torch.Tensor]):
-    """"""
+    """
+    Based on SequenceLabelField, but allows for storing multiple labels per index
+    of the sequence.
+    """
 
     # It is possible that users want to use this field with a namespace which uses OOV/PAD tokens.
     # This warning will be repeated for every instantiation of this class (i.e for every data
@@ -81,7 +82,6 @@ class SequenceMultiLabelField(Field[torch.Tensor]):
                         "Found labels: {}".format(labels)
                     )
 
-
     def _maybe_warn_for_namespace(self, label_namespace: str) -> None:
         if not (label_namespace.endswith("labels") or label_namespace.endswith("tags")):
             if label_namespace not in self._already_warned_namespaces:
@@ -94,7 +94,6 @@ class SequenceMultiLabelField(Field[torch.Tensor]):
                 )
                 self._already_warned_namespaces.add(label_namespace)
 
-
     # Sequence methods
     def __iter__(self) -> Iterator[Union[str, int]]:
         return iter(self.labels)
@@ -105,14 +104,12 @@ class SequenceMultiLabelField(Field[torch.Tensor]):
     def __len__(self) -> int:
         return len(self.labels)
 
-
     @overrides
     def count_vocab_items(self, counter: Dict[str, Dict[str, int]]):
         if self._indexed_labels is None:
             for label_list in self.labels:
                 for label in label_list:
                     counter[self._label_namespace][label] += 1  # type: ignore
-
 
     @overrides
     def index(self, vocab: Vocabulary):
@@ -127,19 +124,13 @@ class SequenceMultiLabelField(Field[torch.Tensor]):
         if not self._num_labels:
             self._num_labels = vocab.get_vocab_size(self._label_namespace)
 
-
     @overrides
     def get_padding_lengths(self) -> Dict[str, int]:
         return {"num_tokens": self.sequence_field.sequence_length()}
 
-
     @overrides
     def as_tensor(self, padding_lengths: Dict[str, int]) -> torch.Tensor:
         desired_num_tokens = padding_lengths["num_tokens"]
-        #token_tags_list = []
-        #token_tags_list = self._indexed_labels
-        #for i in range(desired_num_tokens - len(self._indexed_labels)):
-        #    token_tags_list.append([0])
         token_tags_list = self.pad_sequence_to_length_with_list(self._indexed_labels, desired_num_tokens, [0])
         # [[0], [0], [0], [0], [0], [0], [0], [0], [0], [0], [0], [0], [0], [2, 3], [0], [1], [0], [0], [1], [0], [0], [0]]
 
@@ -157,7 +148,7 @@ class SequenceMultiLabelField(Field[torch.Tensor]):
             label_sequence.append(label_vector)
 
         tensor = torch.LongTensor(label_sequence)
-        #[[1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [0, 0, 1, 1], [1, 0, 0, 0], [0, 1, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0]]
+        # [[1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [0, 0, 1, 1], [1, 0, 0, 0], [0, 1, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0]]
 
         return tensor
 
@@ -182,13 +173,11 @@ class SequenceMultiLabelField(Field[torch.Tensor]):
                 padded_sequence.insert(0, default_value)
         return padded_sequence
 
-
     @overrides
     def empty_field(self):
         return SequenceMultiLabelField(
             [], self._label_namespace, skip_indexing=True, num_labels=self._num_labels
         )
-
 
     def __str__(self) -> str:
         return (

@@ -1,1 +1,2 @@
-from machamp.dataset_readers.universal_reader import UniversalDatasetReader
+from machamp.dataset_readers.machamp_universal_reader import MachampUniversalReader
+from machamp.dataset_readers.basic_tokenizer import BertBasicTokenizer
