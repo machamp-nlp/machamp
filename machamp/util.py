@@ -6,6 +6,7 @@ import torch
 import tarfile
 import json
 import numpy as np
+import pprint
 from datetime import datetime
 
 from transformers.configuration_utils import PretrainedConfig
@@ -144,7 +145,7 @@ def predict_model_with_archive(predictor: str, params: Params, archive: str,
     for dataset in params['dataset_reader']['datasets']:
         for task in params['dataset_reader']['datasets'][dataset]['tasks']:
             task_types.append(params['dataset_reader']['datasets'][dataset]['tasks'][task]['task_type'])
-    if 'mlm' in task_types:
+    if 'unsupervised' in task_types:
         logger.warning("No prediction is written, as it is unclear what to output when predicting on dev/test data with MLM")
         return
 
@@ -168,7 +169,7 @@ def predict_model_with_archive(predictor: str, params: Params, archive: str,
     archive.validation_dataset_reader.datasets = params['dataset_reader']['datasets']
 
     predictor = MachampPredictor.from_archive(archive, predictor)
-
+    
     if batch_size == None:
         batch_size = params['data_loader']['batch_sampler']['batch_size']
 
@@ -179,6 +180,8 @@ def predict_model_with_archive(predictor: str, params: Params, archive: str,
                               print_to_console=False,
                               has_dataset_reader=True)
     manager.run()
+    pprint.pprint(predictor.model.get_metrics())
+    pprint.pprint(predictor.model.get_metrics(), open(output_file + '.eval', 'w'))
 
 
 def archive_model(serialization_dir: str, out_dir: str):

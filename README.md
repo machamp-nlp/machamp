@@ -132,7 +132,7 @@ do supertagging (from the PMB), jointly with XPOS tags (from the UD) and RTE
 }
 ``` 
 
-It should be noted that to do real multi-task learning, the tasks should have different names. For example, having two tasks with the name `upos` in two different datasets, will effectively lead to concatenating the data and threating it as two tasks. If they are instead named `upos_ewt` and `upos_gum`, then they will each have their own decoder.
+It should be noted that to do real multi-task learning, the tasks should have different names. For example, having two tasks with the name `upos` in two different datasets, will effectively lead to concatenating the data and threating it as one task. If they are instead named `upos_ewt` and `upos_gum`, then they will each have their own decoder.
 
 ## Prediction
 For predicting on new data you can use `predict.py`, and provide it with the
@@ -161,8 +161,8 @@ Task types:
 * [multiseq](docs/multiseq.md): sequence labeling when the number of labels for each instance is not known in advance.
 * [dependency](docs/dependency.md): dependency parsing.
 * [classification](docs/classification.md): sentence classification, predicts a label for N utterances of text.
-* [mlm](docs/mlm.md)
-* [seq2seq](docs/seq2seq)
+* [mlm](docs/mlm.md): masked language modeling.
+* [seq2seq](docs/seq2seq.md): sequence to sequence generation (e.g. machine translation).
 
 Other things:
 
@@ -184,7 +184,7 @@ Q: It doesn't run for UD data?
 A: we do not support enhanced dependencies (yet), which means you have to remove some special annotations, for which you can use `scripts/misc/cleanconl.py`
 
 Q: Memory usage is too high, how can I reduce this?  
-A: Some setups should run on 12GB gpu memory. However, depending on the task-type, pre-trained embeddings and training data, it might require 16GB.
+A: Most setups should run on 12GB gpu memory. However, depending on the task-type, pre-trained embeddings and training data, it might require up to 20GB.
 To reduce data usage, you could try:
 
 * Use smaller embeddings
@@ -193,9 +193,9 @@ To reduce data usage, you could try:
 * Run on CPU (`--device -1`), which is actually only 4-10 times slower.
 
 Q: Why don't you support automatic dataset loading?  
-A: The first author thinks it makes it easier for you to take a look at the actual data
+A: The first author thinks this would discourage/complexify looking at the actual data, which is important.
 
-Q: How can I predict on the test set automatically after training?
+Q: How can I predict on the test set automatically after training?  
 A: You can't, because the first author thinks you shouldn't, this would automatically lead to overfitting/overusing of the test data. You have to manually run predict.py after training to get predictions on the test data.
 
 Q: what should I cite?  

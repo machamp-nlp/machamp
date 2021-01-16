@@ -47,7 +47,7 @@ class MachampMaskedLanguageModel(Model):
         pretrained_model: str,
         loss_weight: float = 1.0,
         dataset_embeds_dim: int = 0,
-        metric: str = 'ppl',
+        metric: str = 'perplexity',
         **kwargs,
     ) -> None:
         super().__init__(vocab, **kwargs)
@@ -84,7 +84,7 @@ class MachampMaskedLanguageModel(Model):
         self.loss_fct = torch.nn.CrossEntropyLoss(ignore_index=-100)
         
         self.metrics = {
-            "ppl": Perplexity(),
+            "perplexity": Perplexity(),
         }
 
     def forward(  # type: ignore

@@ -1,10 +1,11 @@
 import logging
 from typing import Dict
 
+import sys
 import torch
 from allennlp.data import TextFieldTensors, Vocabulary
 from allennlp.models.model import Model
-from allennlp.training.metrics import CategoricalAccuracy
+from allennlp.training.metrics import CategoricalAccuracy, FBetaMeasure
 from overrides import overrides
 
 logger = logging.getLogger(__name__)
@@ -55,12 +56,18 @@ class MachampClassifier(Model):
         self._accuracy = CategoricalAccuracy()
         if self.metric == "acc":
             self.metrics = {"acc": CategoricalAccuracy()}
+        elif self.metric == "span_f1":
+            print(f"To use \"{metric}\", please use the \"seq_bio\" decoder instead.")
+            sys.exit()
+        elif self.metric == "multi_span_f1":
+            print(f"To use \"{metric}\", please use the \"multiseq\" decoder instead.")
+            sys.exit()
         elif self.metric == "micro-f1":
             self.metrics = {"micro-f1": FBetaMeasure(average='micro')}
         elif self.metric == "macro-f1":
             self.metrics = {"macro-f1": FBetaMeasure(average='macro')}
         else:
-            logger.warning(f"ERROR. Metric: {self.metric} unrecognized. Using accuracy instead.")
+            print(f"ERROR. Metric \"{metric}\" unrecognized. Using accuracy \"acc\" instead.")
             self.metrics = {"acc": CategoricalAccuracy()}
 
 

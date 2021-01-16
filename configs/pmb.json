@@ -1,28 +1,12 @@
 {
-    "PMB": {
-        "train_data_path": "DRS_parsing/parsing/layer_data/gold/en/train.conll",
-        "validation_data_path": "DRS_parsing/parsing/layer_data/gold/en/dev.conll",
-        "word_idx": 0,
+    "UD": {
+        "train_data_path": "data/ewt.train",
+        "validation_data_path": "data/ewt.dev",
+        "word_idx": 1,
         "tasks": {
-            "symbol": {
-                "task_type": "string2string",
-                "column_idx": 1
-            },
-            "semtag": {
-                "task_type": "seq",
-                "column_idx": 2
-            },
-            "supertag": {
+            "upos": {
                 "task_type": "seq",
                 "column_idx": 3
-            },
-            "sense": {
-                "task_type": "string2string",
-                "column_idx": 4
-            },
-            "semrole": {
-                "task_type": "seq",
-                "column_idx": 5
             }
         }
     }

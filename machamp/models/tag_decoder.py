@@ -1,5 +1,6 @@
 from typing import Dict, Optional
 
+import sys
 import numpy
 import torch
 import torch.nn.functional as F
@@ -7,7 +8,7 @@ from allennlp.data import Vocabulary
 from allennlp.models.model import Model
 from allennlp.modules import TimeDistributed
 from allennlp.nn.util import sequence_cross_entropy_with_logits
-from allennlp.training.metrics import CategoricalAccuracy
+from allennlp.training.metrics import CategoricalAccuracy, FBetaMeasure
 from overrides import overrides
 from torch.nn.modules.linear import Linear
 
@@ -60,9 +61,21 @@ class MachampTagger(Model):
         self.tag_projection_layer = TimeDistributed(
             Linear(self.input_dim, self.num_classes)
         )
-        self.metrics = {
-            "acc": CategoricalAccuracy(),
-        }
+        if metric == "acc":
+            self.metrics = {"acc": CategoricalAccuracy()}
+        elif metric == "span_f1":
+            print(f"To use \"{metric}\", please use the \"seq_bio\" decoder instead.")
+            sys.exit()
+        elif metric == "multi_span_f1":
+            print(f"To use \"{metric}\", please use the \"multiseq\" decoder instead.")
+            sys.exit()
+        elif metric == "micro-f1":
+            self.metrics = {"micro-f1": FBetaMeasure(average='micro')}
+        elif metric == "macro-f1":
+            self.metrics = {"macro-f1": FBetaMeasure(average='macro')}
+        else:
+            print(f"ERROR. Metric \"{metric}\" unrecognized. Using accuracy \"acc\" instead.")
+            self.metrics = {"acc": CategoricalAccuracy()}
 
 
     @overrides

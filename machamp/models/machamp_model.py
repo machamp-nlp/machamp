@@ -193,7 +193,7 @@ class MachampModel(Model):
         metrics = {}
         for task in self.tasks:
             for name, task_metric in self.decoders[task].get_metrics(reset).items():
-                if name.split("/")[-1] in ["acc", 'ppl']:
+                if name.split("/")[-1] in ["acc", 'perplexity']:
                     metrics[name] = task_metric
                 elif name.split('/')[-1].lower() in ['las']:
                     metrics[name] = task_metric['LAS']
@@ -219,7 +219,7 @@ class MachampModel(Model):
         metric_sum = 0
         for name, metric in metrics.items():
             if (not name.startswith("_") and set(name.split("/")).intersection(metrics_to_track)) or name=='.run/.counter':
-                if name.endswith("ppl"):
+                if name.endswith("perplexity"):
                     metric_sum -= metric/10
                 else:
                     metric_sum += metric

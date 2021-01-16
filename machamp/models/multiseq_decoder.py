@@ -1,5 +1,6 @@
 from typing import Dict, Optional, List, Union
 
+import sys
 import numpy
 import torch
 from allennlp.data import Vocabulary
@@ -74,10 +75,31 @@ class MachampMultiTagger(Model):
         self.threshold = threshold
         self.max_heads = max_heads
 
-        self.metrics = {
-                "multi_span_f1": MultiSpanBasedF1Measure(
-                self.vocab, tag_namespace=self.task, label_encoding="BIO", threshold=self.threshold, max_heads=self.max_heads)
-        }
+        #self.metrics = {
+        #        "multi_span_f1": MultiSpanBasedF1Measure(
+        #        self.vocab, tag_namespace=self.task, label_encoding="BIO", threshold=self.threshold, max_heads=self.max_heads)
+        #}
+        if metric == "acc":
+            print(f"To use \"{metric}\", please use the \"seq\" or \"seq_bio\" decoder instead.")
+            sys.exit()
+        elif metric == "span_f1":
+            print(f"To use \"{metric}\", please use the \"seq_bio\" decoder instead.")
+            sys.exit()
+        elif metric == "multi_span_f1":
+            self.metrics = {"multi_span_f1": MultiSpanBasedF1Measure(
+                self.vocab, tag_namespace=self.task, label_encoding="BIO", 
+                threshold=self.threshold, max_heads=self.max_heads)}
+        elif metric == "micro-f1":
+            print(f"To use \"{metric}\", please use the \"seq\" or \"seq_bio\" decoder instead.")
+            sys.exit()
+        elif metric == "macro-f1":
+            print(f"To use \"{metric}\", please use the \"seq\" or \"seq_bio\" decoder instead.")
+            sys.exit()
+        else:
+            print(f"ERROR. Metric \"{metric}\" unrecognized. Using multi span-based f1 score \"multi_span_f1\" instead.")
+            self.metrics = {"multi_span_f1": MultiSpanBasedF1Measure(
+                self.vocab, tag_namespace=self.task, label_encoding="BIO", 
+                threshold=self.threshold, max_heads=self.max_heads)}
 
         #self._loss3 = torch.nn.BCEWithLogitsLoss()
 

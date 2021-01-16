@@ -1,5 +1,6 @@
 from typing import Dict, Optional, List, Any, cast
 
+import sys
 import torch
 from allennlp.common.checks import ConfigurationError
 from allennlp.data import Vocabulary
@@ -7,7 +8,7 @@ from allennlp.models.model import Model
 from allennlp.modules import ConditionalRandomField
 from allennlp.modules import TimeDistributed
 from allennlp.modules.conditional_random_field import allowed_transitions
-from allennlp.training.metrics import SpanBasedF1Measure
+from allennlp.training.metrics import CategoricalAccuracy, SpanBasedF1Measure, FBetaMeasure
 from overrides import overrides
 from torch.nn.modules.linear import Linear
 
@@ -108,10 +109,22 @@ class MachampCrfTagger(Model):
         self.crf = ConditionalRandomField(
             self.num_tags, constraints, include_start_end_transitions=include_start_end_transitions
         )
-        self.metrics = {
-                "span_f1": SpanBasedF1Measure(
-                self.vocab, tag_namespace=self.task, label_encoding="BIO")
-        }
+        if metric == "acc":
+            self.metrics = {"acc": CategoricalAccuracy()}
+        elif metric == "span_f1":
+            self.metrics = {"span_f1": SpanBasedF1Measure(
+                self.vocab, tag_namespace=self.task, label_encoding="BIO")}
+        elif metric == "multi_span_f1":
+            print(f"To use \"{metric}\", please use the \"multiseq\" decoder instead.")
+            sys.exit()
+        elif metric == "micro-f1":
+            self.metrics = {"micro-f1": FBetaMeasure(average='micro')}
+        elif metric == "macro-f1":
+            self.metrics = {"macro-f1": FBetaMeasure(average='macro')}
+        else:
+            print(f"ERROR. Metric \"{metric}\" unrecognized. Using span-based f1 score \"span_f1\" instead.")
+            self.metrics = {"span_f1": SpanBasedF1Measure(
+                self.vocab, tag_namespace=self.task, label_encoding="BIO")}
 
 
     @overrides
