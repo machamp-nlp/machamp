@@ -145,7 +145,7 @@ def predict_model_with_archive(predictor: str, params: Params, archive: str,
     for dataset in params['dataset_reader']['datasets']:
         for task in params['dataset_reader']['datasets'][dataset]['tasks']:
             task_types.append(params['dataset_reader']['datasets'][dataset]['tasks'][task]['task_type'])
-    if 'unsupervised' in task_types:
+    if 'mlm' in task_types:
         logger.warning("No prediction is written, as it is unclear what to output when predicting on dev/test data with MLM")
         return
 

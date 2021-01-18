@@ -47,7 +47,7 @@ checkScore('test.nmt', 'en-vi/bleu', 20)
 checkScore('test.multiseq', 'ner/multi_span_f1', 60)
 
 # crf
-checkScore('test.crf', 'ner/span_f1', 70)
+checkScore('test.ner', 'ner/span_f1', 70)
 
 # all
 
