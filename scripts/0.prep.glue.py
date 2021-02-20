@@ -15,7 +15,7 @@ if not os.path.isdir('GLUE-baselines'):
     os.system('git clone https://github.com/nyu-mll/GLUE-baselines.git')
     os.system('cp scripts/download_glue_data.py GLUE-baselines')
 if not os.path.isdir('GLUE-baselines/glue_data'):
-    os.system('cd GLUE-baselines && git clone https://github.com/wasiahmad/paraphrase_identification.git && python download_glue_data.py --data_dir glue_data --tasks all --path_to_mrpc=paraphrase_identification/dataset/msr-paraphrase-corpus && cd ..' )
+    os.system('cd GLUE-baselines && git clone https://github.com/wasiahmad/paraphrase_identification.git && python3 download_glue_data.py --data_dir glue_data --tasks all --path_to_mrpc=paraphrase_identification/dataset/msr-paraphrase-corpus && cd ..' )
     os.system('wget https://nlp.stanford.edu/projects/snli/snli_1.0.zip -O GLUE-baselines/SNLI.zip')
     os.system('unzip GLUE-baselines/SNLI.zip -d GLUE-baselines/')
     os.mkdir('GLUE-baselines/glue_data/SNLI/')
