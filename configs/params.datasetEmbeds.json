@@ -7,12 +7,13 @@ local transformer_dim = 768;
 local max_len = 128;
 
 {
-    "random_seed": 13370,
-    "numpy_seed": 1337,
-    "pytorch_seed": 133,
+    "random_seed": 8446,
+    "numpy_seed": 8446,
+    "pytorch_seed": 8446,
     "dataset_reader": {
         "type": "machamp_universal_reader",
         "target_max_tokens": max_len,
+        "source_max_tokens": max_len,
         "do_lowercase": false,
 
         "token_indexers": {
@@ -31,10 +32,13 @@ local max_len = 128;
             "tokens": {
                 "namespace": "target_words"
             }
+        },
+        "target_tokenizer":{
+             "type": "bert_basic_tokenizer"
         }
-},
+    },
     "vocabulary": {
-        "max_vocab_size": {"target_words": 32000},
+        "max_vocab_size": {"target_words": 50000},
         "min_count": {
             "source_words": 1,
             "target_words": 1
@@ -71,7 +75,7 @@ local max_len = 128;
                 "beam_size": 6,
                 "max_decoding_steps": 128,
                 "target_decoder_layers": 2,
-                "target_embedding_dim": 256,
+                "target_embedding_dim": 512,
                 "use_bleu": true
             },
             "seq_bio": {
@@ -81,7 +85,7 @@ local max_len = 128;
             "string2string": {
                 "type": "machamp_tag_decoder"
             },
-            "unsupervised": {
+            "mlm": {
                 "type": "machamp_mlm_decoder",
                 "pretrained_model": transformer_model
             }
@@ -111,7 +115,7 @@ local max_len = 128;
             "type": "dataset_buckets",
             "max_tokens": 1024,
             "batch_size": 32,
-            "sampling_smoothing": 0.5, //1.0 == original size
+            "sampling_smoothing": 1.0, //1.0 == original size
             "sorting_keys": [
                 "tokens"
             ]
@@ -121,7 +125,7 @@ local max_len = 128;
         "checkpointer": {
             "num_serialized_models_to_keep": 1
         },
-        //"use_amp": true, // could save some memory on gpu
+        "use_amp": false, // could save some memory on gpu
         "grad_norm": 1,
         "learning_rate_scheduler": {
             "type": "slanted_triangular",

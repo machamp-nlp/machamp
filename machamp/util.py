@@ -21,7 +21,7 @@ from machamp.predictor import MachampPredictor
 
 logger = logging.getLogger(__name__)
 
-def merge_configs(params_config_path, dataset_config_paths):
+def merge_configs(params_config_path, dataset_config_paths, seed):
     params_config = Params.from_file(params_config_path)
     datasets_config = {}
     if type(dataset_config_paths) == list:
@@ -36,6 +36,10 @@ def merge_configs(params_config_path, dataset_config_paths):
     params_config['validation_data_path'] = 'DEVPLACEHOLDER'
 
     params_config['dataset_reader']['datasets'] = datasets_config
+    if seed != -1:
+        params_config['random_seed'] = seed
+        params_config['numpy_seed'] = seed
+        params_config['pytorch_seed'] = seed
 
     ordered_stuff = {}
     new_decoders = {}

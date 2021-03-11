@@ -1,4 +1,9 @@
+# If you have problems installing all these packages, the only necessary
+# install to run MaChAmp is allennlp==1.3. The other ones are just specified
+# here for reproducibility.
+
 allennlp==1.3
 transformers==4.0.0
 torch==1.7.0
 networkx
+

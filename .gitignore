@@ -1,4 +1,11 @@
-GLUE-baselines/
-logs
+__pycache__/
+*.py[cod]
+logs/
+*swp
 data
-*pyc
+wikiextractor
+scripts/ud-conversion-tools/
+configs/tmp
+preds.old
+logs.old
+preds

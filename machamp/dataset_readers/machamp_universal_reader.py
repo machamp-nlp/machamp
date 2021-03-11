@@ -254,6 +254,8 @@ class MachampUniversalReader(DatasetReader):
             sent_tasks = {'tokens': tokenized_source}
             task2type = {}
             col_idxs = {}
+            if len(instance) < 2:
+                continue
             for task in self.datasets[dataset]['tasks']:
                 task_idx = self.datasets[dataset]['tasks'][task]['column_idx']
                 task_type = self.datasets[dataset]['tasks'][task]['task_type']

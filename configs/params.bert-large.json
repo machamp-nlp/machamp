@@ -1,15 +1,12 @@
-local transformer_model = "bert-base-multilingual-cased";
-local transformer_dim = 768;
-
-//local transformer_model = "xlm-roberta-large";
-//local transformer_dim = 1024;
+local transformer_model = "bert-large-cased";
+local transformer_dim = 1024;
 
 local max_len = 128;
 
 {
-    "random_seed": 13370,
-    "numpy_seed": 1337,
-    "pytorch_seed": 133,
+    "random_seed": 8446,
+    "numpy_seed": 8446,
+    "pytorch_seed": 8446,
     "dataset_reader": {
         "type": "machamp_universal_reader",
         "target_max_tokens": max_len,
@@ -85,7 +82,7 @@ local max_len = 128;
             "string2string": {
                 "type": "machamp_tag_decoder"
             },
-            "unsupervised": {
+            "mlm": {
                 "type": "machamp_mlm_decoder",
                 "pretrained_model": transformer_model
             }
@@ -125,7 +122,7 @@ local max_len = 128;
         "checkpointer": {
             "num_serialized_models_to_keep": 1
         },
-        "use_amp": true, // could save some memory on gpu
+        "use_amp": false, // could save some memory on gpu
         "grad_norm": 1,
         "learning_rate_scheduler": {
             "type": "slanted_triangular",

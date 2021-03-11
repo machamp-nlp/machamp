@@ -35,19 +35,19 @@ checkScore('test.nlu', 'intent/acc', 99)
 checkScore('test.nlu', 'slots/acc', 97)
 
 # QNLI
-checkScore('test.qnli', 'qnli/acc', 89)
+checkScore('test.qnli', 'snli/acc', 89)
 
 # MLM
-checkScore('test.mlm', 'mlm/perplexity', 10, True)
+checkScore('test.mlm', 'mlm/ppl', 10, True)
 
 # NMT
-checkScore('test.nmt', 'en-vi/bleu', 20)
+checkScore('test.nmt', 'en-nl/bleu', 20)
 
 # multiseq
 checkScore('test.multiseq', 'ner/multi_span_f1', 60)
 
 # crf
-checkScore('test.ner', 'ner/span_f1', 70)
+checkScore('test.crf', 'ner/span_f1', 70)
 
 # all
 

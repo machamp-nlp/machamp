@@ -1,5 +1,7 @@
 import os
 
+seeds = ['1', '2', '3']
+
 def getTrainDevTest(path):
     train = ''
     dev = ''
@@ -37,4 +39,32 @@ def getModel(name):
             if os.path.isfile(modelPath):
                 return modelPath
     return ''
+
+
+def getWords(path, max_sents=-1):
+    words = []
+    if path == '':
+        return words
+    sents = 0
+    for line in open(path):
+        if len(line) < 3:
+            sents += 1
+            continue
+        if line[0] == '#':
+            continue
+        if max_sents != -1 and sents >= max_sents:
+            continue
+        else:
+            words.append(line.split('\t')[1])
+    return words
+
+def getOverlap(test, train):
+    total = 0
+    match = 0
+    for word in test:
+        total += 1
+        if word in train:
+            match += 1
+    return match/total
+
 

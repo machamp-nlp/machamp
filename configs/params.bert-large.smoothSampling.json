@@ -1,8 +1,5 @@
-local transformer_model = "bert-base-multilingual-cased";
-local transformer_dim = 768;
-
-//local transformer_model = "xlm-roberta-large";
-//local transformer_dim = 1024;
+local transformer_model = "bert-large-cased";
+local transformer_dim = 1024;
 
 local max_len = 128;
 
@@ -115,7 +112,7 @@ local max_len = 128;
             "type": "dataset_buckets",
             "max_tokens": 1024,
             "batch_size": 32,
-            "sampling_smoothing": 1.0, //1.0 == original size
+            "sampling_smoothing": 0.5, //1.0 == original size
             "sorting_keys": [
                 "tokens"
             ]

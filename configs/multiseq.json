@@ -1,7 +1,7 @@
 {
     "MULTISEQ": {
-        "train_data_path": "data/de_news_train_mh.tsv",
-        "validation_data_path": "data/de_news_dev_mh.tsv",
+        "train_data_path": "data/da_news_train_mh.tsv",
+        "validation_data_path": "data/da_news_dev_mh.tsv",
         "word_idx": 0,
         "tasks": {
             "ner2": {

@@ -16,14 +16,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--name", default="", type=str, help="Log dir name")
 parser.add_argument("--dataset_config", default="", type=str, help="Configuration file for datasets")
 parser.add_argument("--dataset_configs", default=[], nargs='+', help="If you want to train on multiple datasets simultaneously (use --sequential to train on them sequentially)")
-#parser.add_argument("--sequential", type=bool, default=False, action='store_true', help="Enables finetuning sequentially, this will train the same weights once for each dataset_config you pass")
 parser.add_argument("--sequential", action="store_true", help="Enables finetuning sequentially, this will train the same weights once for each dataset_config you pass")
 parser.add_argument("--parameters_config", default="configs/params.json", type=str,
                     help="Configuration file for parameters of the model")
 parser.add_argument("--device", default=None, type=int, help="CUDA device; set to -1 for CPU")
 parser.add_argument("--resume", default='', type=str, help="Finalize training on a model for which training abrubptly stopped. Give the path to the log directory of the model.")
 parser.add_argument("--finetune", type=str, default='', help="Retrain on an previously train MaChAmp AllenNLP model. Specify the path to model.tar.gz and add a dataset_config that specifies the new training.")
-#parser.add_argument("--archive_bert", action="store_true", help="Archives the finetuned BERT model after training") #TODO
+parser.add_argument("--seed", type=int, default=-1, help="seed to use for training") #TODO
 
 args = parser.parse_args()
 
@@ -40,7 +39,7 @@ def train(name, resume, dataset_configs, device, parameters_config, finetune):
     if resume:
         train_params = Params.from_file(resume + '/config.json')
     else:
-        train_params = util.merge_configs(parameters_config, dataset_configs)
+        train_params = util.merge_configs(parameters_config, dataset_configs, args.seed)
 
     if device is not None:
         train_params['trainer']['cuda_device'] = device

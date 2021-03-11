@@ -28,7 +28,7 @@ def makeFile(name, task, idx, time):
         cmd = 'sbatch ' + name + '.job'
         print(cmd)
     outFile.close()
-    cmd = 'sed -i "s;device [0-9];device $CUDA_VISIBLE_DEVICES;g" ' + name + '.job'
+    cmd = 'sed -i "s;device [0-9];device \$CUDA_VISIBLE_DEVICES;g" ' + name + '.job'
     os.system(cmd)
 
 jobSize = 1

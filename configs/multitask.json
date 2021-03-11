@@ -1,8 +1,0 @@
-{'UD': {'tasks': {'upos': {'column_idx': 3, 'task_type': 'seq'}},
-        'train_data_path': 'data/ewt.train.small',
-        'validation_data_path': 'data/ewt.dev',
-        'word_idx': 1},
-'RTE': {'sent_idxs': [0, 1],
-         'tasks': {'rte': {'column_idx': 2, 'task_type': 'classification'}},
-         'train_data_path': 'data/glue/RTE.train.small',
-         'validation_data_path': 'data/glue/RTE.dev'}}
