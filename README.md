@@ -166,6 +166,8 @@ Task types:
 
 Other things:
 
+* [Available models](docs/models.md)
+* [Reproducibility](docs/reproducibility.md)
 * [Change bert embeddings](docs/change_embeds.md)
 * [Dataset embeddings](docs/dataset_embeds.md)
 * [Predict on raw data](docs/predict_raw.md)
@@ -202,11 +204,10 @@ Q: what should I cite?
 ```
 @misc{vandergoot-etal-2020-machamp,
     title={Massive Choice, Ample Tasks (MaChAmp):A Toolkit for Multi-task Learning in NLP},
-    author={Rob van der Goot and Ahmet {\"U}st{\"u}n and Alan Ramponi and Barbara Plank},
-    year={2020},
-    eprint={2005.14672},
-    archivePrefix={arXiv},
-    primaryClass={cs.CL}
+    author={van der Goot, Rob and {\"U}st{\"u}n, Ahmet and Ramponi, Alan and Sharaf, Ibrahim and Plank, Barbara},
+    year={2021},
+    publisher = "Association for Computational Linguistics",
+    booktitle={Proceedings of the 16th Conference of the {E}uropean Chapter of the Association for Computational Linguistics: System Demonstrations}
 }
 ```
 
