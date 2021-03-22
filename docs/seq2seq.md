@@ -69,3 +69,5 @@ For editing seq2seq sepcific model parameters such as beam size and number of de
 ```
 
 For tokenizing target sentences, we currently support two options, the first one is to use the same pre-trained encoder tokenizer (e.g. mBERT wordpieces) on target sentences (`dataset_reader` in [configs](../configs/params.json)), and the second one is basic whitespace and punctuation tokenization ([configs](../configs/params.tgt-words.json)). 
+
+It should be noted that for this task, our models do not perform very close to SOTA at the moment (see the NMT results in the paper), and there is a bug in the output resulting in many `unknown` tokens. We consider this mainly to be useful/interesting as auxiliary task.
