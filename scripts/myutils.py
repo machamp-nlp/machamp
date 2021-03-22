@@ -16,7 +16,7 @@ def getTrainDevTest(path):
                 test = path + '/' + conlFile
     return train, dev, test
 
-def hasColumn(path, idx):
+def hasColumn(path, idx, threshold=.1):
     total = 0
     noWord = 0
     for line in open(path).readlines()[:5000]:
@@ -26,9 +26,7 @@ def hasColumn(path, idx):
         if tok[idx] == '_':
             noWord += 1
         total += 1
-    return noWord/total < .1
-
-    return True
+    return noWord/total < threshold
 
 def getModel(name):
     modelDir = 'logs/'

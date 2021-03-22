@@ -220,7 +220,8 @@ class MachampModel(Model):
         for name, metric in metrics.items():
             if (not name.startswith("_") and set(name.split("/")).intersection(metrics_to_track)) or name=='.run/.counter':
                 if name.endswith("perplexity"):
-                    metric_sum += 1/metric
+                    if metrics != 0.0:
+                        metric_sum += 1/metric
                 else:
                     metric_sum += metric
 
