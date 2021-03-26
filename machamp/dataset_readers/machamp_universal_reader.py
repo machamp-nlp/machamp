@@ -244,7 +244,7 @@ class MachampUniversalReader(DatasetReader):
             if self._source_max_tokens and len(tokenized_source) > self._source_max_tokens:
                 self._source_max_exceeded += 1
                 tokenized_source = tokenized_source[: self._source_max_tokens]
-            tokenized_source = self.tokenizer.add_special_tokens(tokenized_source)
+            tokenized_source = self._source_tokenizer.add_special_tokens(tokenized_source)
 
             # TODO
             if 'dataset_embed_idx' in self.datasets[dataset]:

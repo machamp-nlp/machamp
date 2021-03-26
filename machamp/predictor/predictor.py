@@ -104,6 +104,14 @@ class MachampPredictor(Predictor):
 
     @overrides
     def dump_line(self, outputs: JsonDict) -> str:
+        remove_idxs = []
+        for task_idx, task in enumerate(outputs['tasks']):
+            if task not in outputs:
+                remove_idxs.append(task_idx)
+        for task_idx in reversed(remove_idxs):
+            del outputs['tasks'][task_idx]
+            del outputs['task_types'][task_idx]
+
         task_types = []
         for task in outputs['col_idxs']:
             if task == 'word_idx':

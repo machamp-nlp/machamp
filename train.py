@@ -60,7 +60,7 @@ def train(name, resume, dataset_configs, device, parameters_config, finetune):
     #predictor = MachampPredictor(model, reader)
 
     for dataset in train_params['dataset_reader']['datasets']:
-        dataset_params = train_params.duplicate()
+        dataset_params = train_params.duplicate().as_dict()
         if 'validation_data_path' not in dataset_params['dataset_reader']['datasets'][dataset]:
             continue
         dev_file = dataset_params['dataset_reader']['datasets'][dataset]['validation_data_path']
@@ -69,9 +69,10 @@ def train(name, resume, dataset_configs, device, parameters_config, finetune):
         for iter_dataset in datasets:
             if iter_dataset != dataset:
                 del dataset_params['dataset_reader']['datasets'][iter_dataset]
+
         util.predict_model_with_archive("machamp_predictor", dataset_params,
                                         serialization_dir + '/model.tar.gz', dev_file, dev_pred)
-
+    
     util.clean_th_files(serialization_dir)
     return serialization_dir
 

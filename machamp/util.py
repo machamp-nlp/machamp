@@ -107,7 +107,6 @@ def walk_and_replace_dict(data, orig, new):
             data[item] = walk_and_replace_dict(data[item], orig, new)
         if type(data[item]) == Params:
             data[item] = walk_and_replace_dict(data.as_dict()[item], orig, new) 
-        print(item)
         if data[item] == orig:
             data[item] = new
     return data
@@ -168,7 +167,7 @@ def predict_model_with_archive(predictor: str, params: Params, archive: str,
     for item in archive.config.duplicate():
         archive.config.__delitem__(item)
     for item in params:
-        archive.config[item] = params.as_dict()[item]
+        archive.config[item] = params[item]
 
     archive.validation_dataset_reader.datasets = params['dataset_reader']['datasets']
 

@@ -84,9 +84,9 @@ class MachampSeq2SeqDecoder(Model):
 
         # We need the start symbol to provide as the input at the first timestep of decoding, and
         # end symbol as a way to indicate the end of the decoded sequence.
-        # TODO not use hardcoded?
-        self._start_index = self.vocab.get_token_index('[CLS]', self._target_namespace)
-        self._end_index = self.vocab.get_token_index('[SEP]', self._target_namespace)
+        # TODO: don't use hardcoded indices
+        self._start_index = 2   # self.vocab.get_token_index('[CLS]', self._target_namespace)
+        self._end_index = 3     # self.vocab.get_token_index('[SEP]', self._target_namespace)
 
         pad_index = self.vocab.get_token_index(
             self.vocab._padding_token, self._target_namespace
