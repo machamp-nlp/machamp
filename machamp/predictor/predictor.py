@@ -106,7 +106,7 @@ class MachampPredictor(Predictor):
     def dump_line(self, outputs: JsonDict) -> str:
         remove_idxs = []
         for task_idx, task in enumerate(outputs['tasks']):
-            if task not in outputs:
+            if task not in outputs and task + '_rels' not in outputs:
                 remove_idxs.append(task_idx)
         for task_idx in reversed(remove_idxs):
             del outputs['tasks'][task_idx]
