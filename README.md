@@ -12,7 +12,7 @@ This code base is an extension of the
 multi-task learning.  It has support for training on multiple datasets for a
 variety of standard NLP tasks.  For more information we refer to the paper:
 [Massive Choice, Ample Tasks (MACHAMP): A Toolkit for Multi-task Learning in
-NLP](http://robvandergoot.com/doc/machamp.pdf)
+NLP](https://arxiv.org/pdf/2005.14672.pdf)
 
 [![Machamp](docs/architecture.png)]()
 
