@@ -167,9 +167,14 @@ class MachampTagger(Model):
 
     @overrides
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
-        main_metrics = {
-            f".run/{self.task}/{metric_name}": metric.get_metric(reset)
-            for metric_name, metric in self.metrics.items()
-        }
+        main_metrics = {}
+        for metric_name, metric in self.metrics.items():
+            if metric_name.endswith('f1'):
+                if metric._true_positive_sum == None:
+                    main_metrics[f".run/{self.task}/{metric_name}"] = {'precision':0.0, 'recall': 0.0, 'fscore': 0.0}
+                else:
+                    main_metrics[f".run/{self.task}/{metric_name}"] = metric.get_metric(reset)
+            else:
+                main_metrics[f".run/{self.task}/{metric_name}"] = metric.get_metric(reset)
         return {**main_metrics}
 
