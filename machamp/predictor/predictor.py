@@ -38,7 +38,7 @@ class MachampPredictor(Predictor):
         orig = outputs['full_data'][0]
         translation = ''
         for word in outputs[task][0]:
-            if word.startswith('##'):
+            if word.startswith('##'):#TODO, this is BERT-based!
                 word = word[2:]
                 translation += word
             else:

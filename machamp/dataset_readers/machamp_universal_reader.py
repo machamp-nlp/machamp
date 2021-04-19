@@ -245,6 +245,11 @@ class MachampUniversalReader(DatasetReader):
                 self._source_max_exceeded += 1
                 tokenized_source = tokenized_source[: self._source_max_tokens]
             tokenized_source = self._source_tokenizer.add_special_tokens(tokenized_source)
+            new_source = []
+            for token in tokenized_source:
+                new_source.append(Token(text=token.text, idx=token.idx, idx_end=token.idx_end,
+                                        ent_type_='TOKENIZED', text_id=token.text_id, type_id=token.type_id))
+            tokenized_source = new_source
 
             # TODO
             if 'dataset_embed_idx' in self.datasets[dataset]:
@@ -272,6 +277,11 @@ class MachampUniversalReader(DatasetReader):
                     self._target_max_exceeded += 1
                     tokenized_target = tokenized_target[: self._target_max_tokens]
                 tokenized_target = self._target_tokenizer.add_special_tokens(tokenized_target)
+                new_target = []
+                for token in tokenized_target:
+                    new_target.append(Token(text=token.text, idx=token.idx, idx_end=token.idx_end,
+                                        ent_type_='TOKENIZED', text_id=token.text_id, type_id=token.type_id))
+                tokenized_target = new_target
                 sent_tasks[task] = tokenized_target
             if len(sent_tasks) > 1:
                 data.append(self.text_to_instance(sent_tasks, instance, col_idxs, is_train, task2type, dataset))

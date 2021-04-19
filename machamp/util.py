@@ -10,14 +10,16 @@ import pprint
 from datetime import datetime
 
 from transformers.configuration_utils import PretrainedConfig
-from allennlp.data.tokenizers import PretrainedTransformerTokenizer
 from allennlp.commands.train import train_model_from_file
 from allennlp.common import Params
 from allennlp.models.archival import load_archive
 from allennlp.models import Model
 from allennlp.commands.predict import _PredictManager
+from allennlp.data.tokenizers import Tokenizer, PretrainedTransformerTokenizer
+from allennlp.modules.token_embedders import PretrainedTransformerEmbedder
 
 from machamp.predictor import MachampPredictor
+
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +124,15 @@ def train(config, name, resume, finetune):
     if finetune not in [None, '']:
         # prepare embeddings
         model_path = os.path.join(finetune, 'torch_model')
-        archive_model(finetune, model_path)
+        #archive_model(finetune, model_path)
+        archive = load_archive(finetune + '/model.tar.gz')
+        transformer_embedder: PretrainedTransformerEmbedder = archive.model._text_field_embedder.token_embedder_tokens._matched_embedder
+        tokenizer: PretrainedTransformerTokenizer = Tokenizer.from_params(Params(archive.config.as_dict()["dataset_reader"]["tokenizer"]))
+        transformer_embedder.transformer_model.save_pretrained(model_path)
+        tokenizer.tokenizer.save_pretrained(model_path)
+
+
+
         
         # update config
         model_name = config['model']['text_field_embedder']['token_embedders']['tokens']['model_name']

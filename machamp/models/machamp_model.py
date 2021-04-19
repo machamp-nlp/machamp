@@ -37,6 +37,7 @@ class MachampModel(Model):
         self._classifier_input_dim = self.encoder.get_output_dim()
 
         if dropout:
+            # TODO: is the variational dropout better (for xlm?)
             self._dropout = InputVariationalDropout(dropout)
             self._dropout_sents = torch.nn.Dropout(dropout)
         else:
@@ -67,6 +68,10 @@ class MachampModel(Model):
                 ) -> Dict[str, torch.Tensor]:
         """
         """
+        #print(tokens['tokens']['type_ids'].shape)
+        #tokens['tokens']['type_ids'] = torch.ones_like(tokens['tokens']['type_ids'])
+        #.shape, dtype=torch.long, device=tokens['tokens']['type_ids'].device)
+        #print(tokens['tokens']['type_ids'].shape)
         gold_labels = kwargs 
         tasks_to_handle = []
         task_types_to_handle = []
