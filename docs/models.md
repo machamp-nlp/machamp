@@ -16,4 +16,4 @@ We also provide a model where the training data consists of the train+test split
 
 * [smoothed](http://itu.dk/people/robv/data/machamp/machamp-ud-gigantamax.tar.gz)
 
-This parser is trained on 106 languages (195 treebanks).
+This parser is trained on 106 languages (195 treebanks), and is based on xlm-roberta-large.
