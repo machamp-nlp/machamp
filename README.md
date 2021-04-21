@@ -179,6 +179,8 @@ Other things:
 * [Fine-tuning on a MaChAmp model](docs/finetuning.md)
 
 ## FAQ
+If your question is not mentioned here, you can contact us on slack: https://join.slack.com/t/machamp-workspace/shared_invite/zt-piuoliwh-KaGJUwanucKKprx9IObJ6A 
+
 Q: Performance seems low, how can I double check if everything runs correctly?  
 A: see the test folder, practically, you should be able to run `./test/runAll.sh` and all output of `check.py` should be green .
 
