@@ -8,11 +8,12 @@ We provide our models trained on the whole UD 2.7 with the default seed:
 * [dataset embeddings (smoothed)](http://itu.dk/people/robv/data/machamp/machamp-ud-datasetEmbeds-smoothed.tar.gz): Also added dataset embeddings
 * [separate decoders (smoothed)](http://itu.dk/people/robv/data/machamp/machamp-ud-sepDec-smoothed.tar.gz): Uses a separate decoder for each dataset
 
+These are the exact models from the [paper](https://www.aclweb.org/anthology/2021.eacl-demos.22.pdf).
 These models are trained on 125 treebanks and 74 languages.
 After these are downloaded and extracted, we refer to the main [README](../README.md) for information on how to use them for prediction. (note that for the latter two models, one has to define which dataset to use with `--dataset `).
 
 ### Even larger model
-We also provide a model where the training data consists of the train+test split. **This data should not be used when handling UD data**, but it can be useful for projects where one simply needs a universal parser for other data:
+We also provide a model where the training data consists of the train+test split. **This data should not be used when handling UD data, it is trained on test data!**, but it can be useful for projects where one simply needs a universal parser for other data:
 
 * [smoothed](http://itu.dk/people/robv/data/machamp/machamp-ud-gigantamax.tar.gz)
 
