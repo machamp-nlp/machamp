@@ -102,7 +102,7 @@ local max_len = 128;
             "token_embedders": {
                 "tokens": {
                     "type": "machamp_pretrained_transformer_mismatched",
-                    "last_layer_only": true,
+                    "layers_to_use": [1,2,3,4,5],
                     "max_length": max_len,
                     "model_name": transformer_model,
                     "train_parameters": true
