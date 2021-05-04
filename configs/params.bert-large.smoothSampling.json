@@ -140,7 +140,7 @@ local max_len = 128;
             "parameter_groups": [
                 [
                     [
-                        "^_text_field_embedder.*.transformer_model.*"
+                        "^_text_field_embedder.*"
                     ],
                     {}
                 ],
