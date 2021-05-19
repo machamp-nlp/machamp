@@ -1,5 +1,5 @@
 import math
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 from overrides import overrides
 
@@ -51,7 +51,7 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
         max_length: int = None,
         sub_module: str = None,
         train_parameters: bool = True,
-        last_layer_only: bool = True,
+        layers_to_use: List[int] = [-1],
         override_weights_file: Optional[str] = None,
         override_weights_strip_prefix: Optional[str] = None,
         gradient_checkpointing: Optional[bool] = None,
@@ -76,10 +76,12 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
         # where it doesn't work.
         self.output_dim = self.config.hidden_size
 
+        self.layers_to_use = layers_to_use
         self._scalar_mix: Optional[ScalarMix] = None
-        if not last_layer_only:
-            self._scalar_mix = ScalarMix(self.config.num_hidden_layers)
+        if len(layers_to_use) > 1 or layers_to_use != [-1]:
             self.config.output_hidden_states = True
+        if len(layers_to_use) > 1:
+            self._scalar_mix = ScalarMix(len(layers_to_use))
 
         tokenizer = PretrainedTransformerTokenizer(model_name)
         self._num_added_start_tokens = len(tokenizer.single_sequence_start_tokens)
@@ -177,20 +179,24 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
             parameters["token_type_ids"] = type_ids
 
 
+        # As far as I can tell, the hidden states will always be the last element
+        # in the output tuple as long as the model is not also configured to return
+        # attention scores.
+        # See, for example, the return value description for BERT:
+        # https://huggingface.co/transformers/model_doc/bert.html#transformers.BertModel.forward
+        # These hidden states will also include the embedding layer, which we don't
+        # include in the scalar mix. Hence the `[1:]` slicing.
         transformer_output = self.transformer_model(**parameters)
-        if self._scalar_mix is not None:
-            # As far as I can tell, the hidden states will always be the last element
-            # in the output tuple as long as the model is not also configured to return
-            # attention scores.
-            # See, for example, the return value description for BERT:
-            # https://huggingface.co/transformers/model_doc/bert.html#transformers.BertModel.forward
-            # These hidden states will also include the embedding layer, which we don't
-            # include in the scalar mix. Hence the `[1:]` slicing.
-            hidden_states = transformer_output[-1][1:]
-            embeddings = self._scalar_mix(hidden_states)
-        else:
+        if self.layers_to_use == [-1]:
             embeddings = transformer_output[0]
-        
+        elif len(self.layers_to_use) == 1:
+            hidden_states = transformer_output[-1][1:]
+            embeddings = hidden_states[self.layers_to_use[0]]
+        else:
+            hidden_states = torch.stack(transformer_output[-1][1:])
+            selected_layers = hidden_states[self.layers_to_use]
+            embeddings = self._scalar_mix(selected_layers)
+
         # ROB: Here we copy the embedding of row 0 to the index of the removed row, just 
         # to make it the same shape and to make sure everything > rmIdx still matches
         for idx in rm: 

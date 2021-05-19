@@ -26,4 +26,5 @@ Parameters that will likely have an effect on performance include:
     * `trainer/learning_rate_scheduler/discriminative_fine_tuning` and `trainer/learning_rate_scheduler/gradual_unfreezing`
     * `trainer/num_epochs`
 * `model/dropout`
+* `model/text_field_embedder/token_embedders/tokens/layers_to_use`: indicate which layers to use, if more then one, scalar mix (i.e. layer attention will be enabled automatically). Note that these are not ranges, but raw indices, so if you want to use layer 5-8, you have to use a list of [5,6,7,8].
 

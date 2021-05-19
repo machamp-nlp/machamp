@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from overrides import overrides
 import torch
@@ -41,7 +41,7 @@ class MachampPretrainedTransformerMismatchedEmbedder(TokenEmbedder):
         model_name: str,
         max_length: int = None,
         train_parameters: bool = True,
-        last_layer_only: bool = True,
+        layers_to_use: List[int] = None,
         gradient_checkpointing: Optional[bool] = None,
     ) -> None:
         super().__init__()
@@ -50,7 +50,7 @@ class MachampPretrainedTransformerMismatchedEmbedder(TokenEmbedder):
             model_name,
             max_length=max_length,
             train_parameters=train_parameters,
-            last_layer_only=last_layer_only,
+            layers_to_use=layers_to_use,
             gradient_checkpointing=gradient_checkpointing,
         )
 
