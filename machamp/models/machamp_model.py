@@ -217,18 +217,23 @@ class MachampModel(Model):
         for task, task_type in zip(self.tasks, self.task_types):
             metrics_to_track.add(task if task_type != 'dependency' else 'las')
 
-        if self.no_dev:
-            metrics[".run/.counter"] = self.counter
-            self.counter+= 0.001
 
-        metric_sum = 0
+        metric_sum = 0.0
         for name, metric in metrics.items():
             if (not name.startswith("_") and set(name.split("/")).intersection(metrics_to_track)) or name=='.run/.counter':
+                if name == '.run/.counter':
+                    continue
                 if name.endswith("perplexity"):
                     if metric != 0.0:
                         metric_sum += 1/metric
                 else:
                     metric_sum += metric
 
+        if self.no_dev and metric_sum == 0.0:
+            self.counter+= 0.001
+            metrics[".run/.counter"] = self.counter
+            metric_sum = self.counter
+
         metrics[".run/.sum"] = metric_sum
         return metrics
+

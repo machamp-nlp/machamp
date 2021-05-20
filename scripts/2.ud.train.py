@@ -4,7 +4,7 @@ import myutils
 
 
 def makeConfig(strategy, seed, runNonSmoothed):
-    udPath = 'data/ud-treebanks-v2.7/'
+    udPath = 'data/ud-treebanks-v2.7.noEUD/'
     fullConfig = {}
     for UDdir in os.listdir(udPath):
         train, dev, test = myutils.getTrainDevTest(udPath + UDdir)
@@ -59,7 +59,7 @@ if not os.path.isdir('configs/tmp/'):
     os.mkdir('configs/tmp/')
 
 # single-dataset models
-udPath = 'data/ud-treebanks-v2.7/'
+udPath = 'data/ud-treebanks-v2.7.noEUD/'
 for UDdir in os.listdir(udPath):
     train, dev, test = myutils.getTrainDevTest(udPath + UDdir)
     
