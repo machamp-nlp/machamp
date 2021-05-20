@@ -176,6 +176,7 @@ Other things:
 * [Sampling (smoothing) datasets](docs/sampling.md)
 * [Task-specific parameters](docs/task_params.md) (loss weight)
 * [Adding a new task-type](docs/new_task_type.md)
+* [Use only specific layers](docs/layers.md)
 * [Fine-tuning on a MaChAmp model](docs/finetuning.md)
 
 ## FAQ
