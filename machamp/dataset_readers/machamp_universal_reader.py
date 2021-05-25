@@ -188,6 +188,13 @@ class MachampUniversalReader(DatasetReader):
             sent_tasks = {}
             if len(full_text) == 0:
                 full_text = self.tokenizer.tokenize(self.tokenizer.tokenizer.unk_token)
+
+            new_full_text = []
+            for token in full_text:
+                new_full_text.append(Token(text=token.text, idx=token.idx, idx_end=token.idx_end,
+                                        ent_type_='TOKENIZED', text_id=token.text_id, type_id=token.type_id))
+            full_text = new_full_text
+
             sent_tasks['tokens'] = full_text
 
             dataset_embeds = []
