@@ -13,7 +13,7 @@ def getNumSents(path):
     return counter
 
 datasets = {}
-for udPath in ['data/ud-treebanks-v2.7/', 'data/ud-treebanks-v2.7.extras/']:
+for udPath in ['data/ud-treebanks-v' + myutils.UDversion + '/', 'data/ud-treebanks-v' + myutils.UDversion+ '.extras/']:
     for udDir in os.listdir(udPath):
         if not udDir.startswith('UD'):
             continue

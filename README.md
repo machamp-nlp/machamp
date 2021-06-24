@@ -177,9 +177,13 @@ Other things:
 * [Task-specific parameters](docs/task_params.md) (loss weight)
 * [Adding a new task-type](docs/new_task_type.md)
 * [Fine-tuning on a MaChAmp model](docs/finetuning.md)
+* [Results](docs/results.md)
 
 ## FAQ
-If your question is not mentioned here, you can contact us on slack: https://join.slack.com/t/machamp-workspace/shared_invite/zt-piuoliwh-KaGJUwanucKKprx9IObJ6A 
+If your question is not mentioned here, you can contact us on slack: https://join.slack.com/t/machamp-workspace/shared_invite/zt-piuoliwh-KaGJUwanucKKprx9IObJ6A
+
+Q: How can I easily compare my own amazing parser to your scores on UD version X?  
+A: Check the [results page](docs/results.md)
 
 Q: Performance seems low, how can I double check if everything runs correctly?  
 A: see the test folder, practically, you should be able to run `./test/runAll.sh` and all output of `check.py` should be green .
@@ -197,7 +201,7 @@ To reduce data usage, you could try:
 * Run on CPU (`--device -1`), which is actually only 4-10 times slower.
 
 Q: Why don't you support automatic dataset loading?  
-A: The first author thinks this would discourage/complexify looking at the actual data, which is important.
+A: The first author thinks this would discourage/complexify looking at the actual data, which is important (https://twitter.com/abhi1thakur/status/1391657602900180993).
 
 Q: How can I predict on the test set automatically after training?  
 A: You can't, because the first author thinks you shouldn't, this would automatically lead to overfitting/overusing of the test data. You have to manually run predict.py after training to get predictions on the test data.

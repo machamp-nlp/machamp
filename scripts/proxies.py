@@ -2,7 +2,7 @@ import os
 import myutils
 
 UDWORDS = {}
-for udPath in ['data/ud-treebanks-v2.7/', 'data/ud-treebanks-v2.7.extras/']:
+for udPath in ['data/ud-treebanks-v' + myutils.UDversion + '/', 'data/ud-treebanks-v' + myutils.UDversion + '.extras/']:
     for UDdir in os.listdir(udPath):
         if not UDdir.startswith("UD"): 
             continue

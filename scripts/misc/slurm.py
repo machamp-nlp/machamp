@@ -17,7 +17,7 @@ def makeFile(name, task, idx, time):
     outFile.write('#SBATCH --cpus-per-task=2\n')
     outFile.write('#SBATCH --time=' + time + ':00:00\n')
     outFile.write('#SBATCH --gres=gpu\n')
-    outFile.write('#SBATCH --mem=48G\n')
+    outFile.write('#SBATCH --mem=88G\n')
     outFile.write('#SBATCH --mail-type=BEGIN,END,FAIL\n')
     #outFile.write('#SBATCH partition=brown')
     outFile.write('#SBATCH --partition=red\n')
