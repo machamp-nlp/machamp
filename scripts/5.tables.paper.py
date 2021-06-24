@@ -2,7 +2,7 @@ import os
 from allennlp.common import Params
 import myutils
 
-udPath = 'data/ud-treebanks-v2.7/'
+udPath = 'data/ud-treebanks-v' + myutils.UDversion + '/'
 UDSETS = []
 for UDdir in os.listdir(udPath):
     if not UDdir.startswith("UD"):
@@ -21,7 +21,7 @@ for setting in ['self', 'concat.smoothed', 'sepDec.smoothed', 'datasetEmbeds.smo
             if setting == 'self':
                 output = 'preds/self.' + UDdir
             else:
-                output = 'preds/ALLfullUD' + setting + '.' + str(seed) + '.' + UDdir 
+                output = 'preds/fullUD' + setting + '.' + str(seed) + '.' + UDdir 
             output = output + '.test.' + str(seed) + '.conllu.eval'
             if os.path.isfile(output) and os.stat(output).st_size != 0 and os.stat(output).st_size < 100:
                 scores.append(float(open(output).readline().strip().split()[-1]))

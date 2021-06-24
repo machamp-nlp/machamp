@@ -1,5 +1,6 @@
 import re
 import os
+import myutils
 
 def findEnd(data, idx):
     nesting = 1
@@ -22,7 +23,7 @@ def getYear(data, beg, idx):
 
 counter = 0
 
-for base in ['data/ud-treebanks-v2.7/', 'data/ud-treebanks-v2.7.extras/']:
+for base in ['data/ud-treebanks-v' + myutils.UDversion + '/', 'data/ud-treebanks-v2.extras/']:
     for udDir in os.listdir(base):
         readmePath = base + udDir + '/README.md'
         if not os.path.isfile(readmePath):

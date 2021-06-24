@@ -5,7 +5,7 @@ import statistics
 
 
 names = {'UD_English-AAE-UD-v1':'en_aae', 'UD_English-ConvBank': 'en_convbank', 'UD_English-MoNoise':'en_monoise', 'UD_English-Tweebank2':'en_tweebank2', 'UD_French-ExtremeUGC0.6.2':'fr_extremeugc', 'UD_Frisian_Dutch-FAME':'qfn_fame', 'UD_German-tweeDE':'de_tweede', 'UD_Singlish-SingPar':'en_singpar'}
-for udPath in ['data/ud-treebanks-v2.7/']:
+for udPath in ['data/ud-treebanks-v' + myutils.UDversion + '/']:
     for UDdir in os.listdir(udPath):
         if not UDdir.startswith("UD"): 
             continue
@@ -29,7 +29,7 @@ def getSize(path):
     return counter
 
 UDSIZE = {}
-for udPath in ['data/ud-treebanks-v2.7/', 'data/ud-treebanks-v2.7.extras/']:
+for udPath in ['data/ud-treebanks-v' + myutils.UDversion + '/', 'data/ud-treebanks-v2.extras/']:
     for UDdir in os.listdir(udPath):
         if not UDdir.startswith("UD"): 
             continue
@@ -79,7 +79,7 @@ table = []
 outDir = 'preds/'
 
 counter = 0
-for udPath in ['data/ud-treebanks-v2.7/', 'data/ud-treebanks-v2.7.extras/']:
+for udPath in ['data/ud-treebanks-v' + myutils.UDversion +'/', 'data/ud-treebanks-v2.extras/']:
     udDirs = {}
     for udDir in sorted(os.listdir(udPath)):
         if not udDir.startswith('UD'):
@@ -99,7 +99,7 @@ for udPath in ['data/ud-treebanks-v2.7/', 'data/ud-treebanks-v2.7.extras/']:
                 if setting == 'self':
                     output = outDir + setting + '.' + udDir + '.test.' + str(seed) + '.conllu.eval'
                 else:
-                    output = outDir + 'ALLfullUD' + setting + '.' + str(seed) + '.' + udDir + '.test.' + str(seed) + '.conllu.eval'
+                    output = outDir + 'fullUD' + setting + '.' + str(seed) + '.' + udDir + '.test.' + str(seed) + '.conllu.eval'
     
                 if os.path.isfile(output):
                     score = float(open(output).readline().strip().split()[-1])
@@ -128,7 +128,7 @@ for udPath in ['data/ud-treebanks-v2.7/', 'data/ud-treebanks-v2.7.extras/']:
         if counter %50 == 0:
             print(footer)
             print(header)
-    if udPath == 'data/ud-treebanks-v2.7/':
+    if udPath == 'data/ud-treebanks-v' + myutils.UDversion +'/':
         print('\\midrule')
 
 print('\n'.join(footer.split('\n')[:-2]))

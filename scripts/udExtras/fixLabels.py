@@ -2,8 +2,8 @@ posTags = ["ADJ", "ADP", "ADV", "AUX", "CCONJ", "DET", "INTJ", "NOUN", "NUM", "P
 
 depRels = ["acl", "advcl", "advmod", "amod", "appos", "aux", "case", "cc", "ccomp", "clf", "compound", "conj", "cop", "csubj", "dep", "det", "discourse", "dislocated", "expl", "fixed", "flat", "goeswith", "iobj", "list", "mark", "nmod", "nsubj", "nummod", "obj", "obl", "orphan", "parataxis", "punct", "reparandum", "root", "vocative", "xcomp", '_']
 
-posConvert = {'CONJ':'CCONJ'}
-depConvert = {'auxpass': 'aux:pass', 'dobj':'obj', 'nsubjpass':'nsubj:pass', 'name':'flat', 'mwe':'fixed', 'remnant':'conj', 'neg':'advmod', 'csubjpass':'csubj:pass'}
+posConvert = {'CONJ':'CCONJ', 'PRT':'PART', 'det':'DET', '.':'PUNCT'}
+depConvert = {'auxpass': 'aux:pass', 'dobj':'obj', 'nsubjpass':'nsubj:pass', 'name':'flat', 'mwe':'fixed', 'remnant':'conj', 'neg':'advmod', 'csubjpass':'csubj:pass', 'foreign':'flat:foreign'}
 #neg could also be det!
 
 import sys

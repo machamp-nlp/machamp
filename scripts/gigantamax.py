@@ -9,12 +9,12 @@ if not os.path.isdir(tgtDir):
 
 
 trainConfig = {}
-for udPath in ['data/ud-treebanks-v2.7/', 'data/ud-treebanks-v2.7.extras/']:
+for udPath in ['data/ud-treebanks-v' + myutils.UDversion + '.noEUD/', 'data/ud-treebanks-v2.extras.noEUD/']:
     for UDdir in os.listdir(udPath):
         if not (os.path.isdir(udPath + UDdir) and UDdir.startswith('UD')):
             continue
         train, dev, test = myutils.getTrainDevTest(udPath + UDdir)
-        if not myutils.hasColumn(test, 1):
+        if not myutils.hasColumn(test, 1, threshold=.1):
             continue
         config = {}
 
@@ -31,10 +31,11 @@ for udPath in ['data/ud-treebanks-v2.7/', 'data/ud-treebanks-v2.7.extras/']:
         config['train_data_path'] = trainPath
         config['word_idx'] = 1
         config['tasks']  = {}
-        config['tasks']['upos'] = {'task_type':'seq', 'column_idx':3}
-        if myutils.hasColumn(trainPath, 2):
+        if myutils.hasColumn(trainPath, 3, threshold=.1):
+            config['tasks']['upos'] = {'task_type':'seq', 'column_idx':3}
+        if myutils.hasColumn(trainPath, 2, threshold=.95):
             config['tasks']['lemma'] = {'task_type':'string2string', 'column_idx':2}
-        if myutils.hasColumn(trainPath, 5, .95):
+        if myutils.hasColumn(trainPath, 5, threshold=.95):
             config['tasks']['feats'] = {'task_type':'seq', 'column_idx':5}
         config['tasks']['dependency'] = {'task_type':'dependency', 'column_idx':6}
         

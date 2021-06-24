@@ -176,11 +176,14 @@ Other things:
 * [Sampling (smoothing) datasets](docs/sampling.md)
 * [Task-specific parameters](docs/task_params.md) (loss weight)
 * [Adding a new task-type](docs/new_task_type.md)
-* [Use only specific layers](docs/layers.md)
 * [Fine-tuning on a MaChAmp model](docs/finetuning.md)
+* [Results](docs/results.md)
 
 ## FAQ
 If your question is not mentioned here, you can contact us on slack: https://join.slack.com/t/machamp-workspace/shared_invite/zt-piuoliwh-KaGJUwanucKKprx9IObJ6A
+
+Q: How can I easily compare my own amazing parser to your scores on UD version X?  
+A: Check the [results page](docs/results.md)
 
 Q: Performance seems low, how can I double check if everything runs correctly?  
 A: see the test folder, practically, you should be able to run `./test/runAll.sh` and all output of `check.py` should be green .

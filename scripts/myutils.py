@@ -1,5 +1,6 @@
 import os
 
+UDversion = '2.8'
 seeds = ['1', '2', '3']
 
 def getTrainDevTest(path):
