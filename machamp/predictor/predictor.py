@@ -92,7 +92,7 @@ class MachampPredictor(Predictor):
                         tok.append('')
                     tok[task_idx+1] = str(outputs[task + '_rels'][word_idx])
                 elif task_type == 'multiseq':
-                    tok[task_idx] = '$'.join(outputs[task][word_idx])
+                    tok[task_idx] = '|'.join(outputs[task][word_idx])
                 elif task_type in ['seq', 'seq_bio']:
                     tok[task_idx] = outputs[task][word_idx]
                 else:
