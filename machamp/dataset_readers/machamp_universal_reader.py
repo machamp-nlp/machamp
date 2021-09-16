@@ -456,9 +456,13 @@ class MachampUniversalReader(DatasetReader):
                     rels = []
                     for word_data in sent:
                         if not word_data[task_idx].isdigit():
-                            logger.error("Your dependency file " + path + " seems to contain invalid structures sentence "  + str(sent_counter) + " contains a non-integer head: " +   word_data[task_idx] + "\nIf you directly used UD data, this could be due to special EUD constructions which we do not support, you can clean your conllu file by using scripts/misc/cleanconl.py")
-                            exit(1)
-                        heads.append(int(word_data[task_idx]))
+                            if is_train:
+                                logger.error("Your dependency file " + path + " seems to contain invalid structures sentence "  + str(sent_counter) + " contains a non-integer head: " +   word_data[task_idx] + "\nIf you directly used UD data, this could be due to special EUD constructions which we do not support, you can clean your conllu file by using scripts/misc/cleanconl.py")
+                                exit(1)
+                            else:
+                                heads.append(0)
+                        else:
+                            heads.append(int(word_data[task_idx]))
                         rels.append(word_data[task_idx + 1])
                     sent_tasks[task] = list(zip(rels, heads))
                 else:
