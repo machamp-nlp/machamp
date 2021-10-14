@@ -30,13 +30,16 @@ def lazy_groups_of(indices: Iterable[A], group_size: int, sizes: Iterable[A], ba
     cur_batch = []
     cur_size = 0
     for indice, size in zip(indices, sizes):
+        # If the batch is saturated or the max #tokens is reached, return the batch and restart
         if (len(cur_batch) == batch_size and batch_size != -1) or (max_tokens != -1 and cur_size + size[0] > max_tokens):
             yield cur_batch
-            cur_batch = []
-            cur_size = 0
+            cur_batch = [indice]
+            cur_size = size[0]
+        # O.w., add the example to the batch and keep track of the num of tokens
         else:
             cur_batch.append(indice)
             cur_size += size[0]
+    # Add the last batch, even if it is smaller
     if len(cur_batch) > 0:
         yield cur_batch
 
