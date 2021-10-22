@@ -17,8 +17,7 @@ utterances (they will be concatenated internally, with a SEP token inbetween).
         "tasks": {
             "rte": {
                 "column_idx": 2,
-                "task_type": "classification",
-                "adaptive": true
+                "task_type": "classification"
             }
         }
     }
