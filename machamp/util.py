@@ -162,7 +162,6 @@ def predict_model_with_archive(predictor: str, params: Params, archive: str,
         logger.warning("No prediction is written, as it is unclear what to output when predicting on dev/test data with MLM")
         return
 
-
     if 'cuda_device' in params['trainer']:
         if params["trainer"]["cuda_device"] != -1:
             archive = load_archive(archive, cuda_device=params["trainer"]["cuda_device"])
@@ -180,6 +179,7 @@ def predict_model_with_archive(predictor: str, params: Params, archive: str,
         archive.config[item] = params[item]
 
     archive.validation_dataset_reader.datasets = params['dataset_reader']['datasets']
+    archive.validation_dataset_reader.is_raw = params['dataset_reader']['is_raw']
 
     predictor = MachampPredictor.from_archive(archive, predictor)
     

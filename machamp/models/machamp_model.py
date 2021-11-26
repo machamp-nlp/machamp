@@ -165,6 +165,7 @@ class MachampModel(Model):
             output_dict["tokens"] = [x["tokens"] for x in metadata]
             output_dict["full_data"] = [x['full_data'] for x in metadata]
             output_dict["col_idxs"] = [x['col_idxs'] for x in metadata]
+            output_dict["is_train"] = [x['is_train'] for x in metadata]
 
             # Rob: Warning, hacky!, allennlp requires them to be in the length of metadata, in the dump_lines I just use the first
             output_dict['tasks'] = [self.tasks for _ in metadata]
@@ -188,7 +189,7 @@ class MachampModel(Model):
                 output_dict[task + '_rels'], output_dict[task + '_head_indices'] = \
                                     self.decoders[task].make_output_human_readable(dep_tags, dep_heads, mask)
         
-        if 'loss' not in output_dict or output_dict['loss'] == 0:
+        if ('loss' not in output_dict or output_dict['loss'] == 0) and output_dict['is_train'][0]:
             output_dict['loss'] = [output_dict['loss']]
         return output_dict
 

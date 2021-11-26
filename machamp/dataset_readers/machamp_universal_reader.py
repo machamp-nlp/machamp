@@ -153,7 +153,7 @@ class MachampUniversalReader(DatasetReader):
             if self.do_lowercase:
                 sent = sent.lower()
             # could also use basictokenizer?
-            sent_tok = [word for word in sent.split(' ')]
+            sent_tok = [Token(word) for word in sent.split(' ')]
 
             sent_tasks = {'tokens': []}
             for word in sent_tok:
