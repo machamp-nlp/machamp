@@ -27,11 +27,21 @@ class MachampPredictor(Predictor):
     
     def to_str_sentlevel(self, outputs):
         tok = outputs['full_data']
-        for task_idx, task in enumerate(outputs['tasks'] if type(outputs['tasks']) is list else [outputs['tasks']]):
-            if task in outputs['col_idxs']:
-                col_idx = outputs['col_idxs'][task]
-                tok[col_idx] = outputs[task]
-        return '\t'.join(tok) + '\n'
+        # detect if raw input is used
+        if type(tok) == str:
+            tok = [tok]
+            for task_idx, task in enumerate(outputs['tasks'] if type(outputs['tasks']) is list else [outputs['tasks']]):
+                if task in outputs['col_idxs']:
+                    while outputs['col_idxs'][task] >= len(tok):
+                        tok.append('_')
+                    tok[outputs['col_idxs'][task]] = outputs[task]
+            return '\t'.join(tok) + '\n'
+        else:
+            for task_idx, task in enumerate(outputs['tasks'] if type(outputs['tasks']) is list else [outputs['tasks']]):
+                if task in outputs['col_idxs']:
+                    col_idx = outputs['col_idxs'][task]
+                    tok[col_idx] = outputs[task]
+            return '\t'.join(tok) + '\n'
 
     def to_str_seq2seq(self, outputs):
         task = outputs['tasks'][0]

@@ -145,7 +145,15 @@ class MachampUniversalReader(DatasetReader):
         the words are separated by a whitespace.
         """
         data = []
-        word_idx = self.datasets[dataset]['word_idx']
+        if 'word_idx' in self.datasets[dataset]:
+            input_idx = self.datasets[dataset]['word_idx']
+        else:
+            if 'sent_idxs' in self.datasets[dataset] and len(self.datasets[dataset]['sent_idxs']) == 1: 
+                input_idx = self.datasets[dataset]['sent_idxs'][0]
+            else:
+                logger.warning("--raw_text is only supported for sequence labeling task-types and classification with only one input column. If you do classification with multiple inputs, please add a dummy column")
+                exit(1)
+            
         for sent_counter, sent in enumerate(open(path, encoding='utf-8', mode='r')):
             if max_sents != 0 and sent_counter > max_sents:
                 break
@@ -159,14 +167,14 @@ class MachampUniversalReader(DatasetReader):
             for word in sent_tok:
                 sent_tasks['tokens'].append(word)
 
-            col_idxs = {'word_idx': word_idx}
+            col_idxs = {'word_idx': input_idx}
             task2type = {}
             for task in self.datasets[dataset]['tasks']:
                 task_idx = self.datasets[dataset]['tasks'][task]['column_idx']
                 task_type = self.datasets[dataset]['tasks'][task]['task_type']
                 task2type[task] = task_type
                 col_idxs[task] = task_idx
-            data.append(self.text_to_instance(sent_tasks, sent_tok, col_idxs, is_train, task2type, dataset))
+            data.append(self.text_to_instance(sent_tasks, sent, col_idxs, is_train, task2type, dataset))
         return data
 
     def read_classification(self, dataset, path, is_train, max_sents):
