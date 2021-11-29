@@ -179,7 +179,8 @@ def predict_model_with_archive(predictor: str, params: Params, archive: str,
         archive.config[item] = params[item]
 
     archive.validation_dataset_reader.datasets = params['dataset_reader']['datasets']
-    archive.validation_dataset_reader.is_raw = params['dataset_reader']['is_raw']
+    if 'is_raw' in params['dataset_reader']:
+        archive.validation_dataset_reader.is_raw = params['dataset_reader']['is_raw']
 
     predictor = MachampPredictor.from_archive(archive, predictor)
     
