@@ -174,6 +174,9 @@ class MachampUniversalReader(DatasetReader):
                 task_type = self.datasets[dataset]['tasks'][task]['task_type']
                 task2type[task] = task_type
                 col_idxs[task] = task_idx
+            if set(task2type.values()) != {'classification'}:
+                sent = sent_tok
+
             data.append(self.text_to_instance(sent_tasks, sent, col_idxs, is_train, task2type, dataset))
         return data
 
