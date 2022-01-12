@@ -180,7 +180,7 @@ Other things:
 * [Results](docs/results.md)
 
 ## FAQ
-If your question is not mentioned here, you can contact us on slack: https://join.slack.com/t/machamp-workspace/shared_invite/zt-piuoliwh-KaGJUwanucKKprx9IObJ6A
+If your question is not mentioned here, you can contact us on slack: https://join.slack.com/t/machamp-workspace/shared_invite/zt-11l2eq8ic-XPlk6NbIovoTgS3vOYxcoA
 
 Q: How can I easily compare my own amazing parser to your scores on UD version X?  
 A: Check the [results page](docs/results.md)
