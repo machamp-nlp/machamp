@@ -1,7 +1,7 @@
 {
     "NLU": {
-        "train_data_path": "data/nlu/en/train-en.conllu",
-        "validation_data_path": "data/nlu/en/eval-en.conllu",
+        "train_data_path": "data/xSID-0.3/en.train.conll",
+        "validation_data_path": "data/xSID-0.3/en.valid.conll",
         "word_idx": 1,
         "tasks": {
             "slots": {

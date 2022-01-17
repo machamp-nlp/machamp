@@ -66,9 +66,8 @@ class MachampSeq2SeqDecoder(Model):
         beam_size: int = None,
         target_embedding_dim: int = None,
         scheduled_sampling_ratio: float = 0.0,
-        use_bleu: bool = True,
         bleu_ngram_weights: Iterable[float] = (0.25, 0.25, 0.25, 0.25),
-        dataset_embeds_dim: int = 0,
+        dec_dataset_embeds_dim: int = 0,
         target_decoder_layers: int = 1,
         **kwargs,
     ) -> None:
@@ -81,24 +80,17 @@ class MachampSeq2SeqDecoder(Model):
         self._target_namespace = 'target_words'
         self._target_decoder_layers = target_decoder_layers
         self._scheduled_sampling_ratio = scheduled_sampling_ratio
+        self.bleu_ngram_weights = bleu_ngram_weights
+        self._bleu = None # is now initiated in forward, to get the start/end index correct
 
         # We need the start symbol to provide as the input at the first timestep of decoding, and
         # end symbol as a way to indicate the end of the decoded sequence.
-        # TODO: don't use hardcoded indices
-        self._start_index = 2   # self.vocab.get_token_index('[CLS]', self._target_namespace)
-        self._end_index = 3     # self.vocab.get_token_index('[SEP]', self._target_namespace)
+        self._start_index = -1   # self.vocab.get_token_index('[CLS]', self._target_namespace)
+        self._end_index = -1     # self.vocab.get_token_index('[SEP]', self._target_namespace)
 
-        pad_index = self.vocab.get_token_index(
+        self.pad_index = self.vocab.get_token_index(
             self.vocab._padding_token, self._target_namespace
         )
-
-        if use_bleu:
-            self._bleu = BLEU(
-                bleu_ngram_weights, exclude_indices={pad_index, self._end_index, self._start_index}
-            )
-        else:
-            self._bleu = None
-        self.metrics = {"bleu": self._bleu}
 
         # At prediction time, we use a beam search to find the most likely sequence of target tokens.
         beam_size = beam_size or 1
@@ -118,12 +110,12 @@ class MachampSeq2SeqDecoder(Model):
 
         # Dense embedding of vocab words in the target space.
         self._target_embedder = Embedding(
-            num_embeddings=num_classes, embedding_dim=target_embedding_dim, padding_index=pad_index
+            num_embeddings=num_classes, embedding_dim=target_embedding_dim, padding_index=self.pad_index
         )
 
         # Decoder output dim needs to be the same as the encoder output dim since we initialize the
         # hidden state of the decoder with the final hidden state of the encoder.
-        self._encoder_output_dim = input_dim + dataset_embeds_dim
+        self._encoder_output_dim = input_dim + dec_dataset_embeds_dim
         self._decoder_output_dim = self._encoder_output_dim
 
         if self._attention:
@@ -154,6 +146,21 @@ class MachampSeq2SeqDecoder(Model):
         source_mask: torch.LongTensor,
         target_tokens: TextFieldTensors = None
     ) -> Dict[str, torch.Tensor]:
+
+        if self._start_index == -1:
+            self._start_index = int(target_tokens['tokens']['tokens'][0][0])
+            foundPad = False
+            for i in range(len(target_tokens['tokens']['tokens'][0])):
+                if target_tokens['tokens']['tokens'][0][i] == self.pad_index:
+                    foundPad = True
+                    break
+            if foundPad:
+                i -= 1
+            self._end_index = int(target_tokens['tokens']['tokens'][0][i])
+            self._bleu = BLEU(
+                self.bleu_ngram_weights, exclude_indices={self.pad_index, self._end_index, self._start_index})
+            self.metrics = {"bleu": self._bleu}
+
 
         state = {"encoder_outputs": embedded_text, "source_mask": source_mask}
         if target_tokens:

@@ -6,39 +6,42 @@ if not os.path.isdir('configs/tmp/'):
     os.mkdir('configs/tmp/')
 
 ## single-dataset models
-for udPath in ['data/ud-treebanks-v' + myutils.UDversion + '.noEUD/', 'data/ud-treebanks-v2.extras.noEUD/']:
+for udPath in ['data/ud-treebanks-v' + myutils.UDversion + '.singleToken/', 'data/ud-treebanks-v2.extras.singleToken/']:
     for UDdir in os.listdir(udPath):
         if not UDdir.startswith("UD") or not os.path.isdir(udPath + UDdir):
             continue
         train, dev, test = myutils.getTrainDevTest(udPath + UDdir)
         
         if train != '':
-            if not myutils.hasColumn(train, 1, threshold=.1):
-                print('noWords ', train)
-                continue
-            config = {}
-            config['train_data_path'] = train
-            if dev != '':
-                config['validation_data_path'] = dev
-            config['word_idx'] = 1
-            config['tasks'] = {}
-            if myutils.hasColumn(train, 3, threshold=.1):
-                config['tasks']['upos'] = {'task_type':'seq', 'column_idx':3}
-            if myutils.hasColumn(train, 2, threshold=.95):
-                config['tasks']['lemma'] = {'task_type':'string2string', 'column_idx':2}
-            if myutils.hasColumn(train, 5, threshold=.95):
-                config['tasks']['feats'] = {'task_type':'seq', 'column_idx':5}
-            config['tasks']['dependency'] = {'task_type':'dependency', 'column_idx':6}
-        
-            allennlpConfig = Params({UDdir: config})
-            jsonPath = 'configs/tmp/' + UDdir + '.json'
-            allennlpConfig.to_file(jsonPath)
-            for seed in myutils.seeds:
-                print('python3 train.py --dataset_config ' + jsonPath + ' --seed ' + seed + ' --name ' + UDdir + '.' + seed)
+            for embedding in ['mbert', 'rembert', 'xlmr']:
+                if not myutils.hasColumn(train, 1, threshold=.1):
+                    print('noWords ', train)
+                    continue
+                config = {}
+                config['train_data_path'] = train
+                if dev != '':
+                    config['validation_data_path'] = dev
+                config['word_idx'] = 1
+                config['tasks'] = {}
+                if myutils.hasColumn(train, 3, threshold=.1):
+                    config['tasks']['upos'] = {'task_type':'seq', 'column_idx':3}
+                if myutils.hasColumn(train, 2, threshold=.95):
+                    config['tasks']['lemma'] = {'task_type':'string2string', 'column_idx':2}
+                if myutils.hasColumn(train, 5, threshold=.95):
+                    config['tasks']['feats'] = {'task_type':'seq', 'column_idx':5}
+                config['tasks']['dependency'] = {'task_type':'dependency', 'column_idx':6}
+            
+                allennlpConfig = Params({UDdir: config})
+                jsonPath = 'configs/tmp/' + UDdir + '.json'
+                allennlpConfig.to_file(jsonPath)
+                paramsConfig = 'configs/params-' + embedding + '.json'
+                for seed in myutils.seeds:
+                    if myutils.getModel(UDdir + '.' + embedding + '.' + seed) == '':
+                        print('python3 train.py --dataset_config ' + jsonPath + ' --seed ' + seed + ' --name ' + UDdir + '.' + embedding + '.' + seed + ' --parameters_config ' + paramsConfig)
 
 def makeConfig(strategy, seed, runNonSmoothed):
     fullConfig = {}
-    for udPath in ['data/ud-treebanks-v' + myutils.UDversion + '.noEUD/', 'data/ud-treebanks-v2.extras.noEUD/']:
+    for udPath in ['data/ud-treebanks-v' + myutils.UDversion + '.singleToken/', 'data/ud-treebanks-v2.extras.singleToken/']:
         for UDdir in os.listdir(udPath):
             if not UDdir.startswith("UD") or not os.path.isdir(udPath + UDdir):
                 continue

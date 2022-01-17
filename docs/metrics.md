@@ -11,6 +11,8 @@ MaChAmp supports a variety of metrics for task types. Specifically:
 * **labeled attachment score** (`las`): for the task type [dependency](dependency.md);
 * **perplexity** (`perplexity`): for the task type [mlm](mlm.md);
 * **bilingual evaluation understudy** (`bleu`): for the task type [seq2seq](seq2seq).
+* **pearson correlation** (`pearson`): for the task type [regression](regression).
+* **spearman correlation** (`spearman`): for the task type [regression](regression).
 
 You can set/check the default metrics used for each task in the parameters configuration file (default=`configs/params.json`). Alternatively, you can set the `'metric'` keyword per task. To use micro-f1 for POS tagging for example:
 

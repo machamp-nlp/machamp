@@ -17,12 +17,13 @@ def makeFile(name, task, idx, time):
     outFile.write('#SBATCH --cpus-per-task=2\n')
     outFile.write('#SBATCH --time=' + time + ':00:00\n')
     outFile.write('#SBATCH --gres=gpu\n')
-    outFile.write('#SBATCH --mem=88G\n')
+    outFile.write('#SBATCH --mem=30G\n')
     outFile.write('#SBATCH --mail-type=BEGIN,END,FAIL\n')
     #outFile.write('#SBATCH partition=brown')
     outFile.write('#SBATCH --partition=red\n')
 
     outFile.write('\n')
+    outFile.write('module load Python/3.8.2-GCCcore-9.3.0\n\n')
     outFile.write(task)
     if run:
         cmd = 'sbatch ' + name + '.job'

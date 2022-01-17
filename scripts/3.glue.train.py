@@ -3,10 +3,7 @@ import myutils
 from allennlp.common import Params
 
 if not os.path.isdir('configs/tmp/'):
-    os.mkdir('configs/tmp/')
-
-
-    
+    os.mkdir('configs/tmp/')    
 
 for seed in myutils.seeds:
     glue = Params.from_file('configs/glue.json')

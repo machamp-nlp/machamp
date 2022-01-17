@@ -1,10 +1,7 @@
 local transformer_model = "bert-base-multilingual-cased";
 local transformer_dim = 768;
 
-//local transformer_model = "xlm-roberta-large";
-//local transformer_dim = 1024;
-
-local max_len = 128;
+local max_len = 512;
 
 {
     "random_seed": 8446,
@@ -14,7 +11,6 @@ local max_len = 128;
         "type": "machamp_universal_reader",
         "target_max_tokens": max_len,
         "source_max_tokens": max_len,
-        "do_lowercase": false,
 
         "token_indexers": {
             "tokens": {
@@ -40,13 +36,13 @@ local max_len = 128;
     "vocabulary": {
         "max_vocab_size": {"target_words": 50000},
         "min_count": {
-            "source_words": 1,
-            "target_words": 1
+            //"source_words": 1,
+            //"target_words": 1
         }
     },
     "model": {
         "type": "machamp_model",
-        "dataset_embeds_dim": 0,
+        "dec_dataset_embeds_dim": 12,
         "decoders": {
             "classification": {
                 "type": "machamp_sentence_decoder"
@@ -63,8 +59,7 @@ local max_len = 128;
                 "use_mst_decoding_for_validation": true
             },
             "multiseq": {
-                "type": "machamp_multiseq_decoder",
-                "metric": "multi_span_f1"
+                "type": "machamp_multiseq_decoder"
             },
             "seq": {
                 "type": "machamp_tag_decoder"
@@ -75,8 +70,7 @@ local max_len = 128;
                 "beam_size": 6,
                 "max_decoding_steps": 128,
                 "target_decoder_layers": 2,
-                "target_embedding_dim": 512,
-                "use_bleu": true
+                "target_embedding_dim": 512
             },
             "seq_bio": {
                 "type": "machamp_crf_decoder",
@@ -88,10 +82,18 @@ local max_len = 128;
             "mlm": {
                 "type": "machamp_mlm_decoder",
                 "pretrained_model": transformer_model
+            },
+            "probdistr": {
+                "type": "machamp_probdistr_decoder",
+                "metric": "macro-f1"
+            },
+            "regression": {
+                "type": "machamp_regression_decoder",
+                "metric": "pearson"
             }
         },
         "default_max_sents": 0,
-        "dropout": 0.3,
+        "dropout": 0.2,
         "encoder": {
             "type": "cls_pooler",
             "cls_is_last_token": false,
@@ -122,14 +124,15 @@ local max_len = 128;
         }
     },
     "trainer": {
+        "run_confidence_checks": false,
         "checkpointer": {
-            "num_serialized_models_to_keep": 1
+            "keep_most_recent_by_count": 1
         },
         "use_amp": false, // could save some memory on gpu
         "grad_norm": 1,
         "learning_rate_scheduler": {
             "type": "slanted_triangular",
-            "cut_frac": 0.2,
+            "cut_frac": 0.3,
             "decay_factor": 0.38,
             "discriminative_fine_tuning": true,
             "gradual_unfreezing": true
@@ -139,7 +142,7 @@ local max_len = 128;
             "type": "huggingface_adamw",
             "betas": [0.9, 0.99],
             "correct_bias": false,
-            "lr": 0.0001,
+            "lr": 0.00001,
             "parameter_groups": [
                 [
                     [
@@ -162,7 +165,7 @@ local max_len = 128;
     },
     "datasets_for_vocab_creation": [
         "train",
-        "validation"//TODO can this be removed now that we add padding/unknown?
+        "validation"
     ]
 }
 

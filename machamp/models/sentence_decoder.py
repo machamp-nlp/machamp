@@ -1,5 +1,6 @@
 import logging
-from typing import Dict
+from collections import Counter
+from typing import Dict, Union, Optional
 
 import sys
 import torch
@@ -34,7 +35,8 @@ class MachampClassifier(Model):
         vocab: Vocabulary,
         input_dim: int,
         loss_weight: float=1.0,
-        dataset_embeds_dim: int = 0,
+        class_weights: Optional[Union[str, Dict[str, float]]] = None,
+        dec_dataset_embeds_dim: int = 0,
         metric: str = "acc",
         **kwargs,
     ) -> None:
@@ -43,7 +45,7 @@ class MachampClassifier(Model):
 
         self.task = task
         self.vocab = vocab
-        self.input_dim = input_dim + dataset_embeds_dim
+        self.input_dim = input_dim + dec_dataset_embeds_dim
         self.loss_weight = loss_weight
         self.metric = metric
         self.num_labels = self.vocab.get_vocab_size(namespace=task)
@@ -51,9 +53,9 @@ class MachampClassifier(Model):
         self._classifier_input_dim = self.input_dim
 
         self._classification_layer = torch.nn.Linear(self._classifier_input_dim, self.num_labels)
-        self._loss = torch.nn.CrossEntropyLoss()
+        
+        self.class_weights = class_weights
 
-        self._accuracy = CategoricalAccuracy()
         if self.metric == "acc":
             self.metrics = {"acc": CategoricalAccuracy()}
         elif self.metric == "span_f1":
@@ -74,7 +76,8 @@ class MachampClassifier(Model):
     def forward(  # type: ignore
         self, 
         embedded_text: TextFieldTensors, 
-        gold_labels: torch.LongTensor = []
+        gold_labels: torch.LongTensor = [],
+        label_counts: Dict[str, float] = None
     ) -> Dict[str, torch.Tensor]:
 
         """
@@ -97,10 +100,42 @@ class MachampClassifier(Model):
         logits = self._classification_layer(embedded_text)
         probs = torch.nn.functional.softmax(logits, dim=-1)
 
+        # Compute class weights for cross entropy loss if the class weights parameter is set (executed only at the first forward call)
+        if self.class_weights is not None:
+            # If they are explicitly defined in the config file, use these
+            if type(self.class_weights) is dict:
+                if len(self.class_weights.values()) > self.num_labels:
+                    logger.error(f"ERROR. Class weights must be {self.num_labels}, but {len(self.class_weights.values())} are defined.")
+                
+                weights: List[float] = [0.0] * self.num_labels
+                for label, weight in self.class_weights.items():
+                    label_idx = self.vocab.get_token_index(label, namespace=self.task)
+                    weights[label_idx] = weight
+                self.class_weights = torch.FloatTensor(weights).cuda()
+
+            # If they are set to True, compute them automatically
+            elif (self.class_weights == "balanced"):
+                num_samples, num_labels = sum(label_counts.values()), len(label_counts.values())
+
+                weights: List[float] = [0.0] * self.num_labels
+                for label, label_count in label_counts.items():
+                    weight = num_samples / float(num_labels * label_count)
+                    label_idx = self.vocab.get_token_index(label, namespace=self.task)
+                    weights[label_idx] = weight
+                self.class_weights = torch.FloatTensor(weights).cuda()
+
+            # Class weights are already initialized
+            else:
+                pass
+
         output_dict = {"logits": logits, "class_probabilities": probs}
 
         if gold_labels != None:
-            output_dict['loss'] = self._loss(logits, gold_labels.long().view(-1)) * self.loss_weight
+            if self.class_weights is not None:
+                loss = torch.nn.functional.cross_entropy(logits, gold_labels.long().view(-1), self.class_weights)
+            else:
+                loss = torch.nn.functional.cross_entropy(logits, gold_labels.long().view(-1))
+            output_dict['loss'] = loss * self.loss_weight
             for metric in self.metrics.values():
                 metric(logits, gold_labels)
 

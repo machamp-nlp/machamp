@@ -22,7 +22,7 @@ parser.add_argument("--parameters_config", default="configs/params.json", type=s
 parser.add_argument("--device", default=None, type=int, help="CUDA device; set to -1 for CPU")
 parser.add_argument("--resume", default='', type=str, help="Finalize training on a model for which training abrubptly stopped. Give the path to the log directory of the model.")
 parser.add_argument("--finetune", type=str, default='', help="Retrain on an previously train MaChAmp AllenNLP model. Specify the path to model.tar.gz and add a dataset_config that specifies the new training.")
-parser.add_argument("--seed", type=int, default=-1, help="seed to use for training") #TODO
+parser.add_argument("--seed", type=int, default=-1, help="seed to use for training") 
 
 args = parser.parse_args()
 

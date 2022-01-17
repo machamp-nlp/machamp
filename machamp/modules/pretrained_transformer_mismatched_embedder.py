@@ -1,8 +1,10 @@
-from typing import Optional, List
+from typing import Optional, Dict, Any, List
 
 from overrides import overrides
 import torch
 
+from allennlp.modules import Embedding
+from allennlp.common.checks import ConfigurationError
 from allennlp.modules.token_embedders import TokenEmbedder
 from allennlp.nn import util
 from machamp.modules import MachampPretrainedTransformerEmbedder
@@ -12,9 +14,9 @@ from machamp.modules import MachampPretrainedTransformerEmbedder
 class MachampPretrainedTransformerMismatchedEmbedder(TokenEmbedder):
     """
     Use this embedder to embed wordpieces given by `PretrainedTransformerMismatchedIndexer`
-    and to pool the resulting vectors to get word-level representations.
+    and to get word-level representations.
 
-    Registered as a `TokenEmbedder` with name "pretrained_transformer_mismatchd".
+    Registered as a `TokenEmbedder` with name "pretrained_transformer_mismatched".
 
     # Parameters
 
@@ -32,9 +34,34 @@ class MachampPretrainedTransformerMismatchedEmbedder(TokenEmbedder):
         When `True` (the default), only the final layer of the pretrained transformer is taken
         for the embeddings. But if set to `False`, a scalar mix of all of the layers
         is used.
+    override_weights_file: `Optional[str]`, optional (default = `None`)
+        If set, this specifies a file from which to load alternate weights that override the
+        weights from huggingface. The file is expected to contain a PyTorch `state_dict`, created
+        with `torch.save()`.
+    override_weights_strip_prefix: `Optional[str]`, optional (default = `None`)
+        If set, strip the given prefix from the state dict when loading it.
+    load_weights: `bool`, optional (default = `True`)
+        Whether to load the pretrained weights. If you're loading your model/predictor from an AllenNLP archive
+        it usually makes sense to set this to `False` (via the `overrides` parameter)
+        to avoid unnecessarily caching and loading the original pretrained weights,
+        since the archive will already contain all of the weights needed.
     gradient_checkpointing: `bool`, optional (default = `None`)
         Enable or disable gradient checkpointing.
-    """
+    tokenizer_kwargs: `Dict[str, Any]`, optional (default = `None`)
+        Dictionary with
+        [additional arguments](https://github.com/huggingface/transformers/blob/155c782a2ccd103cf63ad48a2becd7c76a7d2115/transformers/tokenization_utils.py#L691)
+        for `AutoTokenizer.from_pretrained`.
+    transformer_kwargs: `Dict[str, Any]`, optional (default = `None`)
+        Dictionary with
+        [additional arguments](https://github.com/huggingface/transformers/blob/155c782a2ccd103cf63ad48a2becd7c76a7d2115/transformers/modeling_utils.py#L253)
+        for `AutoModel.from_pretrained`.
+    sub_token_mode: `Optional[str]`, optional (default= `avg`)
+        If `sub_token_mode` is set to `first`, return first sub-token representation as word-level representation
+        If `sub_token_mode` is set to `avg`, return average of all the sub-tokens representation as word-level representation
+        If `sub_token_mode` is not specified it defaults to `avg`
+        If invalid `sub_token_mode` is provided, throw `ConfigurationError`
+
+    """  # noqa: E501
 
     def __init__(
         self,
@@ -42,7 +69,13 @@ class MachampPretrainedTransformerMismatchedEmbedder(TokenEmbedder):
         max_length: int = None,
         train_parameters: bool = True,
         layers_to_use: List[int] = None,
+        override_weights_file: Optional[str] = None,
+        override_weights_strip_prefix: Optional[str] = None,
+        load_weights: bool = True,
         gradient_checkpointing: Optional[bool] = None,
+        tokenizer_kwargs: Optional[Dict[str, Any]] = None,
+        transformer_kwargs: Optional[Dict[str, Any]] = None,
+        sub_token_mode: Optional[str] = "avg",
     ) -> None:
         super().__init__()
         # The matched version v.s. mismatched
@@ -51,8 +84,14 @@ class MachampPretrainedTransformerMismatchedEmbedder(TokenEmbedder):
             max_length=max_length,
             train_parameters=train_parameters,
             layers_to_use=layers_to_use,
+            override_weights_file=override_weights_file,
+            override_weights_strip_prefix=override_weights_strip_prefix,
+            load_weights=load_weights,
             gradient_checkpointing=gradient_checkpointing,
+            tokenizer_kwargs=tokenizer_kwargs,
+            transformer_kwargs=transformer_kwargs,
         )
+        self.sub_token_mode = sub_token_mode
 
     @overrides
     def get_output_dim(self):
@@ -67,6 +106,8 @@ class MachampPretrainedTransformerMismatchedEmbedder(TokenEmbedder):
         wordpiece_mask: torch.BoolTensor,
         type_ids: Optional[torch.LongTensor] = None,
         segment_concat_mask: Optional[torch.BoolTensor] = None,
+        dataset_ids: torch.LongTensor = None,
+        dataset_embedder: Embedding = None
     ) -> torch.Tensor:  # type: ignore
         """
         # Parameters
@@ -92,23 +133,57 @@ class MachampPretrainedTransformerMismatchedEmbedder(TokenEmbedder):
         `torch.Tensor`
             Shape: [batch_size, num_orig_tokens, embedding_size].
         """
-        # Shape: [batch_size, num_wordpieces, embedding_size].
-        embeddings = self._matched_embedder(
-            token_ids, wordpiece_mask, type_ids=type_ids, segment_concat_mask=segment_concat_mask
-        )
+        if dataset_ids != None:
+            wordpiece_sizes = []
+            for sent_idx in range(len(offsets)):
+                wordpiece_sizes.append([])
+                for word_idx in range(len(offsets[sent_idx])):
+                    if offsets[sent_idx][word_idx][0] == 0:
+                        continue
+                    wordpiece_sizes[-1].append(int(offsets[sent_idx][word_idx][1] - offsets[sent_idx][word_idx][0] + 1))
+
+            embeddings = self._matched_embedder(
+                token_ids, wordpiece_mask, type_ids=type_ids, segment_concat_mask=segment_concat_mask, dataset_ids=dataset_ids, wordpiece_sizes=wordpiece_sizes, dataset_embedder=dataset_embedder
+            )
+        else:
+            embeddings = self._matched_embedder(
+                token_ids, wordpiece_mask, type_ids=type_ids, segment_concat_mask=segment_concat_mask, dataset_ids=dataset_ids
+            )
+        # Shape of embeddings: [batch_size, num_wordpieces, embedding_size].
 
         # span_embeddings: (batch_size, num_orig_tokens, max_span_length, embedding_size)
         # span_mask: (batch_size, num_orig_tokens, max_span_length)
         span_embeddings, span_mask = util.batched_span_select(embeddings.contiguous(), offsets)
+
         span_mask = span_mask.unsqueeze(-1)
+
+        # Shape: (batch_size, num_orig_tokens, max_span_length, embedding_size)
         span_embeddings *= span_mask  # zero out paddings
 
-        span_embeddings_sum = span_embeddings.sum(2)
-        span_embeddings_len = span_mask.sum(2)
-        # Shape: (batch_size, num_orig_tokens, embedding_size)
-        orig_embeddings = span_embeddings_sum / torch.clamp_min(span_embeddings_len, 1)
+        # If "sub_token_mode" is set to "first", return the first sub-token embedding
+        if self.sub_token_mode == "first":
+            # Select first sub-token embeddings from span embeddings
+            # Shape: (batch_size, num_orig_tokens, embedding_size)
+            orig_embeddings = span_embeddings[:, :, 0, :]
 
-        # All the places where the span length is zero, write in zeros.
-        orig_embeddings[(span_embeddings_len == 0).expand(orig_embeddings.shape)] = 0
+        # If "sub_token_mode" is set to "avg", return the average of embeddings of all sub-tokens of a word
+        elif self.sub_token_mode == "avg":
+            # Sum over embeddings of all sub-tokens of a word
+            # Shape: (batch_size, num_orig_tokens, embedding_size)
+            span_embeddings_sum = span_embeddings.sum(2)
+
+            # Shape (batch_size, num_orig_tokens)
+            span_embeddings_len = span_mask.sum(2)
+
+            # Find the average of sub-tokens embeddings by dividing `span_embedding_sum` by `span_embedding_len`
+            # Shape: (batch_size, num_orig_tokens, embedding_size)
+            orig_embeddings = span_embeddings_sum / torch.clamp_min(span_embeddings_len, 1)
+
+            # All the places where the span length is zero, write in zeros.
+            orig_embeddings[(span_embeddings_len == 0).expand(orig_embeddings.shape)] = 0
+
+        # If invalid "sub_token_mode" is provided, throw error
+        else:
+            raise ConfigurationError(f"Do not recognise 'sub_token_mode' {self.sub_token_mode}")
 
         return orig_embeddings

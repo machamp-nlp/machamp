@@ -1,5 +1,6 @@
+import logging
 import math
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, Dict, Any, List
 
 from overrides import overrides
 
@@ -9,8 +10,11 @@ from transformers import XLNetConfig
 
 from allennlp.data.tokenizers import PretrainedTransformerTokenizer
 from allennlp.modules.scalar_mix import ScalarMix
+from allennlp.modules import Embedding
 from allennlp.modules.token_embedders.token_embedder import TokenEmbedder
 from allennlp.nn.util import batched_index_select
+
+logger = logging.getLogger(__name__)
 
 
 @TokenEmbedder.register("machamp_pretrained_transformer")
@@ -35,14 +39,41 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
         as embedders such as BERT. However, other models consist of encoder and decoder, in which case we just
         want to use the encoder.
     train_parameters: `bool`, optional (default = `True`)
-        If this is `True`, the transformer weights get updated during training.
+        If this is `True`, the transformer weights get updated during training. If this is `False`, the
+        transformer weights are not updated during training.
+    eval_mode: `bool`, optional (default = `False`)
+        If this is `True`, the model is always set to evaluation mode (e.g., the dropout is disabled and the
+        batch normalization layer statistics are not updated). If this is `False`, such dropout and batch
+        normalization layers are only set to evaluation mode when when the model is evaluating on development
+        or test data.
     last_layer_only: `bool`, optional (default = `True`)
         When `True` (the default), only the final layer of the pretrained transformer is taken
         for the embeddings. But if set to `False`, a scalar mix of all of the layers
         is used.
+    override_weights_file: `Optional[str]`, optional (default = `None`)
+        If set, this specifies a file from which to load alternate weights that override the
+        weights from huggingface. The file is expected to contain a PyTorch `state_dict`, created
+        with `torch.save()`.
+    override_weights_strip_prefix: `Optional[str]`, optional (default = `None`)
+        If set, strip the given prefix from the state dict when loading it.
+    load_weights: `bool`, optional (default = `True`)
+        Whether to load the pretrained weights. If you're loading your model/predictor from an AllenNLP archive
+        it usually makes sense to set this to `False` (via the `overrides` parameter)
+        to avoid unnecessarily caching and loading the original pretrained weights,
+        since the archive will already contain all of the weights needed.
     gradient_checkpointing: `bool`, optional (default = `None`)
         Enable or disable gradient checkpointing.
-    """
+    tokenizer_kwargs: `Dict[str, Any]`, optional (default = `None`)
+        Dictionary with
+        [additional arguments](https://github.com/huggingface/transformers/blob/155c782a2ccd103cf63ad48a2becd7c76a7d2115/transformers/tokenization_utils.py#L691)
+        for `AutoTokenizer.from_pretrained`.
+    transformer_kwargs: `Dict[str, Any]`, optional (default = `None`)
+        Dictionary with
+        [additional arguments](https://github.com/huggingface/transformers/blob/155c782a2ccd103cf63ad48a2becd7c76a7d2115/transformers/modeling_utils.py#L253)
+        for `AutoModel.from_pretrained`.
+    """  # noqa: E501
+
+    authorized_missing_keys = [r"position_ids$"]
 
     def __init__(
         self,
@@ -51,16 +82,26 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
         max_length: int = None,
         sub_module: str = None,
         train_parameters: bool = True,
+        eval_mode: bool = False,
+        #last_layer_only: bool = True,
         layers_to_use: List[int] = [-1],
         override_weights_file: Optional[str] = None,
         override_weights_strip_prefix: Optional[str] = None,
+        load_weights: bool = True,
         gradient_checkpointing: Optional[bool] = None,
+        tokenizer_kwargs: Optional[Dict[str, Any]] = None,
+        transformer_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__()
         from allennlp.common import cached_transformers
 
         self.transformer_model = cached_transformers.get(
-            model_name, True, override_weights_file, override_weights_strip_prefix
+            model_name,
+            True,
+            override_weights_file=override_weights_file,
+            override_weights_strip_prefix=override_weights_strip_prefix,
+            load_weights=load_weights,
+            **(transformer_kwargs or {}),
         )
 
         if gradient_checkpointing is not None:
@@ -83,14 +124,45 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
         if len(layers_to_use) > 1:
             self._scalar_mix = ScalarMix(len(layers_to_use))
 
-        tokenizer = PretrainedTransformerTokenizer(model_name)
+        tokenizer = PretrainedTransformerTokenizer(
+            model_name,
+            tokenizer_kwargs=tokenizer_kwargs,
+        )
+
+        try:
+            if self.transformer_model.get_input_embeddings().num_embeddings != len(
+                tokenizer.tokenizer
+            ):
+                self.transformer_model.resize_token_embeddings(len(tokenizer.tokenizer))
+        except NotImplementedError:
+            # Can't resize for transformers models that don't implement base_model.get_input_embeddings()
+            logger.warning(
+                "Could not resize the token embedding matrix of the transformer model. "
+                "This model does not support resizing."
+            )
+
         self._num_added_start_tokens = len(tokenizer.single_sequence_start_tokens)
         self._num_added_end_tokens = len(tokenizer.single_sequence_end_tokens)
         self._num_added_tokens = self._num_added_start_tokens + self._num_added_end_tokens
 
+        self.train_parameters = train_parameters
         if not train_parameters:
             for param in self.transformer_model.parameters():
                 param.requires_grad = False
+
+        self.eval_mode = eval_mode
+        if eval_mode:
+            self.transformer_model.eval()
+
+    @overrides
+    def train(self, mode: bool = True):
+        self.training = mode
+        for name, module in self.named_children():
+            if self.eval_mode and name == "transformer_model":
+                module.eval()
+            else:
+                module.train(mode)
+        return self
 
     @overrides
     def get_output_dim(self):
@@ -111,6 +183,9 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
         mask: torch.BoolTensor,
         type_ids: Optional[torch.LongTensor] = None,
         segment_concat_mask: Optional[torch.BoolTensor] = None,
+        dataset_ids: torch.LongTensor = None,
+        wordpiece_sizes: List[List[int]] = None,
+        dataset_embedder: Embedding= None
     ) -> torch.Tensor:  # type: ignore
         """
         # Parameters
@@ -132,6 +207,7 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
             Shape: `[batch_size, num_wordpieces, embedding_size]`.
 
         """
+
         # Some of the huggingface transformers don't support type ids at all and crash when you supply
         # them. For others, you can supply a tensor of zeros, and if you don't, they act as if you did.
         # There is no practical difference to the caller, so here we pretend that one case is the same
@@ -145,6 +221,8 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
                     raise ValueError("Found type ids too large for the chosen transformer model.")
                 assert token_ids.shape == type_ids.shape
 
+
+
         fold_long_sequences = self._max_length is not None and token_ids.size(1) > self._max_length
         if fold_long_sequences:
             batch_size, num_segment_concat_wordpieces = token_ids.size()
@@ -153,39 +231,46 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
             )
 
         transformer_mask = segment_concat_mask if self._max_length is not None else mask
+        assert transformer_mask is not None
         # Shape: [batch_size, num_wordpieces, embedding_size],
         # or if self._max_length is not None:
         # [batch_size * num_segments, self._max_length, embedding_size]
 
-        # ROB: here we search for rows to keep and to remove
-        # rows with only 0's (<s>) and 2's (<pad>) should be removed.
-        rm = []
-        keep = []
-        for sentIdx in range(len(token_ids)):
-            allMask = set(transformer_mask[sentIdx].tolist())
-            if len(allMask) == 1 and transformer_mask[sentIdx][0] == False:
-                rm.append(sentIdx)
-                rmMask = transformer_mask[sentIdx]
-            else:
-                keep.append(sentIdx)
-        if len(keep) != len(token_ids):
-            token_ids = token_ids[keep,:]
-            transformer_mask = transformer_mask[keep, :]
         # We call this with kwargs because some of the huggingface models don't have the
         # token_type_ids parameter and fail even when it's given as None.
         # Also, as of transformers v2.5.1, they are taking FloatTensor masks.
-        parameters = {"input_ids": token_ids, "attention_mask": transformer_mask.float()}
+        
+        #parameters = {"input_ids": token_ids, "attention_mask": transformer_mask.float()}
+        parameters = {"attention_mask": transformer_mask.float()}
         if type_ids is not None:
             parameters["token_type_ids"] = type_ids
 
+        if dataset_ids == None:
+            parameters["input_ids"] = token_ids
+        else:# when using dataset_embeds, we override the word-embeddings
+            word_embeds = self.transformer_model.embeddings.word_embeddings(token_ids)
+            # Here we convert a list of tensors to something the same size as token_ids:
+            # TODO, this can probably be done more efficient?
 
-        # As far as I can tell, the hidden states will always be the last element
-        # in the output tuple as long as the model is not also configured to return
-        # attention scores.
-        # See, for example, the return value description for BERT:
-        # https://huggingface.co/transformers/model_doc/bert.html#transformers.BertModel.forward
-        # These hidden states will also include the embedding layer, which we don't
-        # include in the scalar mix. Hence the `[1:]` slicing.
+            # we have two things to use here:
+            #wordpiece_sizes: list of lists of sizes of wordpieces
+            #/dataset_ids: gold dataset_ids per word
+            # we now have to expand the dataset ids, so that we have 1 per wordpiece 
+            # instead of per word
+
+            data_ids = torch.zeros_like(token_ids)
+            for sent_idx in range(len(wordpiece_sizes)):
+                piece_idx = 0
+                for word_idx in range(min(len(wordpiece_sizes[sent_idx]), len(dataset_ids[sent_idx]))):
+                    for _ in range(wordpiece_sizes[sent_idx][word_idx]):
+                        if piece_idx >= len(data_ids[sent_idx]):
+                            continue
+                        data_ids[sent_idx][piece_idx] = dataset_ids[sent_idx][word_idx]
+                        piece_idx += 1
+            dataset_embeds = dataset_embedder(data_ids)
+            parameters['inputs_embeds'] = word_embeds+dataset_embeds
+
+
         transformer_output = self.transformer_model(**parameters)
         if self.layers_to_use == [-1]:
             embeddings = transformer_output[0]
@@ -197,12 +282,13 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
             selected_layers = hidden_states[self.layers_to_use]
             embeddings = self._scalar_mix(selected_layers)
 
-        # ROB: Here we copy the embedding of row 0 to the index of the removed row, just 
-        # to make it the same shape and to make sure everything > rmIdx still matches
-        for idx in rm: 
-            fullList = list(range(len(embeddings)))
-            fullList.insert(idx, 0)
-            embeddings = embeddings[fullList,:]
+        #if self._scalar_mix is not None:
+        #    # The hidden states will also include the embedding layer, which we don't
+        #    # include in the scalar mix. Hence the `[1:]` slicing.
+        #    hidden_states = transformer_output.hidden_states[1:]
+        #    embeddings = self._scalar_mix(hidden_states)
+        #else:
+        #    embeddings = transformer_output.last_hidden_state
 
         if fold_long_sequences:
             embeddings = self._unfold_long_sequences(
@@ -246,8 +332,8 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
             Shape: [batch_size * num_segments, self._max_length].
         """
         num_segment_concat_wordpieces = token_ids.size(1)
-        num_segments = math.ceil(num_segment_concat_wordpieces / self._max_length)
-        padded_length = num_segments * self._max_length
+        num_segments = math.ceil(num_segment_concat_wordpieces / self._max_length)  # type: ignore
+        padded_length = num_segments * self._max_length  # type: ignore
         length_to_pad = padded_length - num_segment_concat_wordpieces
 
         def fold(tensor):  # Shape: [batch_size, num_segment_concat_wordpieces]
@@ -306,8 +392,10 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
         # We want to remove all segment-level special tokens but maintain sequence-level ones
         num_wordpieces = num_segment_concat_wordpieces - (num_segments - 1) * self._num_added_tokens
 
-        embeddings = embeddings.reshape(batch_size, num_segments * self._max_length, embedding_size)
-        mask = mask.reshape(batch_size, num_segments * self._max_length)
+        embeddings = embeddings.reshape(
+            batch_size, num_segments * self._max_length, embedding_size  # type: ignore
+        )
+        mask = mask.reshape(batch_size, num_segments * self._max_length)  # type: ignore
         # We assume that all 1s in the mask precede all 0s, and add an assert for that.
         # Open an issue on GitHub if this breaks for you.
         # Shape: (batch_size,)
@@ -328,7 +416,7 @@ class MachampPretrainedTransformerEmbedder(TokenEmbedder):
 
         embeddings = embeddings.reshape(batch_size, num_segments, self._max_length, embedding_size)
         embeddings = embeddings[
-            :, :, self._num_added_start_tokens : -self._num_added_end_tokens, :
+            :, :, self._num_added_start_tokens : embeddings.size(2) - self._num_added_end_tokens, :
         ]  # truncate segment-level start/end tokens
         embeddings = embeddings.reshape(batch_size, -1, embedding_size)  # flatten
 

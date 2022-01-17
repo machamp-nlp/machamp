@@ -32,15 +32,25 @@ class MachampPredictor(Predictor):
             tok = [tok]
             for task_idx, task in enumerate(outputs['tasks'] if type(outputs['tasks']) is list else [outputs['tasks']]):
                 if task in outputs['col_idxs']:
-                    while outputs['col_idxs'][task] >= len(tok):
-                        tok.append('_')
-                    tok[outputs['col_idxs'][task]] = outputs[task]
+                    if type(outputs['col_idx']) == list:
+                        for one_col_idx, one_pred in zip(col_idx, outputs[task]):
+                            while one_col_idx >= len(tok):
+                                tok.append('_')
+                            tok[one_col_idx] = str(one_pred)
+                    else:
+                        while outputs['col_idxs'][task] >= len(tok):
+                            tok.append('_')
+                        tok[outputs['col_idxs'][task]] = str(outputs[task])
             return '\t'.join(tok) + '\n'
         else:
             for task_idx, task in enumerate(outputs['tasks'] if type(outputs['tasks']) is list else [outputs['tasks']]):
                 if task in outputs['col_idxs']:
                     col_idx = outputs['col_idxs'][task]
-                    tok[col_idx] = outputs[task]
+                    if type(col_idx) == list:
+                        for one_col_idx, one_pred in zip(col_idx, outputs[task]):
+                            tok[one_col_idx] = str(one_pred)
+                    else:
+                        tok[col_idx] = str(outputs[task])
             return '\t'.join(tok) + '\n'
 
     def to_str_seq2seq(self, outputs):
@@ -48,7 +58,7 @@ class MachampPredictor(Predictor):
         orig = outputs['full_data'][0]
         translation = ''
         for word in outputs[task][0]:
-            if word.startswith('##'):#TODO, this is BERT-based!
+            if word.startswith('##'):#TODO, this is BERT-based! if we can get a tokenizer here, we could use convert_tokens_to_string: https://stackoverflow.com/questions/66232938/how-to-untokenize-bert-tokens
                 word = word[2:]
                 translation += word
             else:
@@ -130,7 +140,7 @@ class MachampPredictor(Predictor):
             task_types.append(outputs['task_types'][task_idx])
 
         # classification
-        if task_types.count('classification') == len(task_types):
+        if sum([task_types.count(task) for task in ['classification', 'probdistr', 'regression']]) == len(task_types):
             return self.to_str_sentlevel(outputs)
         # generation
         elif 'seq2seq' in task_types:

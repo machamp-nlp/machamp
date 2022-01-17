@@ -8,8 +8,10 @@ from allennlp.models.model import Model
 from allennlp.modules import TimeDistributed
 from overrides import overrides
 from torch.nn.modules.linear import Linear
+from allennlp.training.metrics import CategoricalAccuracy, FBetaMeasure, FBetaMultiLabelMeasure
 
 from machamp.metrics.multi_span_based_f1_measure import MultiSpanBasedF1Measure
+from machamp.metrics.multi_accuracy import MultiAccuracy
 
 
 @Model.register("machamp_multiseq_decoder")
@@ -56,16 +58,15 @@ class MachampMultiTagger(Model):
         label_encoding: Optional[str] = None,
         verbose_metrics: bool = False,
         threshold: float = 0.5,
-        dataset_embeds_dim: int = 0,
+        dec_dataset_embeds_dim: int = 0,
         max_heads: int = 0,
         #focal_alpha: float = None) -> None:
         **kwargs,
     ) -> None:
         super().__init__(vocab, **kwargs)
-
         self.task = task
         self.vocab = vocab
-        self.input_dim = input_dim + dataset_embeds_dim
+        self.input_dim = input_dim + dec_dataset_embeds_dim
         self.loss_weight = loss_weight
         self.num_classes = self.vocab.get_vocab_size(task)
         self._verbose_metrics = verbose_metrics
@@ -75,13 +76,10 @@ class MachampMultiTagger(Model):
         self.threshold = threshold
         self.max_heads = max_heads
 
-        #self.metrics = {
-        #        "multi_span_f1": MultiSpanBasedF1Measure(
-        #        self.vocab, tag_namespace=self.task, label_encoding="BIO", threshold=self.threshold, max_heads=self.max_heads)
-        #}
+        #if metric == "f1":TODO
+        #    self.metrics = {"acc": FBetaMultiLabelMeasure()}
         if metric == "acc":
-            print(f"To use \"{metric}\", please use the \"seq\" or \"seq_bio\" decoder instead.")
-            sys.exit()
+            self.metrics = {"acc": MultiAccuracy()}
         elif metric == "span_f1":
             print(f"To use \"{metric}\", please use the \"seq_bio\" decoder instead.")
             sys.exit()
@@ -89,19 +87,9 @@ class MachampMultiTagger(Model):
             self.metrics = {"multi_span_f1": MultiSpanBasedF1Measure(
                 self.vocab, tag_namespace=self.task, label_encoding="BIO", 
                 threshold=self.threshold, max_heads=self.max_heads)}
-        elif metric == "micro-f1":
-            print(f"To use \"{metric}\", please use the \"seq\" or \"seq_bio\" decoder instead.")
-            sys.exit()
-        elif metric == "macro-f1":
-            print(f"To use \"{metric}\", please use the \"seq\" or \"seq_bio\" decoder instead.")
-            sys.exit()
         else:
-            print(f"ERROR. Metric \"{metric}\" unrecognized. Using multi span-based f1 score \"multi_span_f1\" instead.")
-            self.metrics = {"multi_span_f1": MultiSpanBasedF1Measure(
-                self.vocab, tag_namespace=self.task, label_encoding="BIO", 
-                threshold=self.threshold, max_heads=self.max_heads)}
-
-        #self._loss3 = torch.nn.BCEWithLogitsLoss()
+            print(f"ERROR. Metric \"{metric}\" not supported for task-type multiseq. Use multi span-based f1 score \"multi_span_f1\" or accuracy instead.")
+            exit(1)
 
     @overrides
     def forward(
@@ -165,8 +153,11 @@ class MachampMultiTagger(Model):
             else:
                 tag_mask = mask
             output_dict["loss"] = self.multi_class_cross_entropy_loss(logits, gold_labels, tag_mask) * self.loss_weight
-            for metric in self.metrics.values():
-                metric(class_probabilities, gold_labels, mask)
+            for metric in self.metrics:
+                if metric == 'multi_span_f1':
+                    self.metrics[metric](class_probabilities, gold_labels, mask)
+                else:
+                    self.metrics[metric](class_probabilities > self.threshold, gold_labels)
         return output_dict
 
     def multi_class_cross_entropy_loss(self,
@@ -409,12 +400,16 @@ class MachampMultiTagger(Model):
             j=0
             for pred in pred_over_thresh:
                 num_pred_over_thresh = numpy.count_nonzero(pred)
+                pred_idx_list = None
                 if (num_pred_over_thresh == 0) or (num_pred_over_thresh == 1):
                     pred_idx_list = [maxxx[j]]
 
                 else:
                     try:
-                        outside_position = pred_idx_list.index(outside_index)
+                        if pred_idx_list != None:
+                            outside_position = pred_idx_list.index(outside_index)
+                        else:
+                            outside_position = -1
                     except ValueError:
                         outside_position = -1
                     # get ranked list

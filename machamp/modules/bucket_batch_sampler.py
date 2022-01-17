@@ -2,7 +2,7 @@ import logging
 import math
 import os
 import random
-from typing import List, Iterable, Tuple, Iterator, TypeVar
+from typing import List, Iterable, Tuple, Iterator, TypeVar, Sequence
 from itertools import islice, zip_longest
 
 
@@ -30,7 +30,7 @@ def lazy_groups_of(indices: Iterable[A], group_size: int, sizes: Iterable[A], ba
     cur_batch = []
     cur_size = 0
     for indice, size in zip(indices, sizes):
-        # If the batch is saturated or the max #tokens is reached, return the batch and restart
+    # If the batch is saturated or the max #tokens is reached, return the batch and restart
         if (len(cur_batch) == batch_size and batch_size != -1) or (max_tokens != -1 and cur_size + size[0] > max_tokens):
             yield cur_batch
             cur_batch = [indice]
@@ -88,7 +88,7 @@ class BucketBatchSampler(BatchSampler):
 
     def __init__(
         self,
-        data_source: data.Dataset,
+        #data_source: data.Dataset,
         batch_size: int,
         sorting_keys: List[str] = None,
         padding_noise: float = 0.1,
@@ -97,11 +97,11 @@ class BucketBatchSampler(BatchSampler):
         max_tokens: int = -1,
     ):
 
-        self.vocab = data_source.vocab
+        #self.vocab = data_source.vocab
         self.sorting_keys = sorting_keys
         self.padding_noise = padding_noise
         self.batch_size = batch_size
-        self.data_source = data_source
+        #self.data_source = data_source
         self.drop_last = drop_last
         self.sampling_smoothing = sampling_smoothing
         self.first = True
@@ -155,7 +155,7 @@ class BucketBatchSampler(BatchSampler):
         for dataset in by_datasets:
             yield by_datasets[dataset]
         
-    def __iter__(self) -> Iterable[List[int]]:
+    def get_batch_indices(self, instances: Sequence[Instance]) -> Iterable[List[int]]:
         if self.first and os.path.isfile('docs/machamp.txt'):
             champ_txt = "\nMaChAmp succesfully initialized\n"
             for line in open('docs/machamp.txt'):
@@ -164,12 +164,12 @@ class BucketBatchSampler(BatchSampler):
             self.first = False
         
         is_train = True
-        for instance in self.data_source.instances:
+        for instance in instances:
             is_train = instance['metadata'].metadata['is_train']
             break
 
         all_batches = []
-        for dataset_indices, dataset_instances in self.group_by_dataset(self.data_source.instances):
+        for dataset_indices, dataset_instances in self.group_by_dataset(instances):
             # Rob: it now passes a list of instances as well as indices
             # because for the 2-n datasets, the indices shouldnt start at 0
             sorted_indices, lengths = self._argsort_by_padding(dataset_instances, dataset_indices)
@@ -259,9 +259,16 @@ class BucketBatchSampler(BatchSampler):
             )
         self.sorting_keys = [longest_field]
 
-    def __len__(self):
-        batch_count_float = len(self.data_source) / self.batch_size
+    def get_num_batches(self, instances: Sequence[Instance]) -> int:
+        batch_count_float = len(instances) / self.batch_size
         if self.drop_last:
             return math.floor(batch_count_float)
         else:
             return math.ceil(batch_count_float)
+
+    #def __len__(self):
+    #    batch_count_float = len(self.data_source) / self.batch_size
+    #    if self.drop_last:
+    #        return math.floor(batch_count_float)
+    #    else:
+    #        return math.ceil(batch_count_float)

@@ -20,8 +20,6 @@ parser.add_argument("input_file", type=str, help="The input file to predict")
 parser.add_argument("pred_file", type=str, help="The output prediction file")
 parser.add_argument("--dataset", default=None, type=str,
                     help="name of the dataset, needed to know the word_idx/sent_idxs to read from")
-#parser.add_argument("--write_scores", default=None, type=str, # TODO
-#                    help="If set, evaluate the prediction and store it in the given file")
 parser.add_argument("--device", default=None, type=int, help="CUDA device number; set to -1 for CPU")
 parser.add_argument("--batch_size", default=None, type=int, help="The size of each prediction batch")
 parser.add_argument("--raw_text", action="store_true", help="Input raw sentences, one per line in the input file.")

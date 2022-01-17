@@ -1,4 +1,5 @@
-from typing import Dict, Optional
+from collections import Counter
+from typing import Dict, Union, Optional
 
 import sys
 import numpy
@@ -47,16 +48,18 @@ class MachampTagger(Model):
         vocab: Vocabulary,
         input_dim: int,
         loss_weight: float= 1.0,
+        class_weights: Optional[Union[str, Dict[str, float]]] = None,
         metric: str = 'acc',
-        dataset_embeds_dim: int = 0,
+        dec_dataset_embeds_dim: int = 0,
         **kwargs,
     ) -> None:
         super().__init__(vocab, **kwargs)
 
         self.task = task
         self.vocab = vocab
-        self.input_dim = input_dim + dataset_embeds_dim
+        self.input_dim = input_dim + dec_dataset_embeds_dim
         self.loss_weight = loss_weight
+        self.class_weights = class_weights
         self.num_classes = self.vocab.get_vocab_size(task)
         self.tag_projection_layer = TimeDistributed(
             Linear(self.input_dim, self.num_classes)
@@ -85,6 +88,7 @@ class MachampTagger(Model):
         gold_labels: torch.LongTensor = None,
         mask: torch.LongTensor = None,
         ignore_loss_on_o_tags: bool = False,
+        label_counts: Dict[str, float] = None
     ) -> Dict[str, torch.Tensor]:
 
         """
@@ -128,6 +132,37 @@ class MachampTagger(Model):
             [batch_size, sequence_length, self.num_classes]
         )
 
+        ###
+        # Compute class weights for cross entropy loss if the class weights parameter is set (executed only at the first forward call)
+        if self.class_weights is not None:
+            # If they are explicitly defined in the config file, use these
+            if type(self.class_weights) is dict:
+                if len(self.class_weights.values()) > self.num_classes:
+                    logger.error(f"ERROR. Class weights must be {self.num_classes}, but {len(self.class_weights.values())} are defined.")
+                
+                weights: List[float] = [0.0] * self.num_classes
+                for label, weight in self.class_weights.items():
+                    label_idx = self.vocab.get_token_index(label, namespace=self.task)
+                    weights[label_idx] = weight
+                self.class_weights = torch.FloatTensor(weights).cuda()
+
+            # If they are set to True, compute them automatically
+            elif (self.class_weights == "balanced"):
+                num_samples, num_classes = sum(label_counts.values()), len(label_counts.values())
+
+                weights: List[float] = [0.0] * self.num_classes
+                for label, label_count in label_counts.items():
+                    weight = num_samples / float(num_classes * label_count)
+                    label_idx = self.vocab.get_token_index(label, namespace=self.task)
+                    weights[label_idx] = weight
+                # print(weights)
+                self.class_weights = torch.FloatTensor(weights).cuda()
+
+            # Class weights are already initialized
+            else:
+                pass
+        ###
+
         output_dict = {"logits": logits, "class_probabilities": class_probabilities}
 
         if gold_labels is not None:
@@ -136,9 +171,17 @@ class MachampTagger(Model):
                 tag_mask = mask & (gold_labels != o_tag_index)
             else:
                 tag_mask = mask
-            output_dict["loss"] = sequence_cross_entropy_with_logits(logits, gold_labels, tag_mask) * self.loss_weight
+
+            if self.class_weights is not None:
+                loss = sequence_cross_entropy_with_logits(logits, gold_labels, tag_mask, alpha=self.class_weights)
+            else:
+                loss = sequence_cross_entropy_with_logits(logits, gold_labels, tag_mask)
+
+            output_dict['loss'] = loss * self.loss_weight
+            
             for metric in self.metrics.values():
                 metric(class_probabilities, gold_labels, mask)
+
         return output_dict
 
     @overrides

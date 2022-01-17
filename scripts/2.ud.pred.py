@@ -3,7 +3,7 @@ import myutils
 
 UDWORDS = {}
 EMPTIES = set()
-for udPath in ['data/ud-treebanks-v' + myutils.UDversion + '.noEUD/', 'data/ud-treebanks-v2.extras.noEUD/']:
+for udPath in ['data/ud-treebanks-v' + myutils.UDversion + '.singleToken/', 'data/ud-treebanks-v2.extras.singleToken/']:
     for UDdir in os.listdir(udPath):
         if not (os.path.isdir(udPath + UDdir) and UDdir.startswith('UD')):
             continue

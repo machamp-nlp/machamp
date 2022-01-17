@@ -25,9 +25,10 @@ class MachampModel(Model):
             decoders: Dict[str, Model],
             tasks: List[str],
             task_types: List[str],
-            dataset_embeds_dim: int = 0,
+            dec_dataset_embeds_dim: int = 0,
             dropout: float = None,
-            dataset_embedder = None,
+            enc_dataset_embedder = None,
+            dec_dataset_embedder = None,
             **kwargs
     ) -> None:
         super().__init__(vocab, **kwargs)
@@ -37,14 +38,13 @@ class MachampModel(Model):
         self._classifier_input_dim = self.encoder.get_output_dim()
 
         if dropout:
-            # TODO: is the variational dropout better (for xlm?)
             self._dropout = InputVariationalDropout(dropout)
             self._dropout_sents = torch.nn.Dropout(dropout)
         else:
             self._dropout = None
 
         self.decoders = torch.nn.ModuleDict(decoders)
-        self.dataset_embeds_dim = dataset_embeds_dim
+        self.dec_dataset_embeds_dim = dec_dataset_embeds_dim
 
         self.tasks = tasks
         self.task_types = task_types
@@ -53,11 +53,14 @@ class MachampModel(Model):
         self.metrics = {}
         self.no_dev = False
 
-        self.dataset_embedder = dataset_embedder
+        self.dec_dataset_embedder = dec_dataset_embedder
+        if dec_dataset_embeds_dim not in [None, 0] and self.dec_dataset_embedder == None:
+            self.dec_dataset_embedder = Embedding(dec_dataset_embeds_dim, self.vocab.get_vocab_size("dec_dataset_embeds"))
 
-        self.dataset_embedder = None
-        if dataset_embeds_dim not in [None, 0]:
-            self.dataset_embedder = Embedding(dataset_embeds_dim, self.vocab.get_vocab_size("dataset_embeds"))
+        self.enc_dataset_embedder = enc_dataset_embedder
+        if self.enc_dataset_embedder == None and vocab.get_vocab_size('enc_dataset_embeds') > 0:
+            self.enc_dataset_embedder = Embedding(encoder.get_input_dim(), vocab.get_vocab_size("enc_dataset_embeds"))
+
 
 
     def forward(self,
@@ -68,14 +71,15 @@ class MachampModel(Model):
                 ) -> Dict[str, torch.Tensor]:
         """
         """
-        #print(tokens['tokens']['type_ids'].shape)
-        #tokens['tokens']['type_ids'] = torch.ones_like(tokens['tokens']['type_ids'])
-        #.shape, dtype=torch.long, device=tokens['tokens']['type_ids'].device)
-        #print(tokens['tokens']['type_ids'].shape)
+
         gold_labels = kwargs 
         tasks_to_handle = []
         task_types_to_handle = []
         self.no_dev = metadata[0]['no_dev']
+        self.label_counts = None
+        if 'label_counts' in metadata[0]:
+            self.label_counts = metadata[0]['label_counts']
+
         if self.no_dev:
             return {}
         for task, task_type in zip(self.tasks, self.task_types):
@@ -85,26 +89,31 @@ class MachampModel(Model):
                 tasks_to_handle.append(task)
                 task_types_to_handle.append(task_type)
 
-        sent_count = task_types_to_handle.count('classification')
+        sent_count = sum([task_types_to_handle.count(task) for task in ['classification', 'probdistr', 'regression']])
         mask = get_text_field_mask(tokens)
 
-        embedded_text = self._text_field_embedder(tokens)
+
+        if 'enc_dataset_embeds' in gold_labels:
+            embedded_text = self._text_field_embedder(tokens, dataset_ids=gold_labels['enc_dataset_embeds'], dataset_embedder=self.enc_dataset_embedder)
+        else:
+            embedded_text = self._text_field_embedder(tokens)
+
         if sent_count > 0:
             embedded_text_sent = self.encoder(self._text_field_embedder(tokens), mask=mask)
 
         # Use of dataset embeddings
-        if self.dataset_embeds_dim != 0:
-            if 'dataset_embeds' not in gold_labels:
+        if self.dec_dataset_embeds_dim != 0:
+            if 'dec_dataset_embeds' not in gold_labels:
                 logger.error('Dataset embeddings are enabled in the hyperparameters, but not in the dataset_config')
                 exit(1)
             # get embeds
             batch_size, _, _ = embedded_text.size()
-            embedded_dataset = self.dataset_embedder(gold_labels['dataset_embeds'])
-            embedded_dataset = embedded_dataset.view(batch_size, -1, self.dataset_embeds_dim)
+            embedded_dataset = self.dec_dataset_embedder(gold_labels['dec_dataset_embeds'])
+            embedded_dataset = embedded_dataset.view(batch_size, -1, self.dec_dataset_embeds_dim)
             embedded_text = torch.cat([embedded_text, embedded_dataset], -1)
             if sent_count > 0:
                 embedded_text_sent = torch.cat([embedded_text_sent, embedded_dataset[:,0,:]], -1)
-        elif 'dataset_embeds' in gold_labels:
+        elif 'dec_dataset_embeds' in gold_labels:
             logger.error('Dataset embeddings are enabled in the dataset config, but have a size of 0 (and thus no effect)')
             exit(1)
 
@@ -125,9 +134,14 @@ class MachampModel(Model):
         loss = 0.0
 
         for task, task_type in zip(tasks_to_handle, task_types_to_handle):
-            if task_type == 'classification':
+            if task_type in ['classification', 'probdistr', 'regression']:
                 task_gold_labels = None if task not in gold_labels else gold_labels[task]
-                pred_output = self.decoders[task].forward(embedded_text_sent, task_gold_labels)
+                # pred_output = self.decoders[task].forward(embedded_text_sent, task_gold_labels)
+                if self.label_counts != None:
+                    pred_output = self.decoders[task].forward(embedded_text_sent, task_gold_labels, label_counts=self.label_counts[task])
+                else:
+                    pred_output = self.decoders[task].forward(embedded_text_sent, task_gold_labels)
+    
                 class_probabilities[task] = pred_output["class_probabilities"]
             elif task_type == 'dependency':
                 tags_gold_labels = None if task + '_rels' not in gold_labels else gold_labels[task + '_rels']
@@ -143,6 +157,14 @@ class MachampModel(Model):
             elif task_type == 'seq2seq':
                 task_gold_labels = None if 'target' not in gold_labels else gold_labels['target']
                 pred_output = self.decoders[task].forward(embedded_text, mask, task_gold_labels)
+                class_probabilities[task] = pred_output["class_probabilities"]
+            elif task_type == 'seq':
+                task_gold_labels = None if task not in gold_labels else gold_labels[task]
+                # pred_output = self.decoders[task].forward(embedded_text, task_gold_labels, mask=mask)
+                if self.label_counts != None:
+                    pred_output = self.decoders[task].forward(embedded_text, task_gold_labels, mask=mask, label_counts=self.label_counts[task])
+                else:
+                    pred_output = self.decoders[task].forward(embedded_text, task_gold_labels, mask=mask)
                 class_probabilities[task] = pred_output["class_probabilities"]
             else:
                 task_gold_labels = None if task not in gold_labels else gold_labels[task]
@@ -199,7 +221,7 @@ class MachampModel(Model):
         metrics = {}
         for task in self.tasks:
             for name, task_metric in self.decoders[task].get_metrics(reset).items():
-                if name.split("/")[-1] in ["acc", 'perplexity']:
+                if name.split("/")[-1] in ["acc", 'perplexity', 'pearson', 'spearman']:
                     metrics[name] = task_metric
                 elif name.split('/')[-1].lower() in ['las']:
                     metrics[name] = task_metric['LAS']

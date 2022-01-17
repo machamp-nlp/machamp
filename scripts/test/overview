@@ -1,0 +1,15 @@
+Tests:
+
+-download data:
+0.prep.*
+- test performance each decoder:
+1.tasks.py
+- Check tokenization for each decoder
+- dataset embeddings encoder/decoder
+- dataset smoothing
+- change metrics
+- retrain a machamp model
+- loss weight/class weight
+- predict without gold
+- predict with --raw_text
+

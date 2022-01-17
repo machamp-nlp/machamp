@@ -1,0 +1,15 @@
+python3 train.py --dataset_config configs/ewt.json
+
+python3 predict.py logs/ewt/*/model.tar.gz data/ud-treebanks-v2.9.singleToken/UD_English-EWT/en_ewt-ud-dev.conllu ewt.pred.out
+
+cat data/ewt.dev | grep -v "^#" | cut -f 2 | tr '\n' ' ' | sed "s;  ;\n;g" > ewt.txt
+python3 predict.py logs/ewt/*/model.tar.gz ewt.txt > ewt.raw.out
+python3 scripts/test/fix.py ewt.raw.out
+
+python3 scripts/misc/conll18_ud_eval.py data/ud-treebanks-v2.9.singleToken/UD_English-EWT/en_ewt-ud-dev.conllu logs/ewt/*/UD.dev.out
+python3 scripts/misc/conll18_ud_eval.py data/ud-treebanks-v2.9.singleToken/UD_English-EWT/en_ewt-ud-dev.conllu ewt.pred.out
+python3 scripts/misc/conll18_ud_eval.py data/ud-treebanks-v2.9.singleToken/UD_English-EWT/en_ewt-ud-dev.conllu ewt.raw.out.fixed
+
+python3 train.py --dataset_config configs/qnli.json
+
+

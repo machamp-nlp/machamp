@@ -1,14 +1,17 @@
 {
     "QNLI": {
-        "train_data_path": "data/glue/QNLI.train",
-        "validation_data_path": "data/glue/QNLI.dev",
-        "sent_idxs": [0,1],
+        "train_data_path": "data/GLUE-baselines/glue_data/QNLI/train.tsv",
+        "validation_data_path": "data/GLUE-baselines/glue_data/QNLI/dev.tsv",
+        "sent_idxs": [
+            1,
+            2
+        ],
+        "skip_first_line": true,
         "tasks": {
             "qnli": {
-                "column_idx": 2,
+                "column_idx": 3,
                 "task_type": "classification"
             }
         }
     }
 }
-

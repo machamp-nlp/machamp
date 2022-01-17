@@ -20,7 +20,7 @@ class BertBasicTokenizer(Tokenizer):
     def add_special_tokens(
         self, tokens1: List[Token], tokens2: Optional[List[Token]] = None
     ) -> List[Token]:
-        # TODO do not use hardcoded?
+        # TODO do not use hardcoded? this is not even correct?
         return [Token('[CLS]')] + tokens1 + (tokens2 or []) + [Token('[SEP]')]
 
     @overrides

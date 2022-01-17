@@ -6,3 +6,5 @@ from machamp.models.mlm_decoder import MachampMaskedLanguageModel
 from machamp.models.multiseq_decoder import MachampMultiTagger
 from machamp.models.crf_decoder import MachampCrfTagger
 from machamp.models.seq2seq_decoder import MachampSeq2SeqDecoder
+from machamp.models.probdistr_decoder import MachampProbDistribution
+from machamp.models.regression_decoder import MachampRegressionDecoder

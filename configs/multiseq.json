@@ -1,12 +1,12 @@
 {
-    "MULTISEQ": {
-        "train_data_path": "data/da_news_train_mh.tsv",
-        "validation_data_path": "data/da_news_dev_mh.tsv",
-        "word_idx": 0,
+    "UD_EWT": {
+        "train_data_path": "data/ewt.train",
+        "validation_data_path": "data/ewt.dev",
+        "word_idx": 1,
         "tasks": {
-            "ner2": {
+            "feats": {
                 "task_type": "multiseq",
-                "column_idxs": 1
+                "column_idx": 5
             }
         }
     }

@@ -46,7 +46,7 @@ class MachampMaskedLanguageModel(Model):
         input_dim: int,
         pretrained_model: str,
         loss_weight: float = 1.0,
-        dataset_embeds_dim: int = 0,
+        dec_dataset_embeds_dim: int = 0,
         metric: str = 'perplexity',
         **kwargs,
     ) -> None:
@@ -79,7 +79,7 @@ class MachampMaskedLanguageModel(Model):
                             exit(1)
 
         self.task = task
-        self.input_dim = input_dim + dataset_embeds_dim
+        self.input_dim = input_dim + dec_dataset_embeds_dim
         self.loss_weight = loss_weight
         self.loss_fct = torch.nn.CrossEntropyLoss(ignore_index=-100)
         

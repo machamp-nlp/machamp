@@ -3,7 +3,7 @@
 
 This is a [deep biaffine parser](https://openreview.net/pdf?id=Hk95PK9le), which is used similarly
 as the [seq](seq.md) task type. However, it has one peculiarity, namely that it reads data
-from two columns. However, you only have to define the first column (which should be the index of
+from two columns. You only have to define the first column (which should be the index of
 the head), and then it automatically reads the labels from the column behind it:
 
 ```

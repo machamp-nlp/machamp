@@ -71,14 +71,14 @@ class MachampCrfTagger(Model):
         calculate_span_f1: bool = None,
         verbose_metrics: bool = False,
         metric: str = 'span_f1',
-        dataset_embeds_dim: int = 0,
+        dec_dataset_embeds_dim: int = 0,
         top_k: int = 1,
         **kwargs,
     ) -> None:
         super().__init__(vocab, **kwargs)
 
         self.task = task
-        self.input_dim = input_dim + dataset_embeds_dim
+        self.input_dim = input_dim + dec_dataset_embeds_dim
         self.loss_weight = loss_weight
         self.num_tags = self.vocab.get_vocab_size(task)
         self.top_k = top_k

@@ -72,14 +72,14 @@ class MachampBiaffineDependencyParser(Model):
         loss_weight: float=1.0,
         metric: str = 'las',
         use_mst_decoding_for_validation: bool = True,
-        dataset_embeds_dim: int = 0,
+        dec_dataset_embeds_dim: int = 0,
         **kwargs,
     ) -> None:
         super().__init__(vocab, **kwargs)
 
         self.task = task
-        self.input_dim = input_dim + dataset_embeds_dim
-        arc_representation_dim = arc_representation_dim + dataset_embeds_dim 
+        self.input_dim = input_dim + dec_dataset_embeds_dim
+        arc_representation_dim = arc_representation_dim + dec_dataset_embeds_dim 
         self.loss_weight = loss_weight
 
         self.head_arc_feedforward = FeedForward(

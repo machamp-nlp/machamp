@@ -14,6 +14,33 @@ variety of standard NLP tasks.  For more information we refer to the paper:
 [Massive Choice, Ample Tasks (MACHAMP): A Toolkit for Multi-task Learning in
 NLP](https://arxiv.org/pdf/2005.14672.pdf)
 
+**note** This is a beta version of v0.3, the following issues are known:
+
+* memory usage is slightly higher
+* performance of seq2seq is worse
+* probdistr has a negative loss
+* regression seems to get a too high score (on STS)
+
+However, the following features are new:
+
+* Updated to AllenNLP 2.8.0 (can now use RemBERT)
+* Added option to skip the first line of a dataset (skip\_first\_line)
+* Added probdistr tasktype
+* Added regression tasktype
+* Fixed bug so that all training data is used (previously one sample was lost for every batch)
+* Added functionality to balance labels
+* Fixed --raw_text
+* Can now predict on data without annotation
+* Switched to | for splitting labels in multiseq, and 
+* Support accuarcy metric for multiseq
+* Redid tuning on xtreme, details will be published later
+* Completely reimplemented dataset readers, should be easier to maintain in the future
+* Removed option to lowercase data, as it is done automatically 
+* Added encoder and decoder embeddings
+* Removed hack when some, but not all sentences in a batch are > max_len, as it is resolved in the underlying libraries
+* Use segment ID's like 000011110000 for a three sentence input (where all 0s before)
+
+
 [![Machamp](docs/architecture.png)]()
 
 ## Installation
@@ -81,6 +108,9 @@ You can set `--device -1` to use the cpu. The model will be saved in
 corresponding configuration files, these can be found in the `configs` and the
 `test` directory.
 
+If your data contains column headers, `skip_first_line` can be set to true on 
+the dataset level, and the first line of the file will be ignored.
+
 **Warning** We currently do not support the enhanced UD format, where words are
 splitted or inserted. The script `scripts/misc/cleanConll.py` can be used to
 remove these.  (This script makes use of
@@ -134,6 +164,7 @@ do supertagging (from the PMB), jointly with XPOS tags (from the UD) and RTE
 
 It should be noted that to do real multi-task learning, the tasks should have different names. For example, having two tasks with the name `upos` in two different datasets, will effectively lead to concatenating the data and threating it as one task. If they are instead named `upos_ewt` and `upos_gum`, then they will each have their own decoder.
 
+
 ## Prediction
 For predicting on new data you can use `predict.py`, and provide it with the
 model-archive, input data, and an output path:
@@ -161,6 +192,8 @@ Task types:
 * [multiseq](docs/multiseq.md): sequence labeling when the number of labels for each instance is not known in advance.
 * [dependency](docs/dependency.md): dependency parsing.
 * [classification](docs/classification.md): sentence classification, predicts a label for N utterances of text.
+* [regression](docs/regression.md): predicts real (floating point) numbers on the sentence level.
+* [probdistr](docs/probdistr.md): predict a distribution of labels on the sentence level.
 * [mlm](docs/mlm.md): masked language modeling.
 * [seq2seq](docs/seq2seq.md): sequence to sequence generation (e.g. machine translation).
 
@@ -174,7 +207,8 @@ Other things:
 * [Change evaluation metric](docs/metrics.md)
 * [Hyperparameters](docs/hyper.md)
 * [Sampling (smoothing) datasets](docs/sampling.md)
-* [Task-specific parameters](docs/task_params.md) (loss weight)
+* [Loss weights](docs/loss_weights.md) (loss weight, class weight)
+* [Label balancing](docs/label_balancing.md) (loss weight, class weight)
 * [Adding a new task-type](docs/new_task_type.md)
 * [Fine-tuning on a MaChAmp model](docs/finetuning.md)
 * [Results](docs/results.md)
