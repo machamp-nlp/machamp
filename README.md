@@ -20,7 +20,7 @@ NLP](https://arxiv.org/pdf/2005.14672.pdf)
 * performance of seq2seq is worse
 * probdistr has a negative loss
 * regression seems to get a too high score (on STS)
-* label balancing might be broken, because of the padding/unknown label
+* macro-f1 is calculated incorrectly, as the @@unknown@@ and @@padding@@ from allennlp are calculated as classes
 
 However, the following features are new:
 
