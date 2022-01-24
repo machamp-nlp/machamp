@@ -6,8 +6,10 @@ import sys
 import torch
 from allennlp.data import TextFieldTensors, Vocabulary
 from allennlp.models.model import Model
-from allennlp.training.metrics import CategoricalAccuracy, FBetaMeasure
+from allennlp.training.metrics import CategoricalAccuracy
 from overrides import overrides
+
+from machamp.metrics.fbeta_measure import FBetaMeasure
 
 logger = logging.getLogger(__name__)
 

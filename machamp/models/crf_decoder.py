@@ -8,10 +8,11 @@ from allennlp.models.model import Model
 from allennlp.modules import ConditionalRandomField
 from allennlp.modules import TimeDistributed
 from allennlp.modules.conditional_random_field import allowed_transitions
-from allennlp.training.metrics import CategoricalAccuracy, SpanBasedF1Measure, FBetaMeasure
+from allennlp.training.metrics import CategoricalAccuracy, SpanBasedF1Measure
 from overrides import overrides
 from torch.nn.modules.linear import Linear
 
+from machamp.metrics.fbeta_measure import FBetaMeasure
 
 @Model.register("machamp_crf_decoder")
 class MachampCrfTagger(Model):

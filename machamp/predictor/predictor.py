@@ -50,6 +50,8 @@ class MachampPredictor(Predictor):
                         for one_col_idx, one_pred in zip(col_idx, outputs[task]):
                             tok[one_col_idx] = str(one_pred)
                     else:
+                        while outputs['col_idxs'][task] >= len(tok):
+                            tok.append('_')
                         tok[col_idx] = str(outputs[task])
             return '\t'.join(tok) + '\n'
 

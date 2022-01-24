@@ -61,9 +61,15 @@ def read_classification(dataset, config, path, is_train, max_sents, token_indexe
             task_type = config['tasks'][task]['task_type']
             if task_type == 'classification':
                 task_idx = config['tasks'][task]['column_idx']
+                if task_idx >= len(data_instance) and not is_train:
+                    col_idxs[task] = task_idx
+                    continue
                 instance.add_field(task, LabelField(data_instance[task_idx], label_namespace=task))
             elif task_type == 'probdistr':
                 task_idxs = config['tasks'][task]['column_idxs']
+                if task_idx >= len(data_instance) and not is_train:
+                    col_idxs[task] = task_idx
+                    continue
                 labels = [float(data_instance[x]) for x in task_idxs]
                 instance.add_field(task, TensorField(torch.tensor(labels)))
                 if sent_counter < len(labels):
@@ -73,6 +79,9 @@ def read_classification(dataset, config, path, is_train, max_sents, token_indexe
                 task_idx = task_idxs
             elif task_type == 'regression':
                 task_idx = config['tasks'][task]['column_idx']
+                if task_idx >= len(data_instance) and not is_train:
+                    col_idxs[task] = task_idx
+                    continue
                 instance.add_field(task, TensorField(torch.tensor(float(data_instance[task_idx]))))
             else:
                 logger.error('Task type ' + task_type + ' for task ' + task + ' in dataset ' +

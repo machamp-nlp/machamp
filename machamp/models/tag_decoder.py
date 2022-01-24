@@ -9,9 +9,10 @@ from allennlp.data import Vocabulary
 from allennlp.models.model import Model
 from allennlp.modules import TimeDistributed
 from allennlp.nn.util import sequence_cross_entropy_with_logits
-from allennlp.training.metrics import CategoricalAccuracy, FBetaMeasure
+from allennlp.training.metrics import CategoricalAccuracy
 from overrides import overrides
 from torch.nn.modules.linear import Linear
+from machamp.metrics.fbeta_measure import FBetaMeasure
 
 
 @Model.register("machamp_tag_decoder")

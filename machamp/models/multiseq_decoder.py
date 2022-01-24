@@ -8,7 +8,7 @@ from allennlp.models.model import Model
 from allennlp.modules import TimeDistributed
 from overrides import overrides
 from torch.nn.modules.linear import Linear
-from allennlp.training.metrics import CategoricalAccuracy, FBetaMeasure, FBetaMultiLabelMeasure
+from allennlp.training.metrics import CategoricalAccuracy, FBetaMultiLabelMeasure
 
 from machamp.metrics.multi_span_based_f1_measure import MultiSpanBasedF1Measure
 from machamp.metrics.multi_accuracy import MultiAccuracy

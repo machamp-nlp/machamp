@@ -141,7 +141,6 @@ class MachampModel(Model):
                     pred_output = self.decoders[task].forward(embedded_text_sent, task_gold_labels, label_counts=self.label_counts[task])
                 else:
                     pred_output = self.decoders[task].forward(embedded_text_sent, task_gold_labels)
-    
                 class_probabilities[task] = pred_output["class_probabilities"]
             elif task_type == 'dependency':
                 tags_gold_labels = None if task + '_rels' not in gold_labels else gold_labels[task + '_rels']
@@ -179,10 +178,8 @@ class MachampModel(Model):
             s2s_and_in = task_type == "seq2seq" and 'target_words' in gold_labels
             if dep_and_in or s2s_and_in or task in gold_labels:
                 loss += pred_output["loss"]
-
         if gold_labels:
             output_dict['loss'] = loss
-
         if metadata is not None:
             output_dict["tokens"] = [x["tokens"] for x in metadata]
             output_dict["full_data"] = [x['full_data'] for x in metadata]

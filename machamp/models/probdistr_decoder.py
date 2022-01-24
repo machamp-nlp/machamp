@@ -6,7 +6,7 @@ import sys
 import torch
 from allennlp.data import TextFieldTensors, Vocabulary
 from allennlp.models.model import Model
-from allennlp.training.metrics import CategoricalAccuracy, FBetaMeasure
+from allennlp.training.metrics import CategoricalAccuracy
 from overrides import overrides
 from machamp.modules import sequence_cross_entropy_with_logits
 
@@ -65,10 +65,6 @@ class MachampProbDistribution(Model):
         elif self.metric == "multi_span_f1":
             print(f"To use \"{metric}\", please use the \"multiseq\" decoder instead.")
             sys.exit()
-        elif self.metric == "micro-f1":
-            self.metrics = {"micro-f1": FBetaMeasure(average='micro')}
-        elif self.metric == "macro-f1":
-            self.metrics = {"macro-f1": FBetaMeasure(average='macro')}
         else:
             print(f"ERROR. Metric \"{metric}\" unrecognized. Using accuracy \"acc\" instead.")
             self.metrics = {"acc": CategoricalAccuracy()}

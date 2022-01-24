@@ -6,7 +6,7 @@ import sys
 import torch
 from allennlp.data import TextFieldTensors, Vocabulary
 from allennlp.models.model import Model
-from allennlp.training.metrics import CategoricalAccuracy, FBetaMeasure, PearsonCorrelation, SpearmanCorrelation
+from allennlp.training.metrics import CategoricalAccuracy, PearsonCorrelation, SpearmanCorrelation
 from overrides import overrides
 from machamp.modules import sequence_cross_entropy_with_logits
 
