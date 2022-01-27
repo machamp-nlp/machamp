@@ -10,6 +10,6 @@
 
 
 allennlp==2.8.0
-filelock==3.4.0
+filelock==3.3.2
 networkx
 
