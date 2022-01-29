@@ -132,7 +132,35 @@ do supertagging (from the PMB), jointly with XPOS tags (from the UD) and RTE
 }
 ``` 
 
-It should be noted that to do real multi-task learning, the tasks should have different names. For example, having two tasks with the name `upos` in two different datasets, will effectively lead to concatenating the data and threating it as one task. If they are instead named `upos_ewt` and `upos_gum`, then they will each have their own decoder.
+It should be noted that to do real multi-task learning, the *tasks should have different names*. For example, having two tasks with the name `upos` in two different datasets, will effectively lead to concatenating the data and threating it as one task. If they are instead named `upos_ewt` and `upos_gum`, then they will each have their own decoder. This MTL setup is illustrated here:
+
+```
+{
+    "POS1": {
+        "train_data_path": "data/ud_ewt_train.conllu",
+        "validation_data_path": "data/ud_ewt_dev.conllu",
+        "word_idx": 1,
+        "tasks": {
+            "upos_ewt": {
+                "task_type": "seq",
+                "column_idx": 3
+            }
+        }
+    }
+   "POS2": {
+        "train_data_path": "data/ud_gum_train.conllu",
+        "validation_data_path": "data/ud_gum_dev.conllu",
+        "word_idx": 1,
+        "tasks": {
+            "upos_gum": {
+                "task_type": "seq",
+                "column_idx": 3
+            }
+        }
+    }
+  
+}
+```
 
 ## Prediction
 For predicting on new data you can use `predict.py`, and provide it with the
