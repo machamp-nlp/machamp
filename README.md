@@ -236,12 +236,22 @@ A: You can't, because the first author thinks you shouldn't, this would automati
 
 Q: what should I cite?  
 ```
-@misc{vandergoot-etal-2021-machamp,
-    title={Massive Choice, Ample Tasks (MaChAmp):A Toolkit for Multi-task Learning in NLP},
-    author={van der Goot, Rob and {\"U}st{\"u}n, Ahmet and Ramponi, Alan and Sharaf, Ibrahim and Plank, Barbara},
-    year={2021},
+@inproceedings{van-der-goot-etal-2021-massive,
+    title = "Massive Choice, Ample Tasks ({M}a{C}h{A}mp): A Toolkit for Multi-task Learning in {NLP}",
+    author = {van der Goot, Rob  and
+      {\"U}st{\"u}n, Ahmet  and
+      Ramponi, Alan  and
+      Sharaf, Ibrahim  and
+      Plank, Barbara},
+    booktitle = "Proceedings of the 16th Conference of the European Chapter of the Association for Computational Linguistics: System Demonstrations",
+    month = apr,
+    year = "2021",
+    address = "Online",
     publisher = "Association for Computational Linguistics",
-    booktitle={Proceedings of the 16th Conference of the {E}uropean Chapter of the Association for Computational Linguistics: System Demonstrations}
+    url = "https://aclanthology.org/2021.eacl-demos.22",
+    doi = "10.18653/v1/2021.eacl-demos.22",
+    pages = "176--197",
+    abstract = "Transfer learning, particularly approaches that combine multi-task learning with pre-trained contextualized embeddings and fine-tuning, have advanced the field of Natural Language Processing tremendously in recent years. In this paper we present MaChAmp, a toolkit for easy fine-tuning of contextualized embeddings in multi-task settings. The benefits of MaChAmp are its flexible configuration options, and the support of a variety of natural language processing tasks in a uniform toolkit, from text classification and sequence labeling to dependency parsing, masked language modeling, and text generation.",
 }
 ```
 
