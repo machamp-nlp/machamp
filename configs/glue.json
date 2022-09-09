@@ -1,113 +1,150 @@
 {
-    "CoLa": {
-        "train_data_path": "data/glue/CoLA.train",
-        "validation_data_path": "data/glue/CoLA.dev",
-        "sent_idxs": [0],
-        "tasks": {
-            "cola": {
-                "column_idx": 1,
-                "task_type": "classification"
-            }
-        }
-    },
-    "MNLI": {
-        "train_data_path": "data/glue/MNLI.train",
-        "validation_data_path": "data/glue/MNLI.dev",
-        "sent_idxs": [0,1],
-        "tasks": {
-            "mnli": {
-                "column_idx": 2,
-                "task_type": "classification"
-            }
-        }
-    },
-    "MNLI-MIS": {
-        "train_data_path": "data/glue/MNLI.train",
-        "validation_data_path": "data/glue/MNLI-mis.dev",
-        "sent_idxs": [0,1],
-        "tasks": {
-            "mnli-mis": {
-                "column_idx": 2,
-                "task_type": "classification"
-            }
-        }
-    },
-    "MRPC": {
-        "train_data_path": "data/glue/MRPC.train",
-        "validation_data_path": "data/glue/MRPC.dev",
-        "sent_idxs": [0,1],
-        "tasks": {
-            "mrpc": {
-                "column_idx": 2,
-                "task_type": "classification"
-            }
-        }
-    },
-    "QNLI": {
-        "train_data_path": "data/glue/QNLI.train",
-        "validation_data_path": "data/glue/QNLI.dev",
-        "sent_idxs": [0,1],
-        "tasks": {
-            "qnli": {
-                "column_idx": 2,
-                "task_type": "classification"
-            }
-        }
-    },
-    "QQP": {
-        "train_data_path": "data/glue/QQP.train",
-        "validation_data_path": "data/glue/QQP.dev",
-        "sent_idxs": [0,1],
-        "tasks": {
-            "qqp": {
-                "column_idx": 2,
-                "task_type": "classification"
-            }
-        }
-    },
-    "RTE": {
-        "train_data_path": "data/glue/RTE.train",
-        "validation_data_path": "data/glue/RTE.dev",
-        "sent_idxs": [0,1],
-        "tasks": {
-            "rte": {
-                "column_idx": 2,
-                "task_type": "classification"
-            }
-        }
-    },
-    "SNLI": {
-        "train_data_path": "data/glue/SNLI.train",
-        "validation_data_path": "data/glue/SNLI.dev",
-        "sent_idxs": [0,1],
-        "tasks": {
-            "snli": {
-                "column_idx": 2,
-                "task_type": "classification"
-            }
-        }
-    },
-    "SST-2": {
-        "train_data_path": "data/glue/SST-2.train",
-        "validation_data_path": "data/glue/SST-2.dev",
-        "sent_idxs": [0],
-        "tasks": {
-            "sst": {
-                "column_idx": 1,
-                "task_type": "classification"
-            }
-        }
-    },
-    "WNLI": {
-        "train_data_path": "data/glue/WNLI.train",
-        "validation_data_path": "data/glue/WNLI.dev",
-        "sent_idxs": [0,1],
-        "tasks": {
-            "sst": {
-                "column_idx": 2,
-                "task_type": "classification"
-            }
-        }
+  "CoLa": {
+    "train_data_path": "data/GLUE-baselines/glue_data/CoLA/train.tsv",
+    "dev_data_path": "data/GLUE-baselines/glue_data/CoLA/dev.tsv",
+    "sent_idxs": [
+      3
+    ],
+    "tasks": {
+      "acceptability": {
+        "column_idx": 1,
+        "task_type": "classification"
+      }
     }
+  },
+  "MNLI": {
+    "train_data_path": "data/GLUE-baselines/glue_data/MNLI/train.tsv",
+    "dev_data_path": "data/GLUE-baselines/glue_data/MNLI/dev_matched.tsv",
+    "skip_first_line": true,
+    "sent_idxs": [
+      8,
+      9
+    ],
+    "tasks": {
+      "mnli": {
+        "column_idx": 11,
+        "task_type": "classification"
+      }
+    }
+  },
+  "MRPC": {
+    "train_data_path": "data/GLUE-baselines/glue_data/MRPC/train.tsv",
+    "dev_data_path": "data/GLUE-baselines/glue_data/MRPC/train.tsv",
+    "skip_first_line": true,
+    "sent_idxs": [
+      3,
+      4
+    ],
+    "tasks": {
+      "mrpc": {
+        "column_idx": 0,
+        "task_type": "classification"
+      }
+    }
+  },
+  "QNLI": {
+    "train_data_path": "data/GLUE-baselines/glue_data/QNLI/train.tsv",
+    "dev_data_path": "data/GLUE-baselines/glue_data/QNLI/dev.tsv",
+    "skip_first_line": true,
+    "sent_idxs": [
+      1,
+      2
+    ],
+    "tasks": {
+      "qnli": {
+        "column_idx": 3,
+        "task_type": "classification"
+      }
+    }
+  },
+  "QQP": {
+    "train_data_path": "data/GLUE-baselines/glue_data/QQP/train.tsv",
+    "dev_data_path": "data/GLUE-baselines/glue_data/QQP/dev.tsv",
+    "skip_first_line": true,
+    "sent_idxs": [
+      3,
+      4
+    ],
+    "tasks": {
+      "qqp": {
+        "column_idx": 5,
+        "task_type": "classification"
+      }
+    }
+  },
+  "RTE": {
+    "train_data_path": "data/GLUE-baselines/glue_data/RTE/train.tsv",
+    "dev_data_path": "data/GLUE-baselines/glue_data/RTE/dev.tsv",
+    "skip_first_line": true,
+    "sent_idxs": [
+      1,
+      2
+    ],
+    "tasks": {
+      "rte": {
+        "column_idx": 3,
+        "task_type": "classification"
+      }
+    }
+  },
+  "SNLI": {
+    "train_data_path": "data/GLUE-baselines/glue_data/SNLI/train.tsv",
+    "dev_data_path": "data/GLUE-baselines/glue_data/SNLI/dev.tsv",
+    "skip_first_line": true,
+    "sent_idxs": [
+      7,
+      8
+    ],
+    "tasks": {
+      "snli": {
+        "column_idx": 10,
+        "task_type": "classification"
+      }
+    }
+  },
+  "SST-2": {
+    "train_data_path": "data/GLUE-baselines/glue_data/SST-2/train.tsv",
+    "dev_data_path": "data/GLUE-baselines/glue_data/SST-2/dev.tsv",
+    "skip_first_line": true,
+    "sent_idxs": [
+      0
+    ],
+    "tasks": {
+      "sst": {
+        "column_idx": 1,
+        "task_type": "classification"
+      }
+    }
+  },
+  "WNLI": {
+    "train_data_path": "data/GLUE-baselines/glue_data/WNLI/train.tsv",
+    "dev_data_path": "data/GLUE-baselines/glue_data/WNLI/dev.tsv",
+    "skip_first_line": true,
+    "sent_idxs": [
+      1,
+      2
+    ],
+    "tasks": {
+      "wnli": {
+        "column_idx": 3,
+        "task_type": "classification"
+      }
+    }
+  },
+  "STS-B": {
+    "train_data_path": "data/GLUE-baselines/glue_data/STS-B/train.tsv",
+    "dev_data_path": "data/GLUE-baselines/glue_data/STS-B/dev.tsv",
+    "skip_first_line": true,
+    "sent_idxs": [
+      7,
+      9
+    ],
+    "tasks": {
+      "sts-b": {
+        "column_idx": 9,
+        "task_type": "regression"
+      }
+    }
+  }
 }
 

@@ -1,4 +1,5 @@
 ### classification task-type
+
 [back to main README](../README.md)
 
 For the classification task, the system reads one instance per line. Similarly
@@ -12,7 +13,7 @@ utterances (they will be concatenated internally, with a SEP token inbetween).
 {
     "RTE": {
         "train_data_path": "data/glue/RTE.train",
-        "validation_data_path": "data/glue/RTE.dev",
+        "dev_data_path": "data/glue/RTE.dev",
         "sent_idxs": [0,1],
         "tasks": {
             "rte": {
@@ -32,6 +33,7 @@ situation, the name of the task should match the label used in the comment, and
 the `column_idx` should be set to -1.
 
 If your data looks like this:
+
 ```
 # text: tell me the weather report for half moon bay
 # intent: weather/find
@@ -54,7 +56,7 @@ The dataset configuration should be (note that `intent' should match with line 2
 {
     "NLU": {
         "train_data_path": "data/nlu/en/train-en.conllu",
-        "validation_data_path": "data/nlu/en/eval-en.conllu",
+        "dev_data_path": "data/nlu/en/eval-en.conllu",
         "word_idx": 1,
         "tasks": {
             "slots": {

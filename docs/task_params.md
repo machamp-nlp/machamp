@@ -1,16 +1,17 @@
 ### Task-specific parameters
+
 [back to main README](../README.md)
 
-At the moment, the only important metric to define on the task-level is `loss_weight`.
-This can be used in a multi-task setting, when some tasks should get less priority while
-updating the parameters (because it is less important, easier, or because it has more training data).
-It can be set as follows:
+You can set the metric and the loss weight per task. The loss weight is mostly
+useful in a multi-task setting, when some tasks should get less priority while
+updating the parameters (because it is less important, easier, or because it
+has more training data). It can be set as follows:
 
 ```
 {
     "UD-EWT": {
         "train_data_path": "data/ewt.train",
-        "validation_data_path": "data/ewt.dev",
+        "dev_data_path": "data/ewt.dev",
         "word_idx": 1,
         "tasks": {
             "upos": {
@@ -30,3 +31,4 @@ It can be set as follows:
 The default `loss_weight` is defined in `configs/params.json`, and is `1.0`, meaning that in the example above
 the `dependency` task has twice as much importance as `upos` for the loss.
 
+For information on metrics we refer to the [metrics readme](metrics.md)

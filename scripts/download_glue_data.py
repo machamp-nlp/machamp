@@ -1,4 +1,4 @@
-''' Script for downloading all GLUE data.
+""" Script for downloading all GLUE data.
 
 Note: for legal reasons, we are unable to host MRPC.
 You can either use the version hosted by the SentEval team, which is already tokenized,
@@ -12,48 +12,51 @@ cat MRPC/_2DEC3DBE877E4DB192D17C0256E90F1D | tr -d $'\r' > MRPC/msr_paraphrase_t
 cat MRPC/_D7B391F9EAFF4B1B8BCE8F21B20B1B61 | tr -d $'\r' > MRPC/msr_paraphrase_test.txt
 rm MRPC/_*
 rm MSRParaphraseCorpus.msi
-'''
+"""
 
-import os
-import sys
-import shutil
 import argparse
-import tempfile
-import urllib
 import io
+import os
+import shutil
+import sys
+import urllib
+
 if sys.version_info >= (3, 0):
     import urllib.request
 import zipfile
 
-URLLIB=urllib
+URLLIB = urllib
 if sys.version_info >= (3, 0):
-    URLLIB=urllib.request
+    URLLIB = urllib.request
 
 TASKS = ["CoLA", "SST", "MRPC", "QQP", "STS", "MNLI", "QNLI", "RTE", "WNLI", "diagnostic"]
-TASK2PATH = {"CoLA":'https://dl.fbaipublicfiles.com/glue/data/CoLA.zip',
-             "SST":'https://dl.fbaipublicfiles.com/glue/data/SST-2.zip',
-             "STS":'https://dl.fbaipublicfiles.com/glue/data/STS-B.zip',
-             "QQP":'https://dl.fbaipublicfiles.com/glue/data/QQP-clean.zip',
-            "MRPC": 'https://dl.fbaipublicfiles.com/glue/data/mrpc_dev_ids.tsv',
-             "MNLI":'https://dl.fbaipublicfiles.com/glue/data/MNLI.zip',
-             "QNLI":'https://dl.fbaipublicfiles.com/glue/data/QNLIv2.zip',
-             "RTE":'https://dl.fbaipublicfiles.com/glue/data/RTE.zip',
-             "WNLI":'https://dl.fbaipublicfiles.com/glue/data/WNLI.zip',
-             "diagnostic":'https://dl.fbaipublicfiles.com/glue/data/AX.tsv'}
+TASK2PATH = {"CoLA": 'https://dl.fbaipublicfiles.com/glue/data/CoLA.zip',
+             "SST": 'https://dl.fbaipublicfiles.com/glue/data/SST-2.zip',
+             "STS": 'https://dl.fbaipublicfiles.com/glue/data/STS-B.zip',
+             "QQP": 'https://dl.fbaipublicfiles.com/glue/data/QQP-clean.zip',
+             "MRPC": 'https://dl.fbaipublicfiles.com/glue/data/mrpc_dev_ids.tsv',
+             "MNLI": 'https://dl.fbaipublicfiles.com/glue/data/MNLI.zip',
+             "QNLI": 'https://dl.fbaipublicfiles.com/glue/data/QNLIv2.zip',
+             "RTE": 'https://dl.fbaipublicfiles.com/glue/data/RTE.zip',
+             "WNLI": 'https://dl.fbaipublicfiles.com/glue/data/WNLI.zip',
+             "diagnostic": 'https://dl.fbaipublicfiles.com/glue/data/AX.tsv'}
 
 MRPC_TRAIN = 'https://dl.fbaipublicfiles.com/senteval/senteval_data/msr_paraphrase_train.txt'
 MRPC_TEST = 'https://dl.fbaipublicfiles.com/senteval/senteval_data/msr_paraphrase_test.txt'
 
+
 def download_and_extract(task, data_dir):
     print("Downloading and extracting %s..." % task)
     if task == "MNLI":
-        print("\tNote (12/10/20): This script no longer downloads SNLI. You will need to manually download and format the data to use SNLI.")
+        print(
+            "\tNote (12/10/20): This script no longer downloads SNLI. You will need to manually download and format the data to use SNLI.")
     data_file = "%s.zip" % task
     URLLIB.urlretrieve(TASK2PATH[task], data_file)
     with zipfile.ZipFile(data_file) as zip_ref:
         zip_ref.extractall(data_dir)
     os.remove(data_file)
     print("\tCompleted!")
+
 
 def format_mrpc(data_dir, path_to_data):
     print("Processing MRPC...")
@@ -86,8 +89,8 @@ def format_mrpc(data_dir, path_to_data):
     try:
         URLLIB.urlretrieve(TASK2PATH["MRPC"], os.path.join(mrpc_dir, "dev_ids.tsv"))
     except KeyError or urllib.error.HTTPError:
-        print("\tError downloading standard development IDs for MRPC. You will need to manually split your data.")
-        return
+        print("\tError downloading standard development IDs for MRPC. Copying.")
+        shutil.copyfile('scripts/misc/dev_ids.tsv', 'data/GLUE-baselines/glue_data/MRPC/dev_ids.tsv')
 
     dev_ids = []
     with io.open(os.path.join(mrpc_dir, "dev_ids.tsv"), encoding='utf-8') as ids_fh:
@@ -95,8 +98,8 @@ def format_mrpc(data_dir, path_to_data):
             dev_ids.append(row.strip().split('\t'))
 
     with io.open(mrpc_train_file, encoding='utf-8') as data_fh, \
-         io.open(os.path.join(mrpc_dir, "train.tsv"), 'w', encoding='utf-8') as train_fh, \
-         io.open(os.path.join(mrpc_dir, "dev.tsv"), 'w', encoding='utf-8') as dev_fh:
+            io.open(os.path.join(mrpc_dir, "train.tsv"), 'w', encoding='utf-8') as train_fh, \
+            io.open(os.path.join(mrpc_dir, "dev.tsv"), 'w', encoding='utf-8') as dev_fh:
         header = data_fh.readline()
         train_fh.write(header)
         dev_fh.write(header)
@@ -109,6 +112,7 @@ def format_mrpc(data_dir, path_to_data):
 
     print("\tCompleted!")
 
+
 def download_diagnostic(data_dir):
     print("Downloading and extracting diagnostic...")
     if not os.path.isdir(os.path.join(data_dir, "diagnostic")):
@@ -117,6 +121,7 @@ def download_diagnostic(data_dir):
     URLLIB.urlretrieve(TASK2PATH["diagnostic"], data_file)
     print("\tCompleted!")
     return
+
 
 def get_tasks(task_names):
     task_names = task_names.split(',')
@@ -129,12 +134,14 @@ def get_tasks(task_names):
             tasks.append(task_name)
     return tasks
 
+
 def main(arguments):
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--data_dir', help='directory to save data to', type=str, default='glue_data')
     parser.add_argument('-t', '--tasks', help='tasks to download data for as a comma separated string',
                         type=str, default='all')
-    parser.add_argument('--path_to_mrpc', help='path to directory containing extracted MRPC data, msr_paraphrase_train.txt and msr_paraphrase_text.txt',
+    parser.add_argument('--path_to_mrpc',
+                        help='path to directory containing extracted MRPC data, msr_paraphrase_train.txt and msr_paraphrase_text.txt',
                         type=str, default='')
     args = parser.parse_args(arguments)
 

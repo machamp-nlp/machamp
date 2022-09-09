@@ -1,4 +1,5 @@
 ### dependency task-type
+
 [back to main README](../README.md)
 
 This is a [deep biaffine parser](https://openreview.net/pdf?id=Hk95PK9le), which is used similarly
@@ -25,6 +26,6 @@ that removes these, and attaches the left-over words to the dependency structure
 with the scripts `scripts/misc/cleanconl.py`, which as arguments takes a list of conllu files, and
 replaces all of these with there cleaned version (**warning**, this replaces the original file)
 
-Furthermore, it should be noted that it does not actually use the word indexes which are present 
+Furthermore, it should be noted that it does not actually use the word indexes which are present
 in standard UD format, but just uses the line index from the file.
 
