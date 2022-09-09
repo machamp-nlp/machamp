@@ -119,7 +119,6 @@ def train(
     second_group = ['^decoders.*']
     pred_head_names = ["pred_layer", "cls", "lm_head", "generator_lm_head", "predictions", "mlm", "vocab_projector"]
     for attribute in model.named_parameters():
-        print(attribute[0])
         if attribute[0].startswith('mlm'):
             if attribute[0].split('.')[1] in pred_head_names:
                 second_group.append(attribute[0])

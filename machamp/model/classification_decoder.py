@@ -19,7 +19,7 @@ class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
         logits = self.hidden_to_label(mlm_out)
         if gold != None:
             maxes = torch.add(torch.argmax(logits[:, 1:], 1), 1)
-            self.metric.score(maxes, gold, mask)
+            self.metric.score(maxes, gold, mask, None)
             return self.loss_weight * self.loss_function(logits, gold)
 
     def get_output_labels(self, mlm_out):

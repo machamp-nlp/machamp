@@ -94,13 +94,14 @@ def read_mlm(
         # if 'enc_dataset_embed_idx' in config and config['enc_dataset_embed_idx'] != -1:
         #    instance.add_field('enc_dataset_embeds', SequenceLabelField([token[config['enc_dataset_embed_idx']] for token in sent]), input_field, label_namespace='enc_dataset_embeds')
 
-        input, output = masker.torch_mask_tokens(token_ids.view(1, -1))
-        input = input[0]
-        output = output[0]
+        input_text, output_labels = masker.torch_mask_tokens(token_ids.view(1, -1))
+        input_text = input_text[0]
+        output_labels = output_labels[0]
         task_type = config['tasks'][task]['task_type']
-        golds = {task: output}
+        golds = {task: output_labels}
+        offsets = torch.arange(0,len(input_text))
 
-        data.append(MachampInstance([line], input, torch.zeros((len(token_ids)), dtype=torch.long), golds, dataset))
+        data.append(MachampInstance([line], input_text, torch.zeros((len(token_ids)), dtype=torch.long), golds, dataset, offsets))
     if is_train and max_sents != -1 and sent_counter < max_sents:
         logger.warning('Maximum sentences was set to ' + str(max_sents) + ', but dataset only contains ' + str(
             sent_counter) + ' lines. Note that this could be because empty lines are ignored')
