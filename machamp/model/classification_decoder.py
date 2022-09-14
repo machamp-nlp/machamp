@@ -18,7 +18,7 @@ class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
     def forward(self, mlm_out, mask, gold=None):
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
-        if gold != None:
+        if type(gold) != type(None):
             maxes = torch.add(torch.argmax(logits[:, 1:], 1), 1)
             self.metric.score(maxes, gold, mask, None)
             out_dict['loss'] = self.loss_weight * self.loss_function(logits, gold)

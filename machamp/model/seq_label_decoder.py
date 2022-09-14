@@ -28,7 +28,7 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
     def forward(self, mlm_out, mask, gold=None):
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
-        if gold != None:
+        if type(gold) != type(None):
             # 0 is the padding/unk label, so skip it for the metric
             maxes = torch.add(torch.argmax(logits[:, :, 1:], 2), 1)
             self.metric.score(maxes, gold, mask, self.vocabulary.inverse_namespaces[self.task])

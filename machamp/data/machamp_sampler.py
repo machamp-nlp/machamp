@@ -7,7 +7,7 @@ from torch.utils.data import Sampler
 from machamp.data.machamp_dataset import MachampDataset
 
 
-class MachampBatchSampler(Sampler[List[int]]):
+class MachampBatchSampler(Sampler):
     def __init__(self,
                  data_source: MachampDataset,
                  batch_size: int,

@@ -141,7 +141,7 @@ def prep_batch(
             else:
                 golds[task][instanceIdx] = instance.golds[task]
 
-        if has_word_level and batch[0].offsets != None:
+        if has_word_level and type(batch[0].offsets) != type(None):
             batch_offsets[instanceIdx][:len(instance.offsets)] = instance.offsets
             batch_eval_mask[instanceIdx][:len(instance.offsets)] = 1
         batch_subword_mask[instanceIdx][:len(instance.token_ids)] = 1

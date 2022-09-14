@@ -176,9 +176,9 @@ class MachampEncoder():
                 amount_of_splits = [self.get_size(length, self.max_input_length) for length in lengths]
                 new_batch_size = sum(amount_of_splits)
                 new_input_tokens = torch.full((new_batch_size, self.max_input_length), self.padding_token_id,
-                                              device=input_token_ids.device)
-                new_seg_ids = torch.full((new_batch_size, self.max_input_length), 0, device=input_token_ids.device)
-                new_subword_mask = torch.full((new_batch_size, self.max_input_length), 0, device=input_token_ids.device)
+                                              device=input_token_ids.device, dtype=torch.int64)
+                new_seg_ids = torch.full((new_batch_size, self.max_input_length), 0, device=input_token_ids.device, dtype=torch.int64)
+                new_subword_mask = torch.full((new_batch_size, self.max_input_length), 0, device=input_token_ids.device, dtype=torch.int64)
 
                 curBatchIdx = 0
                 for sentIdx in range(batch_size):
@@ -192,12 +192,12 @@ class MachampEncoder():
                         # for each split (except the last)
                         token_ids_sent = input_token_ids[sentIdx][1:-1]
                         seg_ids_sent = seg_ids[sentIdx][1:-1]
-                        if subword_mask != None:
+                        if type(subword_mask) != type(None):
                             subword_mask_sent = subword_mask[sentIdx][1:-1]
                         for split in range(amount_of_splits[sentIdx]):
                             beg = (self.max_input_length - 2) * split
                             if split + 1 == amount_of_splits[sentIdx]:
-                                end = len(token_ids_sent)
+                                end = lengths[sentIdx]-2
                             else:
                                 end = (self.max_input_length - 2) * (split + 1)
                             new_input_tokens[curBatchIdx][1:end - beg + 1] = token_ids_sent[beg:end]
@@ -231,9 +231,10 @@ class MachampEncoder():
                             end = beg + self.max_input_length - 2
                             mlm_out_merged[sent_idx][beg:end] = mlm_out_split[splitted_idx][1:-1]
                             splitted_idx += 1
+
                         # last of the splits, keep the SEP
                         beg = (amount_of_splits[sent_idx] - 1) * (self.max_input_length - 2) - 1
-                        end = len(mlm_out_merged[sent_idx])
+                        end = lengths[sent_idx]-1
                         mlm_out_merged[sent_idx][beg:end] = mlm_out_split[splitted_idx][0:end - beg]
                         splitted_idx += 1
                 # Note that mlm_preds is not split. This is an error/bug, but we hardcoded that for the MLM

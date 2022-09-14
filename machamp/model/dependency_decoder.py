@@ -198,7 +198,7 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
                         topnLabels_indices=topnLabels_indices, topnLabels_values=topnLabels_values,
                         arc_nll=arc_nll, tag_nll=tag_nll)
 
-        if gold_head_indices != None:
+        if type(gold_head_indices) != type(None):
             self.metric.score(predicted_heads, predicted_head_tags, gold_head_indices, gold_head_tags, mask)
             loss = (arc_nll + tag_nll) * self.loss_weight
             out_dict['loss'] = loss

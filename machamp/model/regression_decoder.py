@@ -15,7 +15,7 @@ class MachampRegressionDecoder(MachampDecoder, torch.nn.Module):
     def forward(self, mlm_out, mask, gold=None):
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
-        if gold != None:
+        if type(gold) != type(None):
             self.metric.score(logits, gold, mask, None)
             loss = self.loss_weight * self.loss_function(logits.flatten(), gold)
             out_dict['loss'] = loss

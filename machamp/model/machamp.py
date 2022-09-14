@@ -214,7 +214,7 @@ class MachampModel(torch.nn.Module):
             if self.dropout != None:
                 mlm_out_sent = self.dropout(mlm_out_sent)
 
-        if offsets != None:
+        if type(offsets) != type(None):
             mlm_out_token = torch.zeros((len(offsets), len(offsets[0]), len(mlm_out[0][0])), device=self.device)
             for sentIdx in range(len(offsets)):
                 mlm_out_token[sentIdx] = mlm_out[sentIdx][offsets[sentIdx]]

@@ -217,8 +217,7 @@ def train(
                 plot = plot_to_string(x, title='Dev scores (x) over epochs (y)', legend_labels=labels, lines=True,
                                       y_min=min(mins))
             else:
-                plot = plot_to_string(x, title='Dev scores (x) over epochs (y)', legend_labels=sorted(all_dev_scores),
-                                      lines=True)
+                plot = plot_to_string(x, title='Dev scores (x) over epochs (y)', legend_labels=labels, lines=True)
             logger.info('\n' + '\n'.join(plot))
 
     json.dump(info_dict, open(os.path.join(serialization_dir, 'metrics.json'), 'w'), indent=4)

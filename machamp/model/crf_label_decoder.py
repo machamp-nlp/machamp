@@ -50,7 +50,7 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
         # Just get the top tags and ignore the scores.
         predicted_tags = cast(List[List[int]], [x[0][0] for x in best_paths])
         out_dict = {'logits': logits}
-        if gold != None:
+        if type(gold) != type(None):
             log_likelihood = self.crf_layer.forward(logits, gold, mask)
 
             # Represent viterbi tags as "class probabilities" that we can
