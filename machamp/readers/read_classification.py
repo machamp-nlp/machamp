@@ -158,7 +158,6 @@ def read_classification(
             col_idxs[task] = task_idx
             golds[task] = gold
 
-        #TODO data_instance is a str, should be a list[str] ?
         data.append(MachampInstance(data_instance, full_input, seg_ids, golds, dataset))
     if is_train and max_sents != -1 and sent_counter < max_sents:
         logger.warning('Maximum sentences was set to ' + str(max_sents) + ', but dataset only contains ' + str(

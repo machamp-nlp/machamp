@@ -189,24 +189,36 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         mask : `torch.Tensor`
             A mask denoting the padded elements in the batch.
         """
-        predicted_heads, predicted_head_tags, _, _, _, _, _, arc_nll, tag_nll = self._parse(
+        predicted_heads, predicted_head_tags, _, topnHeads_indices, topnHeads_values, topnLabels_indices, topnLabels_values, arc_nll, tag_nll = self._parse(
             embedded_text, mask, gold_head_tags, gold_head_indices
         )
+
+        out_dict = dict(predicted_heads=predicted_heads, predicted_head_tags=predicted_head_tags,
+                        topnHeads_indices=topnHeads_indices, topnHeads_values=topnHeads_values,
+                        topnLabels_indices=topnLabels_indices, topnLabels_values=topnLabels_values,
+                        arc_nll=arc_nll, tag_nll=tag_nll)
 
         if gold_head_indices != None:
             self.metric.score(predicted_heads, predicted_head_tags, gold_head_indices, gold_head_tags, mask)
             loss = (arc_nll + tag_nll) * self.loss_weight
-            return loss
+            out_dict['loss'] = loss
+        return out_dict
 
-    def get_output_labels(self, mlm_out, mask):
+    def get_output_labels(self, mlm_out, mask, forward_dict):
         head_tag_labels = []
         head_indices = []
         tag_probs = []
         indice_probs = []
         lengths = mask.sum(-1)
-        heads, head_tags, _, topnHeads_indices, topnHeads_values, topnLabels_indices, topnLabels_values, arc_nll, tag_nll = self._parse(
-            mlm_out, mask, None, None
-        )
+        heads = forward_dict['predicted_heads']
+        head_tags = forward_dict['predicted_head_tags']
+        topnHeads_indices = forward_dict['topnHeads_indices']
+        topnHeads_values = forward_dict['topnHeads_values']
+        topnLabels_indices = forward_dict['topnLabels_indices']
+        topnLabels_values = forward_dict['topnLabels_values']
+        arc_nll = forward_dict['arc_nll']
+        tag_nll = forward_dict['tag_nll']
+
         if self.topn not in [0, 1, None]:
             for length, topn_heads, topn_head_probs, topn_labels, topn_label_probs in zip(lengths, topnHeads_indices,
                                                                                           topnHeads_values,
@@ -237,9 +249,6 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
                 ]
                 head_tag_labels.append(labels)
                 head_indices.append(instance_heads)
-            # print(head_indices)
-            # print(mask)
-            # exit(1)
             return {'dep_labels': head_tag_labels, 'dep_indices': head_indices}
 
     def _parse(
@@ -256,6 +265,9 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         # Concatenate the head sentinel onto the sentence representation.
         encoded_text = torch.cat([head_sentinel, encoded_text], 1)
         mask = torch.cat([mask.new_ones(batch_size, 1), mask], 1)
+        if mask.dtype != torch.bool:
+            mask = mask > 0
+
         if head_indices is not None:
             head_indices = torch.cat([head_indices.new_zeros(batch_size, 1), head_indices], 1)
         if head_tags is not None:

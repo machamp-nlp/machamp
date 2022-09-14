@@ -49,10 +49,9 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
 
         # Just get the top tags and ignore the scores.
         predicted_tags = cast(List[List[int]], [x[0][0] for x in best_paths])
-
+        out_dict = {'logits': logits}
         if gold != None:
-            # TODO what happens here?, does it call forward?
-            log_likelihood = self.crf_layer(logits, gold, mask)
+            log_likelihood = self.crf_layer.forward(logits, gold, mask)
 
             # Represent viterbi tags as "class probabilities" that we can
             # feed into the metrics
@@ -62,10 +61,10 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
                     class_probabilities[i, j, tag_id] = 1
             maxes = torch.add(torch.argmax(class_probabilities[:, :, 1:], 2), 1)
             self.metric.score(maxes, gold, mask, self.vocabulary.inverse_namespaces[self.task])
+            out_dict['loss'] = -log_likelihood * self.loss_weight
+        return out_dict
 
-            return -log_likelihood * self.loss_weight
-
-    def get_output_labels(self, mlm_out, mask):
+    def get_output_labels(self, mlm_out, mask, forward_dict):
         """
         logits = batch_size*sent_len*num_labels
         argmax converts to a list of batch_size*sent_len, 
@@ -73,7 +72,7 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
         token in position 0 (thats what [:,:,1:] does)
         """
 
-        logits = self.hidden_to_label(mlm_out)
+        logits = forward_dict['logits']
         if self.topn == 1:
             # 0 is the padding/unk label, so skip it for the metric
             maxes = torch.add(torch.argmax(logits[:, :, 1:], 2), 1)

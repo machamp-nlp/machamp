@@ -27,7 +27,7 @@ class MachampLMDecoder(MachampDecoder, torch.nn.Module):
         lm_loss = self.loss_function(shifted_prediction_scores.view(-1, mlm_preds.shape[-1]), labels.view(-1))
         self.metric.score(lm_loss)
 
-        return self.loss_weight * lm_loss
+        return {'loss': self.loss_weight * lm_loss}
 
     def get_output_labels(self, mlm_out, mask):
         return {'word_labels': [], 'probs': []}

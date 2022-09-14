@@ -149,6 +149,13 @@ def to_string(full_data: List[Any],
                 for token_idx in range(len(full_data) - num_comments):
                     # Handle dependency parsing separately, because it uses 2 columns
                     if task_type == 'dependency':
+                        print(len(full_data))
+                        print(token_idx,num_comments)
+                        print(len(full_data[token_idx+num_comments]))
+                        print(task_idx)
+                        print(len(preds[task]['dep_indices']))
+                        print(len(preds[task]['dep_labels']))
+                        print()
                         if 'indice_probs' in preds[task]:
                             full_data[token_idx + num_comments][task_idx] = top_n_to_label(
                                 preds[task]['dep_indices'][token_idx], preds[task]['indice_probs'][token_idx])

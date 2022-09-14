@@ -17,13 +17,15 @@ class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
 
     def forward(self, mlm_out, mask, gold=None):
         logits = self.hidden_to_label(mlm_out)
+        out_dict = {'logits': logits}
         if gold != None:
             maxes = torch.add(torch.argmax(logits[:, 1:], 1), 1)
             self.metric.score(maxes, gold, mask, None)
-            return self.loss_weight * self.loss_function(logits, gold)
+            out_dict['loss'] = self.loss_weight * self.loss_function(logits, gold)
+        return out_dict
 
-    def get_output_labels(self, mlm_out):
-        logits = self.hidden_to_label(mlm_out)
+    def get_output_labels(self, mlm_out, forward_dict):
+        logits = forward_dict['logits']
         if self.topn == 1:
             maxes = torch.add(torch.argmax(logits[:, 1:], 1), 1)
             return {'sent_labels': [self.vocabulary.id2token(label_id, self.task) for label_id in maxes]}

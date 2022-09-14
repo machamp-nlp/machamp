@@ -18,6 +18,8 @@ from machamp.model.crf_label_decoder import MachampCRFDecoder
 from machamp.model.dependency_decoder import MachampDepDecoder
 from machamp.model.mlm_decoder import MachampLMDecoder
 from machamp.model.encoder import MachampEncoder
+from machamp.metrics.avg_dist import AvgDist
+from machamp.metrics.perplexity import Perplexity
 
 
 class MachampModel(torch.nn.Module):
@@ -226,25 +228,27 @@ class MachampModel(torch.nn.Module):
 
         # get loss from all decoders that have annotations
         loss = 0.0
+        out_dicts = {}
         if golds != None:
             for task, task_type in zip(self.tasks, self.task_types):
-
                 if task in golds or task + '-rels' in golds:
                     if task_type in ['classification', 'regression']:
-                        loss += self.decoders[task].forward(mlm_out_sent, eval_mask, golds[task])
+                        out_dict = self.decoders[task].forward(mlm_out_sent, eval_mask, golds[task])
                     elif task_type == 'dependency':
-                        loss += self.decoders[task].forward(mlm_out_token, eval_mask, golds[task + '-heads'],
+                        out_dict = self.decoders[task].forward(mlm_out_token, eval_mask, golds[task + '-heads'],
                                                             golds[task + '-rels'])
                     elif task_type == 'tok':
                         # We use the subword mask here for evaluation, as every subwords should have
                         # annotation (except the special start/end token, hence 2:). We do not use
                         # 1:-1, as all binary labels should shift with 2!
-                        loss += self.decoders[task].forward(mlm_out_tok, subword_mask[:, 2:], golds[task])
+                        out_dict = self.decoders[task].forward(mlm_out_tok, subword_mask[:, 2:], golds[task])
                     elif task_type == 'mlm':
-                        loss += self.decoders[task].forward(mlm_preds, golds[task])
+                        out_dict = self.decoders[task].forward(mlm_preds, golds[task])
                     else:
-                        loss += self.decoders[task].forward(mlm_out_token, eval_mask, golds[task])
-        return loss, mlm_out_token, mlm_out_sent, mlm_out_tok
+                        out_dict = self.decoders[task].forward(mlm_out_token, eval_mask, golds[task])
+                    loss += out_dict['loss']
+                    out_dicts[task] = out_dict
+        return loss, mlm_out_token, mlm_out_sent, mlm_out_tok, out_dicts
 
     def get_output_labels(self,
                           input_token_ids: torch.tensor,
@@ -291,13 +295,13 @@ class MachampModel(torch.nn.Module):
             (lists of) the outputs for this task.
         """
         # Run transformer model on input
-        _, mlm_out_token, mlm_out_sent, mlm_out_tok = self.forward(input_token_ids, golds, seg_ids, eval_mask, offsets,
+        _, mlm_out_token, mlm_out_sent, mlm_out_tok, forward_dicts = self.forward(input_token_ids, golds, seg_ids, eval_mask, offsets,
                                                                    subword_mask)
         out_dict = {}
 
         if 'tok' in self.task_types:
             tok_task = self.tasks[self.task_types.index('tok')]
-            tok_pred = self.decoders[tok_task].get_output_labels(mlm_out_tok, subword_mask[:, 2:])['word_labels']
+            tok_pred = self.decoders[tok_task].get_output_labels(mlm_out_tok, subword_mask[:, 2:], forward_dicts[tok_task])['word_labels']
             # This could be done more efficient if a torch tensor was retrieved
             tok_indices = torch.zeros((mlm_out_tok.shape[0], mlm_out_tok.shape[1]), dtype=torch.long,
                                       device=self.device)
@@ -316,18 +320,19 @@ class MachampModel(torch.nn.Module):
             for sent_idx in range(len(mlm_out_token)):
                 mlm_out_token[sent_idx] = mlm_out_tok[sent_idx][tok_indices[sent_idx]]
 
+        # TODO Note that the forward function is called twice!
         # This seems redundant with forward(), should probably be merged/called there
         for task, task_type in zip(self.tasks, self.task_types):
             if task_type in ['classification', 'regression']:
-                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_sent)
+                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_sent, forward_dicts[task])
             elif self.task_types[self.tasks.index(task)] == 'dependency':
-                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask)
+                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask, forward_dicts[task])
             elif task_type == 'tok':
                 out_dict[task] = {'word_labels': tok_pred}
             elif task_type == 'mlm':
                 out_dict[task] = None
             else:
-                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask)
+                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask, forward_dicts[task])
         return out_dict
 
     def reset_metrics(self):
@@ -351,12 +356,17 @@ class MachampModel(torch.nn.Module):
             which obviously is the sum over the other metrics.
         """
         metrics = {}
+        sum_metrics = 0
         for decoder in self.decoders:
-            names, scores = self.decoders[decoder].get_metrics()
-            for name, score in zip(names, scores):
+            names, scores, types = self.decoders[decoder].get_metrics()
+            for name, score, metric_type in zip(names, scores, types):
                 name = decoder + '-' + name
                 metrics[name] = score
-
-        # TODO For some feature metrics this is more complex as lower is better avg_dist/ppl
-        metrics['sum'] = sum(metrics.values())
+                # inverse metrics where lower is better
+                if metric_type in [Perplexity, AvgDist]:
+                    sum_metrics += 1/score
+                else:
+                    sum_metrics += score
+                
+        metrics['sum'] = sum_metrics
         return metrics

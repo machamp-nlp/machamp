@@ -155,7 +155,7 @@ def train(
             # gpu ram, it is quite fast anyways
             batch = myutils.prep_batch(batch, device, train_dataset)
 
-            loss, _, _, _ = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
+            loss, _, _, _, _ = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
                                           batch['offsets'], batch['subword_mask'])
             loss.backward()
             optimizer.step()
@@ -173,7 +173,7 @@ def train(
 
             for dev_batch_idx, batch in enumerate(tqdm(dev_dataloader, file=sys.stdout)):
                 batch = myutils.prep_batch(batch, device, train_dataset)
-                loss, _, _, _ = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
+                loss, _, _, _, _ = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
                                               batch['offsets'], batch['subword_mask'])
                 dev_loss += loss.item()
 
@@ -198,7 +198,7 @@ def train(
             if epoch > 4:
                 mean = sum(all_dev_scores['sum']) / len(all_dev_scores['sum'])
                 stdev = torch.std(torch.tensor(all_dev_scores['sum'])).item()
-                dist = mean - all_dev_scores['sum'][0]
+                dist = abs(mean - all_dev_scores['sum'][0])
                 outlier = dist > stdev
 
             for metric in dev_metrics:
@@ -229,6 +229,8 @@ def train(
     else:
         logger.info('Predicting on dev set')
 
+    # load the best model
+    model = torch.load(os.path.join(serialization_dir, 'model.pt'), map_location=device)
     if len(dev_dataset) > 0:
         # We have to re-read the dataset, because the old one might be shuffled (this happens in place in the sampler)
         dev_dataset = MachampDataset(parameters_config['transformer_model'], dataset_configs, is_train=False,
@@ -236,6 +238,5 @@ def train(
         dev_sampler = MachampBatchSampler(dev_dataset, batch_size, parameters_config['batching']['max_tokens'], False,
                                          1.0, False)
         dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
-        # TODO use best model, not last!
         predict(model, dev_dataloader, serialization_dir, dataset_configs, train_dataset.tokenizer.sep_token_id,
                 batch_size, device, train_dataset.vocabulary)

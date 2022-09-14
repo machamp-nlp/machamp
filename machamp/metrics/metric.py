@@ -68,8 +68,10 @@ class Metric():
         """
         names = []
         scores = []
+        types = []
         for metric in self.metrics:
             name, score = self.metrics[metric].get_score()
             names.append(name)
             scores.append(score)
-        return names, scores
+            types.append(type(self.metrics[metric]))
+        return names, scores, types

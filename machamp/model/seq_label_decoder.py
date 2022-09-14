@@ -27,15 +27,17 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
 
     def forward(self, mlm_out, mask, gold=None):
         logits = self.hidden_to_label(mlm_out)
+        out_dict = {'logits': logits}
         if gold != None:
             # 0 is the padding/unk label, so skip it for the metric
             maxes = torch.add(torch.argmax(logits[:, :, 1:], 2), 1)
             self.metric.score(maxes, gold, mask, self.vocabulary.inverse_namespaces[self.task])
             flat_length = gold.shape[0] * gold.shape[1]
-            loss = self.loss_function(logits.view(flat_length, -1), gold.view(flat_length))
-            return self.loss_weight * loss
+            loss = self.loss_weight * self.loss_function(logits.view(flat_length, -1), gold.view(flat_length))
+            out_dict['loss'] = loss
+        return out_dict
 
-    def get_output_labels(self, mlm_out, mask):
+    def get_output_labels(self, mlm_out, mask, forward_dict):
         """
         logits = batch_size*sent_len*num_labels
         argmax converts to a list of batch_size*sent_len, 
@@ -43,7 +45,7 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
         token in position 0 (thats what [:,:,1:] does)
         """
 
-        logits = self.hidden_to_label(mlm_out)
+        logits = forward_dict['logits']
         if self.topn == 1:
             # 0 is the padding/unk label, so skip it for the metric
             maxes = torch.add(torch.argmax(logits[:, :, 1:], 2), 1)
