@@ -24,8 +24,8 @@ class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
             out_dict['loss'] = self.loss_weight * self.loss_function(logits, gold)
         return out_dict
 
-    def get_output_labels(self, mlm_out, forward_dict):
-        logits = forward_dict['logits']
+    def get_output_labels(self, mlm_out, mask, gold=None):
+        logits = self.forward(mlm_out, mask, gold)['logits']
         if self.topn == 1:
             maxes = torch.add(torch.argmax(logits[:, 1:], 1), 1)
             return {'sent_labels': [self.vocabulary.id2token(label_id, self.task) for label_id in maxes]}

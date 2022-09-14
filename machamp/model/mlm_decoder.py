@@ -21,6 +21,7 @@ class MachampLMDecoder(MachampDecoder, torch.nn.Module):
         self.loss_function = torch.nn.CrossEntropyLoss()
 
     def forward(self, mlm_preds, gold, mask=None):
+        # TODO what about mask?
         shifted_prediction_scores = mlm_preds[:, :-1, :].contiguous()
         labels = gold[:, 1:].contiguous()
 
@@ -29,5 +30,6 @@ class MachampLMDecoder(MachampDecoder, torch.nn.Module):
 
         return {'loss': self.loss_weight * lm_loss}
 
-    def get_output_labels(self, mlm_out, mask):
+    def get_output_labels(self, mlm_out, gold, mask=None):
+        forward(mlm_out, gold)
         return {'word_labels': [], 'probs': []}

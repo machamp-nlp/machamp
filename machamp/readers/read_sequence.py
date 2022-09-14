@@ -1,4 +1,5 @@
 import logging
+import unicodedata
 from typing import List
 
 import torch
@@ -106,7 +107,7 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
         # we do not use return_tensors='pt' because we do not know the length beforehand
         tokked = tokenizer.encode(sent[token_idx][word_col_idx])[1:-1]
         if len(tokked) == 0:
-            tokked = tokenizer.unk_token_id
+            tokked = [tokenizer.unk_token_id]
         token_ids.extend(tokked)
         offsets.append(len(token_ids))
     offsets = torch.tensor(offsets, dtype=torch.long)
@@ -159,7 +160,6 @@ def get_offsets(gold_tok: List[str], subwords: List[str]):
                 tok_labels.append('merge')
             else:
                 tok_labels.append('split')
-        # TODO Should it be "subword_idx-1"?
         offsets.append(subword_idx)
     offsets = torch.tensor(offsets, dtype=torch.long)
     return offsets, tok_labels
@@ -236,6 +236,9 @@ def tok_bert(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer)
             no_unk_subwords.append(word)
         else:
             for subword in tokked:
+                # The NFD normalization of BERT has separated diacritics, now we
+                # merge them back. Perhaps it would be more robust to find the match in
+                # the original string...
                 if subword.startswith('##'):
                     no_unk_subwords.append(subword[2:])
                 else:

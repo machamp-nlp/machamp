@@ -1,5 +1,6 @@
 import logging
 import os
+import unicodedata 
 from typing import List, Any, Dict
 
 import torch
@@ -92,9 +93,6 @@ def to_string(full_data: List[Any],
                 full_data[task_idx] = preds[task]['sent_labels']
         return '\t'.join(full_data)
     else:  # word level annotation
-        # for task in config['tasks']:
-        #    print(preds[task])
-        # exit(1)
         has_tok = 'tok' in task_types
         if has_tok:
 
@@ -113,15 +111,23 @@ def to_string(full_data: List[Any],
             full_data = new_full_data
             num_comments = len(full_data)
 
-            shifted_tok_pred = ['split'] + tok_pred['word_labels']  # TODO Why?
+            # The first token has nothing to merge or split to, so it
+            # has special handling (this just ensures we get into the "else"
+            shifted_tok_pred = ['split'] + tok_pred['word_labels']
             for subword_idx in range(len(no_unk_subwords)):
 
                 if shifted_tok_pred[subword_idx] == 'merge' and subword_idx > 0:
                     full_data[-1][1] += no_unk_subwords[subword_idx]
                 else:
-                    full_data.append([''] * 10)  # TODO 10 is hardcoded
+                    full_data.append([''] * 10)  # TODO 10 is hardcoded, 1 as well
                     full_data[-1][1] += no_unk_subwords[subword_idx]
 
+            # We have to do this here, because diacritics were split from characters
+            # they can only be merged back now that they are not separate subwords anymore
+            for i in range(num_comments, len(full_data)):
+                full_data[i][1] = unicodedata.normalize('NFC', full_data[i][1])
+
+                
             # TODO hardcoded word indexes location for now (column 0)
             for i in range(num_comments, len(full_data)):
                 full_data[i][0] = str(i - num_comments + 1)
@@ -149,13 +155,6 @@ def to_string(full_data: List[Any],
                 for token_idx in range(len(full_data) - num_comments):
                     # Handle dependency parsing separately, because it uses 2 columns
                     if task_type == 'dependency':
-                        print(len(full_data))
-                        print(token_idx,num_comments)
-                        print(len(full_data[token_idx+num_comments]))
-                        print(task_idx)
-                        print(len(preds[task]['dep_indices']))
-                        print(len(preds[task]['dep_labels']))
-                        print()
                         if 'indice_probs' in preds[task]:
                             full_data[token_idx + num_comments][task_idx] = top_n_to_label(
                                 preds[task]['dep_indices'][token_idx], preds[task]['indice_probs'][token_idx])

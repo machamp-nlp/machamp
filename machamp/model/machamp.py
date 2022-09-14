@@ -228,8 +228,7 @@ class MachampModel(torch.nn.Module):
 
         # get loss from all decoders that have annotations
         loss = 0.0
-        out_dicts = {}
-        if golds != None:
+        if golds != {}:
             for task, task_type in zip(self.tasks, self.task_types):
                 if task in golds or task + '-rels' in golds:
                     if task_type in ['classification', 'regression']:
@@ -247,8 +246,7 @@ class MachampModel(torch.nn.Module):
                     else:
                         out_dict = self.decoders[task].forward(mlm_out_token, eval_mask, golds[task])
                     loss += out_dict['loss']
-                    out_dicts[task] = out_dict
-        return loss, mlm_out_token, mlm_out_sent, mlm_out_tok, out_dicts
+        return loss, mlm_out_token, mlm_out_sent, mlm_out_tok
 
     def get_output_labels(self,
                           input_token_ids: torch.tensor,
@@ -295,13 +293,14 @@ class MachampModel(torch.nn.Module):
             (lists of) the outputs for this task.
         """
         # Run transformer model on input
-        _, mlm_out_token, mlm_out_sent, mlm_out_tok, forward_dicts = self.forward(input_token_ids, golds, seg_ids, eval_mask, offsets,
+        _, mlm_out_token, mlm_out_sent, mlm_out_tok = self.forward(input_token_ids, {}, seg_ids, eval_mask, offsets,
                                                                    subword_mask)
         out_dict = {}
+        has_tok = 'tok' in self.task_types
 
-        if 'tok' in self.task_types:
+        if has_tok:
             tok_task = self.tasks[self.task_types.index('tok')]
-            tok_pred = self.decoders[tok_task].get_output_labels(mlm_out_tok, subword_mask[:, 2:], forward_dicts[tok_task])['word_labels']
+            tok_pred = self.decoders[tok_task].get_output_labels(mlm_out_tok, subword_mask[:, 2:], golds[tok_task])['word_labels']
             # This could be done more efficient if a torch tensor was retrieved
             tok_indices = torch.zeros((mlm_out_tok.shape[0], mlm_out_tok.shape[1]), dtype=torch.long,
                                       device=self.device)
@@ -309,30 +308,35 @@ class MachampModel(torch.nn.Module):
             for sent_idx in range(len(tok_pred)):
                 word_idx = 0
                 for subword_idx in range(len(tok_pred[sent_idx])):
-                    if subword_mask[sent_idx][subword_idx].item() and tok_pred[sent_idx][subword_idx] == 'split':
+                    if subword_mask[sent_idx][subword_idx+2].item() and tok_pred[sent_idx][subword_idx] == 'split':
                         tok_indices[sent_idx][word_idx] = subword_idx
                         word_idx += 1
                 eval_mask[sent_idx][:word_idx] = 1
             # mlm_out_token = mlm_out_tok[0][tok_indices[0]]
             # unfortunately this one liner doesnt work for some reason, replaced with code below for now
-            # This is too large most times (whenever >0 tokens are split in subwords in largest sent of batch), right?
+            # This is too large most times (whenever >0 tokens are split in subwords in largest sent of batch)
             mlm_out_token = torch.zeros_like(mlm_out_tok)
             for sent_idx in range(len(mlm_out_token)):
                 mlm_out_token[sent_idx] = mlm_out_tok[sent_idx][tok_indices[sent_idx]]
 
-        # TODO Note that the forward function is called twice!
-        # This seems redundant with forward(), should probably be merged/called there
+ 
         for task, task_type in zip(self.tasks, self.task_types):
             if task_type in ['classification', 'regression']:
-                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_sent, forward_dicts[task])
+                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_sent, eval_mask, golds[task])
             elif self.task_types[self.tasks.index(task)] == 'dependency':
-                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask, forward_dicts[task])
+                if has_tok:
+                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask)
+                else:
+                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask, golds[task + '-heads'], golds[task+'-rels'])
             elif task_type == 'tok':
                 out_dict[task] = {'word_labels': tok_pred}
             elif task_type == 'mlm':
-                out_dict[task] = None
+                out_dict[task] = self.decoders[task].get_output_labels(mlm_preds, golds[task])
             else:
-                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask, forward_dicts[task])
+                if has_tok:
+                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask)
+                else:
+                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask, golds[task])
         return out_dict
 
     def reset_metrics(self):

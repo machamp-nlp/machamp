@@ -155,7 +155,7 @@ def train(
             # gpu ram, it is quite fast anyways
             batch = myutils.prep_batch(batch, device, train_dataset)
 
-            loss, _, _, _, _ = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
+            loss, _, _, _ = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
                                           batch['offsets'], batch['subword_mask'])
             loss.backward()
             optimizer.step()
@@ -173,7 +173,7 @@ def train(
 
             for dev_batch_idx, batch in enumerate(tqdm(dev_dataloader, file=sys.stdout)):
                 batch = myutils.prep_batch(batch, device, train_dataset)
-                loss, _, _, _, _ = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
+                loss, _, _, _ = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
                                               batch['offsets'], batch['subword_mask'])
                 dev_loss += loss.item()
 

@@ -204,12 +204,13 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
             out_dict['loss'] = loss
         return out_dict
 
-    def get_output_labels(self, mlm_out, mask, forward_dict):
+    def get_output_labels(self, mlm_out, mask, gold_heads=None, gold_rels=None):
         head_tag_labels = []
         head_indices = []
         tag_probs = []
         indice_probs = []
         lengths = mask.sum(-1)
+        forward_dict = self.forward(mlm_out, mask, gold_heads, gold_rels)
         heads = forward_dict['predicted_heads']
         head_tags = forward_dict['predicted_head_tags']
         topnHeads_indices = forward_dict['topnHeads_indices']

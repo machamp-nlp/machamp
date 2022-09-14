@@ -21,7 +21,7 @@ class MachampRegressionDecoder(MachampDecoder, torch.nn.Module):
             out_dict['loss'] = loss
         return out_dict
 
-    def get_output_labels(self, mlm_out):
-        logits = self.hidden_to_label(mlm_out)
+    def get_output_labels(self, mlm_out, mask, gold=None):
+        logits = self.forward(mlm_out, mask, gold)
         return {'sent_labels': [str(x.item()) for x in logits]} 
 

@@ -64,15 +64,14 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
             out_dict['loss'] = -log_likelihood * self.loss_weight
         return out_dict
 
-    def get_output_labels(self, mlm_out, mask, forward_dict):
+    def get_output_labels(self, mlm_out, mask, gold=None):
         """
         logits = batch_size*sent_len*num_labels
         argmax converts to a list of batch_size*sent_len, 
         we add 1 because we leave out the padding/unk 
         token in position 0 (thats what [:,:,1:] does)
         """
-
-        logits = forward_dict['logits']
+        logits = self.forward(mlm_out, mask, gold)['logits']
         if self.topn == 1:
             # 0 is the padding/unk label, so skip it for the metric
             maxes = torch.add(torch.argmax(logits[:, :, 1:], 2), 1)

@@ -1,11 +1,6 @@
+logs
 __pycache__/
 *.py[cod]
-logs/
 *swp
-data
+ud-treebanks-v2.9.tgz
 wikiextractor
-scripts/ud-conversion-tools/
-configs/tmp
-preds.old
-logs.old
-preds
