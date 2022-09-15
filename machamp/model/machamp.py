@@ -215,6 +215,7 @@ class MachampModel(torch.nn.Module):
         mlm_out_token = None
         mlm_out_tok = None
 
+
         if 'classification' in self.task_types or 'regression' in self.task_types:
             mlm_out_sent = mlm_out[:, :1, :].squeeze()
             if self.dropout != None:

@@ -232,7 +232,7 @@ def train(
 
     if len(dev_dataloader.dataset.datasets) > 1:
         logger.info('Predicting on dev sets')
-    else:
+    elif len(dev_dataloader.dataset.datasets) == 1:
         logger.info('Predicting on dev set')
 
     # load the best model

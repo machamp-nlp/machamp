@@ -115,7 +115,7 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
     return token_ids, offsets
 
 
-def get_offsets(gold_tok: List[str], subwords: List[str]):
+def get_offsets(gold_tok: List[str], subwords: List[str], norm: bool):
     """
     Converts a list of gold-tokenized words and a list of subwords
     to the matching offsets as best as possible, and also produces
@@ -132,6 +132,9 @@ def get_offsets(gold_tok: List[str], subwords: List[str]):
         The gold tokenization.
     subwords: List[str]
         The original text, but then split into subwords.
+    norm: bool
+        If XLM-R is used, we also have to normalize the gold, 
+        otherwise it becomes impossible to match
 
     Returns
     -------
@@ -148,7 +151,8 @@ def get_offsets(gold_tok: List[str], subwords: List[str]):
     subword_idx = 0
     offsets = []
     tok_labels = []
-    gold_tok = [unicodedata.normalize('NFC', unicodedata.normalize('NFKD', myutils.clean_text(tok))) for tok in gold_tok]
+    if norm:
+        gold_tok = [unicodedata.normalize('NFC', unicodedata.normalize('NFKD', myutils.clean_text(tok))) for tok in gold_tok]
     #print(gold_tok)
     #print(subwords)
     for word in gold_tok:
@@ -323,7 +327,7 @@ def tokenize_and_annotate(
                           "version if your models tokenizer is similar, by editing the tokenize_with_gold function in "
                           "machamp/readers/read_sequence.py")
         exit(1)
-    token_offsets, tok_labels = get_offsets(gold_tok, no_unk_subwords)
+    token_offsets, tok_labels = get_offsets(gold_tok, no_unk_subwords, type(tokenizer)==XLMRobertaTokenizer)
     return token_ids, token_offsets, tok_labels, no_unk_subwords
 
 

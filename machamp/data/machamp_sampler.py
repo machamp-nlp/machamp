@@ -41,24 +41,27 @@ class MachampBatchSampler(Sampler):
 
         self.data_source = data_source
         self.batch_size = batch_size
-        self.max_words = max_words
+        self.max_words = max_words # TODO use this!
         self.batches = {}
         self.shuffle = shuffle
         self.smoothing_factor = smoothing_factor
         self.sort_by_size = sort_by_size
 
         for dataset in self.data_source.data:
-            self.batches[dataset] = []
             dataset_data = self.data_source.data[dataset]
             if sort_by_size:
                 dataset_data.sort(key=lambda x: x.__len__())
 
-            for beg_idx in range(0, len(dataset_data), self.batch_size):
-                end_idx = min(len(dataset_data), beg_idx + self.batch_size)
-                batch = []
-                for i in range(beg_idx, end_idx):
-                    batch.append((dataset, i))
-                self.batches[dataset].append(batch)
+            self.batches[dataset] = [[]]
+            inst_idx = 0
+            num_words_batch = 0
+            while inst_idx < len(dataset_data):
+                num_words_batch += len(self.data_source.data[dataset][inst_idx])
+                if len(self.batches[dataset][-1]) > 0 and (len(self.batches[dataset][-1]) >= batch_size or num_words_batch > max_words):
+                    self.batches[dataset].append([])
+                    num_words_batch = 0
+                self.batches[dataset][-1].append((dataset, inst_idx))
+                inst_idx += 1
             if self.shuffle:
                 random.shuffle(self.batches[dataset])
 

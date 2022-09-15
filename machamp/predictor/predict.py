@@ -230,7 +230,7 @@ def predict2(model, input_path, output_path, dataset, batch_size, raw_text, devi
     data_config = {dataset: model.dataset_configs[dataset]}
     data_config[dataset]['dev_data_path'] = input_path
     dev_dataset = MachampDataset(model.mlm.name_or_path, data_config, is_train=False, vocabulary=model.vocabulary)
-    dev_sampler = MachampBatchSampler(dev_dataset, batch_size, 0, False, 1.0, False)
+    dev_sampler = MachampBatchSampler(dev_dataset, batch_size, 1024, False, 1.0, False) # 1024 hardcoded
     dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
 
     outfile = open(output_path, 'w')
