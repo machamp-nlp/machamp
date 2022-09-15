@@ -221,14 +221,13 @@ def train(
             logger.info('\n' + '\n'.join(plot))
 
     best_epoch = callback.copy_best(serialization_dir)
-    info_dict['best_epoch'] = best_epoch
     best_epoch_scores = json.load(open(os.path.join(serialization_dir, 'metrics_epoch_' + best_epoch + '.json')))
-    best_metrics = {}
+    best_metrics = {'best_epoch': best_epoch}
     for score_name in best_epoch_scores:
         if score_name.startswith('dev_'):
-            info_dict['best_' + score_name] = best_epoch_scores[score_name]
             best_metrics['best_' + score_name] = best_epoch_scores[score_name]
     myutils.report_metrics(best_metrics)
+    info_dict.update(best_metrics)
     json.dump(info_dict, open(os.path.join(serialization_dir, 'metrics.json'), 'w'), indent=4)
 
     if len(dev_dataloader.dataset.datasets) > 1:

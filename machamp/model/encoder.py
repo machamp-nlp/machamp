@@ -179,7 +179,6 @@ class MachampEncoder():
                                               device=input_token_ids.device, dtype=torch.int64)
                 new_seg_ids = torch.full((new_batch_size, self.max_input_length), 0, device=input_token_ids.device, dtype=torch.int64)
                 new_subword_mask = torch.full((new_batch_size, self.max_input_length), 0, device=input_token_ids.device, dtype=torch.int64)
-
                 curBatchIdx = 0
                 for sentIdx in range(batch_size):
                     if lengths[sentIdx] <= self.max_input_length:

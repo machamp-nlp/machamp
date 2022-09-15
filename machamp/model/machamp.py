@@ -150,7 +150,8 @@ class MachampModel(torch.nn.Module):
                 seg_ids: torch.tensor = None,
                 eval_mask: torch.tensor = None,
                 offsets: torch.tensor = None,
-                subword_mask: torch.tensor = None):
+                subword_mask: torch.tensor = None,
+                predicting: bool = False):
         """
         Forward pass
     
@@ -179,6 +180,9 @@ class MachampModel(torch.nn.Module):
         subword_mask: torch.tensor = None
             Mask for the subwords to take into account, 
             shape=(batch_size, max_sent_len_subwords) filled with 0s and 1s. 
+        predicting: bool = False
+            If predicting, we need to go through all task, otherwise we only
+            go through the task present in the gold annotations.
 
         Returns
         -------
@@ -197,6 +201,8 @@ class MachampModel(torch.nn.Module):
         for task, task_type in zip(self.tasks, self.task_types):
             if task in golds or task + '-rels' in golds:
                 cur_task_types.append(task_type)
+        if predicting:
+            cur_task_types = self.task_types
         is_only_mlm = sum([task_type != 'mlm' for task_type in cur_task_types]) == 0
         is_only_classification = sum(
             [task_type not in ['classification', 'regression'] for task_type in cur_task_types]) == 0
@@ -294,7 +300,7 @@ class MachampModel(torch.nn.Module):
         """
         # Run transformer model on input
         _, mlm_out_token, mlm_out_sent, mlm_out_tok = self.forward(input_token_ids, {}, seg_ids, eval_mask, offsets,
-                                                                   subword_mask)
+                                                                   subword_mask, True)
         out_dict = {}
         has_tok = 'tok' in self.task_types
 

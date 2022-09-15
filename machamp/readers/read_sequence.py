@@ -394,7 +394,7 @@ def read_sequence(
 
         if has_tok_task:
             token_ids, offsets, tok_labels, no_unk_subwords = tokenize_and_annotate(full_data, [
-                line[word_col_idx] for line in sent], pre_tokenizer, tokenizer)
+                myutils.clean_text(line[word_col_idx]) for line in sent], pre_tokenizer, tokenizer)
 
         else:
             token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx)
