@@ -148,13 +148,16 @@ def get_offsets(gold_tok: List[str], subwords: List[str]):
     subword_idx = 0
     offsets = []
     tok_labels = []
+    gold_tok = [unicodedata.normalize('NFC', unicodedata.normalize('NFKD', myutils.clean_text(tok))) for tok in gold_tok]
+    #print(gold_tok)
+    #print(subwords)
     for word in gold_tok:
         gold_char_idx += len(word)
-        # for using the first subword:
-        # offsets.append(subword_idx+1)
+        #print(word, gold_char_idx)
         while subword_char_idx < gold_char_idx:
             # links to the last subword if there is no exact match
             subword_char_idx += len(subwords[subword_idx].replace(' ', ''))
+            #print('-', subwords[subword_idx], subword_char_idx)
             subword_idx += 1
             if subword_char_idx < gold_char_idx:
                 tok_labels.append('merge')
@@ -190,14 +193,24 @@ def tok_xlmr(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer)
     Returns
     -------
     no_unk_subwords: List[str]
-        The subwords represented as strings, as the name suggests, [UNK]
+        The subwords represented as strings. [UNK]
         tokens are not included here, but replaced by their origin.
     token_ids: List[int]
         The full list of token id's representing the input.
     """
-    pass
-    return [], []#no_unk_subwords, token_ids
-
+    orig = unicodedata.normalize('NFKD', orig)
+    no_unk_subwords = []
+    token_ids = []
+    for word in pre_tokenizer.tokenize(orig):
+        tokked = tokenizer.encode(word)[1:-1]
+        token_ids.extend(tokked)
+        tokked = tokenizer.convert_ids_to_tokens(tokked)
+        if tokked == [tokenizer.unk_token]:
+            no_unk_subwords.append(word)
+        else:
+            for subword in tokked:
+                no_unk_subwords.append(subword.replace('▁', ' '))
+    return no_unk_subwords, token_ids
 
 def tok_bert(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer):
     """
@@ -221,11 +234,12 @@ def tok_bert(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer)
     Returns
     -------
     no_unk_subwords: List[str]
-        The subwords represented as strings, as the name suggests, [UNK]
+        The subwords represented as strings. [UNK]
         tokens are not included here, but replaced by their origin.
     token_ids: List[int]
         The full list of token id's representing the input.
     """
+    orig = unicodedata.normalize('NFD', orig)
     no_unk_subwords = []
     token_ids = []
     for word in pre_tokenizer.tokenize(orig):
@@ -236,9 +250,6 @@ def tok_bert(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer)
             no_unk_subwords.append(word)
         else:
             for subword in tokked:
-                # The NFD normalization of BERT has separated diacritics, now we
-                # merge them back. Perhaps it would be more robust to find the match in
-                # the original string...
                 if subword.startswith('##'):
                     no_unk_subwords.append(subword[2:])
                 else:
@@ -383,18 +394,13 @@ def read_sequence(
 
         if has_tok_task:
             token_ids, offsets, tok_labels, no_unk_subwords = tokenize_and_annotate(full_data, [
-                myutils.clean_text(line[word_col_idx]) for line in sent], pre_tokenizer, tokenizer)
+                line[word_col_idx] for line in sent], pre_tokenizer, tokenizer)
 
         else:
             token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx)
             no_unk_subwords = None
         token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
 
-        unk_counter += sum(token_ids == tokenizer.unk_token_id)
-        subword_counter += len(token_ids) - 2
-        word_counter += len(offsets)
-        if max_words != -1 and word_counter > max_words and is_train:
-            break
 
         # if index = -1, the dataset name is used, and this is handled in the superclass
         # dec_dataset_embeds = []
@@ -520,6 +526,13 @@ def read_sequence(
             # print(offsets)
             # print(token_ids)
             continue
+
+        unk_counter += sum(token_ids == tokenizer.unk_token_id)
+        subword_counter += len(token_ids) - 2
+        word_counter += len(offsets)
+        if max_words != -1 and word_counter > max_words and is_train:
+            break
+
         data.append(
             MachampInstance(full_data, token_ids, torch.zeros((len(token_ids)), dtype=torch.long), golds, dataset,
                             offsets, no_unk_subwords))

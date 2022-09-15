@@ -29,7 +29,7 @@ def train(
         device: str,
         resume: str = None,
         retrain: str = None,
-        seed: int = 8446,
+        seed: int = None,
         cmd: str = ''):
     """
     
@@ -214,14 +214,22 @@ def train(
                         mins.append(min(all_dev_scores[metric][1:]))
             labels = [label for label in sorted(all_dev_scores) if label != 'sum']
             if outlier:
-                plot = plot_to_string(x, title='Dev scores (x) over epochs (y)', legend_labels=labels, lines=True,
+                plot = plot_to_string(x, title='Dev scores (y) over epochs (x)', legend_labels=labels, lines=True,
                                       y_min=min(mins))
             else:
-                plot = plot_to_string(x, title='Dev scores (x) over epochs (y)', legend_labels=labels, lines=True)
+                plot = plot_to_string(x, title='Dev scores (y) over epochs (x)', legend_labels=labels, lines=True)
             logger.info('\n' + '\n'.join(plot))
 
+    best_epoch = callback.copy_best(serialization_dir)
+    info_dict['best_epoch'] = best_epoch
+    best_epoch_scores = json.load(open(os.path.join(serialization_dir, 'metrics_epoch_' + best_epoch + '.json')))
+    best_metrics = {}
+    for score_name in best_epoch_scores:
+        if score_name.startswith('dev_'):
+            info_dict['best_' + score_name] = best_epoch_scores[score_name]
+            best_metrics['best_' + score_name] = best_epoch_scores[score_name]
+    myutils.report_metrics(best_metrics)
     json.dump(info_dict, open(os.path.join(serialization_dir, 'metrics.json'), 'w'), indent=4)
-    callback.copy_best(serialization_dir)
 
     if len(dev_dataloader.dataset.datasets) > 1:
         logger.info('Predicting on dev sets')

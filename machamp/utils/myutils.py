@@ -192,10 +192,10 @@ def report_epoch(
     info['cur_ram'] = int(data[i:].split(None, 3)[1]) * 1e-06
     info['train_batch_loss'] = epoch_loss
     for metric in train_metrics:
-        info['train-' + metric] = train_metrics[metric]
+        info['train_' + metric] = train_metrics[metric]
     info['dev_batch_loss'] = dev_loss
     for metric in dev_metrics:
-        info['dev-' + metric] = dev_metrics[metric]
+        info['dev_' + metric] = dev_metrics[metric]
     info['epoch_time'] = str(datetime.datetime.now() - epoch_start_time).split('.')[0]
     info['total_time'] = str(datetime.datetime.now() - start_training_time).split('.')[0]
     for key in info:
@@ -251,7 +251,6 @@ def clean_text(text: str):
     cleaned_text: str
         The cleaned version of the input text.
     """
-    text = unicodedata.normalize('NFD', text)
     cleaned_text = []
     for char in text:
         cp = ord(char)

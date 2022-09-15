@@ -79,3 +79,4 @@ class Callback():
         logger.info(
             "Best performance obtained in epoch " + str(best_epoch) + ' linking model ' + src + ' as ' + tgt + '.')
         os.symlink(src, tgt)
+        return best_epoch
