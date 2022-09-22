@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from machamp.model.machamp_decoder import MachampDecoder
 
 
-class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
+class MachampMultiseqDecoder(MachampDecoder, torch.nn.Module):
     def __init__(
             self,
             task: str,
@@ -14,6 +14,7 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
             loss_weight: float = 1.0,
             metric: str = 'accuracy',
             topn: int = 1,
+            threshold: float = .0,
             **kwargs
     ) -> None:
         super().__init__(task, vocabulary, loss_weight, metric, device)
@@ -22,18 +23,18 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
         self.hidden_to_label = torch.nn.Linear(input_dim, nlabels)
         self.hidden_to_label.to(device)
-        self.loss_function = torch.nn.CrossEntropyLoss(ignore_index=0)
+        self.loss_function = torch.nn.BCEWithLogitsLoss()
+        self.threshold = threshold
         self.topn = topn
 
     def forward(self, mlm_out, mask, gold=None):
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):
-            # 0 is the padding/unk label, so skip it for the metric
-            maxes = torch.add(torch.argmax(logits[:, :, 1:], 2), 1)
-            self.metric.score(maxes, gold, mask, self.vocabulary.inverse_namespaces[self.task])
-            flat_length = gold.shape[0] * gold.shape[1]
-            loss = self.loss_weight * self.loss_function(logits.view(flat_length, -1), gold.view(flat_length))
+            # convert scores to binary:
+            preds = logits > self.threshold
+            self.metric.score(preds[:,:,1:], gold.eq(torch.tensor(1.0, device='cuda:0'))[:,:,1:], mask, self.vocabulary.inverse_namespaces[self.task])
+            loss = self.loss_weight * self.loss_function(logits[:,:,1:], gold.to(torch.float32)[:,:,1:])
             out_dict['loss'] = loss
         return out_dict
 
@@ -47,11 +48,20 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
 
         logits = self.forward(mlm_out, mask, gold)['logits']
         if self.topn == 1:
-            # 0 is the padding/unk label, so skip it for the metric
-            maxes = torch.add(torch.argmax(logits[:, :, 1:], 2), 1)
-            return {
-                'word_labels': [[self.vocabulary.id2token(token_id, self.task) for token_id in sent] for sent in maxes]}
-        else:
+            all_labels = []
+            preds = logits > self.threshold
+            all_labels = []
+            for sent_idx in range(len(preds)):
+                sent_labels = []
+                for word_idx in range(len(preds[sent_idx])):
+                    word_labels = []
+                    for label_idx in range(1, len(preds[sent_idx][word_idx])):
+                        if preds[sent_idx][word_idx][label_idx]:
+                            word_labels.append(self.vocabulary.id2token(label_idx, self.task))
+                    sent_labels.append('|'.join(word_labels))
+                all_labels.append(sent_labels)
+            return {'word_labels': all_labels}
+        else: # TODO implement topn?
             tags = []
             probs = []
             class_probs = F.softmax(logits, -1)

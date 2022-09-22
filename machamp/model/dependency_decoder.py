@@ -110,9 +110,8 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
             arc_representation_dim: int = 768,
             **kwargs,
     ) -> None:
-        super().__init__(task, vocabulary, loss_weight, metric)
+        super().__init__(task, vocabulary, loss_weight, metric, device)
 
-        self.device = device
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
         arc_representation_dim = arc_representation_dim  # + dec_dataset_embeds_dim
 

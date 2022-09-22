@@ -15,7 +15,7 @@ class MachampLMDecoder(MachampDecoder, torch.nn.Module):
             topn: int = 1,
             **kwargs
     ) -> None:
-        super().__init__(task, vocabulary, loss_weight, metric)
+        super().__init__(task, vocabulary, loss_weight, metric, device)
 
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
         self.loss_function = torch.nn.CrossEntropyLoss()
@@ -31,5 +31,5 @@ class MachampLMDecoder(MachampDecoder, torch.nn.Module):
         return {'loss': self.loss_weight * lm_loss}
 
     def get_output_labels(self, mlm_out, gold, mask=None):
-        forward(mlm_out, gold)
+        self.forward(mlm_out, gold)
         return {'word_labels': [], 'probs': []}

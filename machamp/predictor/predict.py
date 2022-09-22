@@ -81,7 +81,7 @@ def to_string(full_data: List[Any],
     # For word level annotation tasks, we have a different handling
     # so first detect whether we only have sentence level tasks
     task_types = [config['tasks'][task]['task_type'] for task in config['tasks']]
-    only_sent = sum([task_type in ['classification', 'regression'] for task_type in task_types]) == len(config['tasks'])
+    only_sent = sum([task_type in ['classification', 'regression', 'multiclas'] for task_type in task_types]) == len(config['tasks'])
     # from transformers import AutoTokenizer
     # tokzr = AutoTokenizer.from_pretrained('bert-base-multilingual-cased')
     if only_sent:
@@ -92,6 +92,7 @@ def to_string(full_data: List[Any],
             else:
                 full_data[task_idx] = preds[task]['sent_labels']
         return '\t'.join(full_data)
+
     else:  # word level annotation
         has_tok = 'tok' in task_types
         if has_tok:

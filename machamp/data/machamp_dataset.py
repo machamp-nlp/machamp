@@ -87,7 +87,7 @@ class MachampDataset(Dataset):
             num_s2s = 0
             for task in self.datasets[dataset]['tasks']:
                 task_config = self.datasets[dataset]['tasks'][task]
-                is_clas = task_config['task_type'] in ['classification', 'probdistr', 'regression']
+                is_clas = task_config['task_type'] in ['classification', 'probdistr', 'regression', 'multiclas']
                 read_seq = task_config['column_idx'] == -1 if 'column_idx' in task_config else None
 
                 if is_clas and not read_seq:
@@ -132,6 +132,28 @@ class MachampDataset(Dataset):
             for instance in read_function(dataset, self.datasets[dataset], self.tokenizer, self.vocabulary, path,
                                           is_train, max_sents, max_words, max_input_length):
                 self.data[dataset].append(instance)
+
+    def task_to_tasktype(self, task: str):
+        """
+        Converts a task-name (str) to its type (str)
+        
+        Parameters
+        ----------
+        task: str
+            The name of the task
+
+        Returns
+        -------
+        task_type: str
+            The task type of the given task
+        """
+        task_trimmed = task.replace('-heads', '').replace('-rels', '')
+        if task_trimmed in self.tasks:
+            index = self.tasks.index(task_trimmed)
+        else:
+            logger.error(task + ' not found in ' + str(self.tasks))
+            exit(1)
+        return self.task_types[index]
 
     def __len__(self):
         """

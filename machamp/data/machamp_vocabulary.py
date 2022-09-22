@@ -7,10 +7,6 @@
 
 import os
 
-UNK_ID = 0
-UNK = '@@unkORpad@@'
-
-
 class MachampVocabulary():
     def __init__(self):
         """
@@ -24,6 +20,8 @@ class MachampVocabulary():
         self.namespaces = {}
         self.inverse_namespaces = {}
         self.hasUnk = {}
+        self.UNK_ID = 0
+        self.UNK = '@@unkORpad@@'
 
     def load_vocab(self, vocab_path: str, name: str):
         """
@@ -70,7 +68,7 @@ class MachampVocabulary():
             name in the namespace.
         """
         if self.hasUnk[name]:
-            return UNK
+            return self.UNK
 
     def get_unk_id(self, name: str):
         """
@@ -82,7 +80,7 @@ class MachampVocabulary():
             name in the namespace.
         """
         if self.hasUnk[name]:
-            return UNK_ID
+            return self.UNK_ID
 
     def get_vocab(self, name: str):
         """
@@ -126,9 +124,9 @@ class MachampVocabulary():
                 self.inverse_namespaces[namespace].append(token)
                 return len(self.inverse_namespaces[namespace]) - 1
             else:
-                return UNK_ID if self.hasUnk[namespace] else None
+                return self.UNK_ID if self.hasUnk[namespace] else None
         if self.hasUnk[namespace]:
-            return self.namespaces[namespace].get(token, UNK_ID)
+            return self.namespaces[namespace].get(token, self.UNK_ID)
         else:
             return self.namespaces[namespace].get(token, None)
 
@@ -162,8 +160,8 @@ class MachampVocabulary():
             Whether this vocabulary should have an unknown/padding token.
         """
         if name not in self.namespaces:
-            self.namespaces[name] = {UNK: UNK_ID} if has_unk else {}
-            self.inverse_namespaces[name] = [UNK] if has_unk else []
+            self.namespaces[name] = {self.UNK: self.UNK_ID} if has_unk else {}
+            self.inverse_namespaces[name] = [self.UNK] if has_unk else []
             self.hasUnk[name] = has_unk
 
     def save_vocabs(self, out_dir: str):

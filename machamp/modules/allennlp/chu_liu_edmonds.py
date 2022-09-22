@@ -151,6 +151,8 @@ def chu_liu_edmonds(
     has_cycle, cycle = _find_cycle(parents, length, current_nodes)
     # If there are no cycles, find all edges and return.
     if not has_cycle:
+        foundRoot = False
+        root = -1
         final_edges[0] = -1
         for node in range(1, length):
             if not current_nodes[node]:
@@ -158,6 +160,16 @@ def chu_liu_edmonds(
 
             parent = old_input[parents[node], node]
             child = old_output[parents[node], node]
+            # Rob: Added this to fix double roots
+            # However, it should be fixed better, this just 
+            # connects all roots to the first found root
+            if parent == 0:
+                if foundRoot == True:
+                    final_edges[child] = root
+                    continue
+                else:
+                    foundRoot = True
+                    root = child
             final_edges[child] = parent
         return
 

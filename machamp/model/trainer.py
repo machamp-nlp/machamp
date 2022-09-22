@@ -148,6 +148,7 @@ def train(
         model.train()
         model.reset_metrics()
         epoch_loss = 0.0
+        total_train_losses = {}
 
         for train_batch_idx, batch in enumerate(tqdm(train_dataloader, file=sys.stdout)):
             optimizer.zero_grad()
@@ -155,8 +156,12 @@ def train(
             # gpu ram, it is quite fast anyways
             batch = myutils.prep_batch(batch, device, train_dataset)
 
-            loss, _, _, _ = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
+            loss, _, _, _, _, loss_dict = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
                                           batch['offsets'], batch['subword_mask'])
+            for task in loss_dict:
+                if task not in total_train_losses:
+                    total_train_losses[task] = 0.0
+                total_train_losses[task] += loss_dict[task]
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
@@ -169,12 +174,17 @@ def train(
         dev_loss = 0.0
         dev_metrics = {}
         dev_batch_idx = 1
+        total_dev_losses = {}
         if len(dev_dataset) > 0:
 
             for dev_batch_idx, batch in enumerate(tqdm(dev_dataloader, file=sys.stdout)):
                 batch = myutils.prep_batch(batch, device, train_dataset)
-                loss, _, _, _ = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
+                loss, _, _, _, _, loss_dict = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
                                               batch['offsets'], batch['subword_mask'])
+                for task in loss_dict:
+                    if task not in total_dev_losses:
+                        total_dev_losses[task] = 0.0
+                    total_dev_losses[task] += loss_dict[task]
                 dev_loss += loss.item()
 
             dev_metrics = model.get_metrics()
@@ -188,7 +198,7 @@ def train(
         if train_batch_idx == 0:
             train_batch_idx = 1
         info_dict = myutils.report_epoch(epoch_loss / train_batch_idx, dev_loss / dev_batch_idx, epoch, train_metrics,
-                                         dev_metrics, epoch_start_time, start_training_time)
+                                         dev_metrics, epoch_start_time, start_training_time, device, total_train_losses, total_dev_losses)
         json.dump(info_dict, open(os.path.join(serialization_dir, 'metrics_epoch_' + str(epoch) + '.json'), 'w'),
                   indent=4)
 

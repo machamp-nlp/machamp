@@ -92,6 +92,9 @@ def read_classification(
     subword_counter = 0
     unk_counter = 0
     test_tok = tokenizer.encode_plus('a', 'b')
+    has_start_token = len(tokenizer.prepare_for_model([])['input_ids']) == 2
+    has_end_token = len(tokenizer.prepare_for_model([])['input_ids']) >= 1
+    has_unk_token = tokenizer.unk_token != None
     has_seg_ids = 'token_type_ids' in test_tok and 1 in test_tok['token_type_ids']
     if 'skip_first_line' not in config:
         config['skip_first_line'] = False
@@ -101,7 +104,7 @@ def read_classification(
         # We use the following format 
         # input: <CLS> sent1 <SEP> sent2 <SEP> sent3 ...
         # type_ids: 0 0 .. 1 1 .. 0 0 .. 1 1 ..
-        full_input = [tokenizer.cls_token_id]
+        full_input = []
         seg_ids = [0]
         for counter, sent_idx in enumerate(sent_idxs):
             if sent_idx >= len(data_instance):
@@ -109,17 +112,27 @@ def read_classification(
                     'line ' + dataset + ':' + str(sent_idx) + ' doesnt\'t contain enough columns, column ' + str(
                         sent_idx) + ' is missing, should contain input.')
                 exit(1)
-            new_sent = tokenizer.encode(data_instance[sent_idx].strip())[1:-1] + [copy.deepcopy(tokenizer.sep_token_id)]
-            subword_counter += len(new_sent) - 1
-            if len(new_sent) == 1:
+            encoding = tokenizer.encode(data_instance[sent_idx].strip())[1:-1]
+            if has_start_token:
+                encoding = encoding[1:]
+            if has_end_token:
+                encoding = encoding[:-1]
+            if tokenizer.sep_token_id != None:
+                encoding = encoding + [copy.deepcopy(tokenizer.sep_token_id)]
+            subword_counter += len(encoding)
+            if len(encoding) == 0:
                 logger.warning("empty sentence found in line " + str(
                     sent_counter) + ', column ' + sent_idx + ' replaced with UNK token')
-                new_sent.insert(0, tokenizer.unk_token_id)
+                if has_unk_token:
+                    encoding.append(0, tokenizer.unk_token_id)
 
             if has_seg_ids:
-                seg_ids.extend([counter % 2] * len(new_sent))
-            full_input.extend(new_sent)
+                seg_ids.extend([counter % 2] * len(encoding))
+            full_input.extend(encoding)
         unk_counter += full_input.count(tokenizer.unk_token_id)
+        if has_end_token:
+            full_input = full_input[:-1]
+        full_input = tokenizer.prepare_for_model(full_input)['input_ids']
         full_input = torch.tensor(full_input, dtype=torch.long)
         seg_ids = torch.tensor(seg_ids, dtype=torch.long)
 
@@ -153,6 +166,8 @@ def read_classification(
                     logger.error('Column ' + str(col_idxs[task]) + ' in ' + dataset + ':' + str(
                         sent_idx) + " should have a float (for regression task)")
                     exit(1)
+            elif task_type == 'multiclas':
+                gold = torch.tensor([vocabulary.token2id(label, task, is_train) for label in gold.split('|')], dtype=torch.long)
             else:
                 gold = vocabulary.token2id(gold, task, is_train)
             col_idxs[task] = task_idx

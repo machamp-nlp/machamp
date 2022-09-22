@@ -1,5 +1,6 @@
 import logging
 
+from machamp.metrics.multi_accuracy import MultiAccuracy
 from machamp.metrics.accuracy import Accuracy
 from machamp.metrics.avg_dist import AvgDist
 from machamp.metrics.f1 import F1
@@ -25,6 +26,8 @@ class Metric():
         self.metrics = {}
         if metric_name == 'accuracy':
             self.metrics[metric_name] = Accuracy()
+        elif metric_name == 'multi_acc':
+            self.metrics[metric_name] = MultiAccuracy()
         elif metric_name == 'las':
             self.metrics[metric_name] = LAS()
         elif metric_name == 'avg_dist':

@@ -60,6 +60,7 @@ def read_mlm(
     sent_counter = 0
     unk_counter = 0
     subword_counter = 0
+    has_unk = tokenizer.unk_token != None
     masker = DataCollatorForLanguageModeling(tokenizer)
 
     if len(config['tasks']) > 1:
@@ -76,14 +77,15 @@ def read_mlm(
 
         # truncate too long sentences
         if len(token_ids) >= max_input_length:
-            token_ids = token_ids[list(range(127)) + [len(token_ids) - 1]]
+            token_ids = token_ids[list(range(max_input_length-1)) + [len(token_ids) - 1]]
 
         # skip empty lines
         if len(token_ids) <= 2:
             continue
         sent_counter += 1
 
-        unk_counter += sum(token_ids == tokenizer.unk_token_id)
+        if has_unk:
+            unk_counter += sum(token_ids == tokenizer.unk_token_id)
         subword_counter += len(token_ids) - 2
 
         # if index = -1, the dataset name is used, and this is handled in the superclass

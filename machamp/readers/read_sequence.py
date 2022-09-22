@@ -75,7 +75,7 @@ def seqs2data(tabular_file: str, skip_first_line: bool = False):
         yield sent[beg_idx:], sent
 
 
-def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_idx: int):
+def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_idx: int, num_special_tokens: int, has_unk: bool):
     """
     A tokenizer that tokenizes each token separately (over gold tokenization). 
     We found that this is the most robust method to tokenize overall (handling
@@ -88,8 +88,13 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
     sent: List[List[str]]:
         Contains all information of the tokens (also annotation), hence a list
         of lists.
-    word_col_idx: int):
+    word_col_idx: int:
         The column index that contains the input words.
+    num_special_toks: int
+        Number of special tokens, here assumed to be 2 (start/end token) or 1
+        (only end token)
+    has_unk: bool
+        Does the tokenizer have an unk token
     
     Returns
     -------
@@ -105,11 +110,20 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
     for token_idx in range(len(sent)):
         # TODO remove hardcoded special start-end token, which some don't have (i.e. google/mt5-base)
         # we do not use return_tensors='pt' because we do not know the length beforehand
-        tokked = tokenizer.encode(sent[token_idx][word_col_idx])[1:-1]
-        if len(tokked) == 0:
+        if num_special_tokens == 2:
+            tokked = tokenizer.encode(sent[token_idx][word_col_idx])[1:-1]
+        elif num_special_tokens == 1:
+            # We assume that if there is only one special token, it is the end token
+            tokked = tokenizer.encode(sent[token_idx][word_col_idx])[:-1]
+        elif num_special_tokens == 0:
+            tokked = tokenizer.encode(sent[token_idx][word_col_idx])
+        else:
+            logger.error('Number of special tokens is currently not handled: ' + str(num_special_tokens))
+            exit(1)
+        if len(tokked) == 0 and has_unk:
             tokked = [tokenizer.unk_token_id]
         token_ids.extend(tokked)
-        offsets.append(len(token_ids))
+        offsets.append(len(token_ids)-1)  
     offsets = torch.tensor(offsets, dtype=torch.long)
 
     return token_ids, offsets
@@ -153,15 +167,11 @@ def get_offsets(gold_tok: List[str], subwords: List[str], norm: bool):
     tok_labels = []
     if norm:
         gold_tok = [unicodedata.normalize('NFC', unicodedata.normalize('NFKD', myutils.clean_text(tok))) for tok in gold_tok]
-    #print(gold_tok)
-    #print(subwords)
     for word in gold_tok:
         gold_char_idx += len(word)
-        #print(word, gold_char_idx)
         while subword_char_idx < gold_char_idx:
             # links to the last subword if there is no exact match
             subword_char_idx += len(subwords[subword_idx].replace(' ', ''))
-            #print('-', subwords[subword_idx], subword_char_idx)
             subword_idx += 1
             if subword_char_idx < gold_char_idx:
                 tok_labels.append('merge')
@@ -380,7 +390,9 @@ def read_sequence(
     word_counter = 0
     unk_counter = 0
     subword_counter = 0
+    has_unk = tokenizer.unk_token_id != None
     has_tok_task = 'tok' in [config['tasks'][task]['task_type'] for task in config['tasks']]
+    num_special_tokens = len(tokenizer.prepare_for_model([])['input_ids'])
     if has_tok_task:
         pre_tokenizer = BasicTokenizer(strip_accents=False, do_lower_case=False, tokenize_chinese_chars=True)
 
@@ -401,7 +413,7 @@ def read_sequence(
                 myutils.clean_text(line[word_col_idx]) for line in sent], pre_tokenizer, tokenizer)
 
         else:
-            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx)
+            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, num_special_tokens, has_unk)
             no_unk_subwords = None
         token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
 
@@ -445,13 +457,14 @@ def read_sequence(
 
 
                 # Special handling for multiseq, as it required a different labelfield
-                # if task_type == 'multiseq':
-                #    label_sequence = []
-                #    # For each token label, check if it is a multilabel and handle it
-                #    for raw_label in labels:
-                #        label_list = raw_label.split("|")
-                #        label_sequence.append(label_list)
-                #    instance.add_field(task, SequenceMultiLabelField(label_sequence, input_field, label_namespace=task))
+                elif task_type == 'multiseq':
+                    label_sequence = []
+                    for token_info in sent:
+                        label_list = token_info[task_idx].split("|")
+                        label_sequence.append([vocabulary.token2id(label, task, is_train) for label in label_list])
+                    max_labels = max([len(label) for label in label_sequence])
+                    padded_label_sequence = [labels + [vocabulary.UNK_ID] * (max_labels-len(labels)) for labels in label_sequence]
+                    golds[task] = torch.tensor(padded_label_sequence, dtype=torch.long)
                 else:
                     golds[task] = torch.tensor(
                         [vocabulary.token2id(token_info[task_idx], task, is_train) for token_info in sent],
@@ -522,16 +535,13 @@ def read_sequence(
         # other tasks.
         no_mapping = False
         for task in golds:
-            if len(token_ids) - 2 < len(golds[task]):
+            if len(token_ids) - num_special_tokens < len(golds[task]):
                 no_mapping = True
         if no_mapping:
             print('skip')  # TODO
-            # print(len(golds['upos']), len(offsets))
-            # print(offsets)
-            # print(token_ids)
             continue
-
-        unk_counter += sum(token_ids == tokenizer.unk_token_id)
+        if has_unk:
+            unk_counter += sum(token_ids == tokenizer.unk_token_id)
         subword_counter += len(token_ids) - 2
         word_counter += len(offsets)
         if max_words != -1 and word_counter > max_words and is_train:

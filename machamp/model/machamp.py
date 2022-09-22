@@ -14,9 +14,12 @@ from machamp.data.machamp_vocabulary import MachampVocabulary
 from machamp.model.classification_decoder import MachampClassificationDecoder
 from machamp.model.regression_decoder import MachampRegressionDecoder
 from machamp.model.seq_label_decoder import MachampSeqDecoder
+from machamp.model.multiseq_decoder import MachampMultiseqDecoder
 from machamp.model.crf_label_decoder import MachampCRFDecoder
 from machamp.model.dependency_decoder import MachampDepDecoder
 from machamp.model.mlm_decoder import MachampLMDecoder
+from machamp.model.multiclas_decoder import MachampMulticlasDecoder
+
 from machamp.model.encoder import MachampEncoder
 from machamp.metrics.avg_dist import AvgDist
 from machamp.metrics.perplexity import Perplexity
@@ -117,7 +120,11 @@ class MachampModel(torch.nn.Module):
         else:
             self.dropout = torch.nn.Dropout(dropout)
 
-        self.encoder = MachampEncoder(self.mlm, max_input_length, tokenizer.sep_token_id, tokenizer.cls_token_id)
+        tokenizer_out = tokenizer.prepare_for_model([])['input_ids']
+        # we assume that if there is only one special token that it is the end token
+        self.end_token = None if len(tokenizer_out) == 0 else tokenizer_out[-1]
+        self.start_token = None if len(tokenizer_out) <= 1 else tokenizer_out[0]
+        self.encoder = MachampEncoder(self.mlm, max_input_length, self.end_token, self.start_token)
 
         self.decoders = torch.nn.ModuleDict()
         for task, task_type in zip(self.tasks, self.task_types):
@@ -136,6 +143,10 @@ class MachampModel(torch.nn.Module):
                 decoder_type = MachampRegressionDecoder
             elif task_type == 'mlm':
                 decoder_type = MachampLMDecoder
+            elif task_type == 'multiseq':
+                decoder_type = MachampMultiseqDecoder
+            elif task_type == 'multiclas':
+                decoder_type = MachampMulticlasDecoder
             else:
                 logger.error('Error, task_type ' + task_type + ' not implemented')
                 exit(1)
@@ -205,9 +216,8 @@ class MachampModel(torch.nn.Module):
             cur_task_types = self.task_types
         is_only_mlm = sum([task_type != 'mlm' for task_type in cur_task_types]) == 0
         is_only_classification = sum(
-            [task_type not in ['classification', 'regression'] for task_type in cur_task_types]) == 0
+            [task_type not in ['classification', 'regression', 'multiclas'] for task_type in cur_task_types]) == 0
         dont_split = is_only_mlm or is_only_classification
-
         # Run transformer model on input
         mlm_out, mlm_preds = self.encoder.embed(input_token_ids, seg_ids, dont_split, subword_mask)
 
@@ -216,8 +226,8 @@ class MachampModel(torch.nn.Module):
         mlm_out_tok = None
 
 
-        if 'classification' in self.task_types or 'regression' in self.task_types:
-            mlm_out_sent = mlm_out[:, :1, :].squeeze()
+        if 'classification' in self.task_types or 'regression' in self.task_types or 'multiclas' in self.task_types:
+            mlm_out_sent = mlm_out[:, :1, :].squeeze() # always take first token, even if it is not a special token
             if self.dropout != None:
                 mlm_out_sent = self.dropout(mlm_out_sent)
 
@@ -229,16 +239,21 @@ class MachampModel(torch.nn.Module):
                 mlm_out_token = self.dropout(mlm_out_token)
 
         if 'tok' in self.task_types:
-            mlm_out_tok = self.dropout(mlm_out[:, 1:-1, :])
+            mlm_out_tok = mlm_out
+            if self.start_token != None:
+                mlm_out_tok = mlm_out_tok[:,1:,:]
+            if self.end_token != None:
+                mlm_out_tok = mlm_out_tok[:,:-1,:]
             if self.dropout != None:
                 mlm_out_tok = self.dropout(mlm_out_tok)
 
         # get loss from all decoders that have annotations
         loss = 0.0
+        loss_dict = {} 
         if golds != {}:
             for task, task_type in zip(self.tasks, self.task_types):
                 if task in golds or task + '-rels' in golds:
-                    if task_type in ['classification', 'regression']:
+                    if task_type in ['classification', 'regression', 'multiclas']:
                         out_dict = self.decoders[task].forward(mlm_out_sent, eval_mask, golds[task])
                     elif task_type == 'dependency':
                         out_dict = self.decoders[task].forward(mlm_out_token, eval_mask, golds[task + '-heads'],
@@ -253,7 +268,8 @@ class MachampModel(torch.nn.Module):
                     else:
                         out_dict = self.decoders[task].forward(mlm_out_token, eval_mask, golds[task])
                     loss += out_dict['loss']
-        return loss, mlm_out_token, mlm_out_sent, mlm_out_tok
+                    loss_dict[task] = out_dict['loss'].item()
+        return loss, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, loss_dict
 
     def get_output_labels(self,
                           input_token_ids: torch.tensor,
@@ -300,7 +316,7 @@ class MachampModel(torch.nn.Module):
             (lists of) the outputs for this task.
         """
         # Run transformer model on input
-        _, mlm_out_token, mlm_out_sent, mlm_out_tok = self.forward(input_token_ids, {}, seg_ids, eval_mask, offsets,
+        _, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, _ = self.forward(input_token_ids, {}, seg_ids, eval_mask, offsets,
                                                                    subword_mask, True)
         out_dict = {}
         has_tok = 'tok' in self.task_types
@@ -328,7 +344,7 @@ class MachampModel(torch.nn.Module):
 
  
         for task, task_type in zip(self.tasks, self.task_types):
-            if task_type in ['classification', 'regression']:
+            if task_type in ['classification', 'regression', 'multiclas']:
                 out_dict[task] = self.decoders[task].get_output_labels(mlm_out_sent, eval_mask, golds[task])
             elif self.task_types[self.tasks.index(task)] == 'dependency':
                 if has_tok:

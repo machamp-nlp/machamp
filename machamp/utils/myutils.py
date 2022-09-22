@@ -110,11 +110,13 @@ def prep_batch(
     batch_offsets = None
     batch_eval_mask = None
 
-    # Instead of focusing on task_types, we use this dimension
-    # check to decide the dimensions. This should be more
-    # robust/easier to maintain. (Word-level tasks have lists
-    # of annotations)
-    has_word_level = True in [type(batch[0].golds[task]) in [torch.Tensor, torch.tensor, list] for task in batch[0].golds]
+    # Assuming here that batches are homogeneous, only checking
+    # the first element.
+    has_word_level = False
+    for task in batch[0].golds:
+        task_type = dataset.task_to_tasktype(task)
+        if task_type in ['seq', 'multiseq', 'seq_bio', 'tok', 'dependency', 'string2string', 'mlm']:
+            has_word_level = True
 
     if has_word_level:
         max_token_len = max([len(instance.offsets) for instance in batch])
@@ -123,12 +125,22 @@ def prep_batch(
     batch_subword_mask = torch.zeros((batch_size, max_subword_len), dtype=torch.bool, device=device)
 
     for task in batch[0].golds:
+        task_type = dataset.task_to_tasktype(task)
+        is_word_level = task_type in ['seq', 'multiseq', 'seq_bio', 'tok', 'dependency', 'string2string', 'mlm']
+
         if dataset.task2type[task.replace('-heads', '').replace('-rels', '')] == 'tok':
             golds[task] = torch.zeros((batch_size, max_subword_len - 2), dtype=torch.long, device=device)
         elif dataset.task2type[task.replace('-heads', '').replace('-rels', '')] == 'regression':
             golds[task] = torch.zeros(batch_size, dtype=torch.float, device=device)
-        elif type(batch[0].golds[task]) in [torch.Tensor, torch.tensor, list]:
-            golds[task] = torch.zeros((batch_size, max_token_len), dtype=torch.long, device=device)
+        elif is_word_level:
+            if len(batch[0].golds[task].shape) == 1:
+                golds[task] = torch.zeros((batch_size, max_token_len), dtype=torch.long, device=device)
+            else: # multiple annotations per token
+                num_labels = len(dataset.vocabulary.get_vocab(task))
+                golds[task] = torch.zeros((batch_size, max_token_len, num_labels), dtype=torch.long, device=device)
+        elif task_type == 'multiclas':
+            num_labels = len(dataset.vocabulary.get_vocab(task))
+            golds[task] = torch.zeros(batch_size, num_labels, dtype=torch.long, device=device)
         else:
             golds[task] = torch.zeros(batch_size, dtype=torch.long, device=device)
 
@@ -136,16 +148,27 @@ def prep_batch(
         batch_tokens[instanceIdx][0:len(instance.token_ids)] = instance.token_ids
         batch_seg_ids[instanceIdx][0:len(instance.seg_ids)] = instance.seg_ids
         for task in instance.golds:
-            if type(batch[0].golds[task]) in [torch.Tensor, torch.tensor, list]:
-                golds[task][instanceIdx][0:len(instance.golds[task])] = instance.golds[task]
+            task_type = dataset.task_to_tasktype(task)
+            is_word_level = task_type in ['seq', 'multiseq', 'seq_bio', 'tok', 'dependency', 'string2string', 'mlm']
+
+            if is_word_level:
+                if len(batch[0].golds[task].shape) == 1:
+                    golds[task][instanceIdx][0:len(instance.golds[task])] = instance.golds[task]
+                else:
+                    for token_idx, token_labels in enumerate(instance.golds[task]):
+                        for token_label in token_labels:
+                            golds[task][instanceIdx][token_idx][token_label] = 1
+            elif task_type == 'multiclas':
+                for sent_label in instance.golds[task]:
+                    golds[task][instanceIdx][sent_label] = 1
             else:
                 golds[task][instanceIdx] = instance.golds[task]
+
 
         if has_word_level and type(batch[0].offsets) != type(None):
             batch_offsets[instanceIdx][:len(instance.offsets)] = instance.offsets
             batch_eval_mask[instanceIdx][:len(instance.offsets)] = 1
         batch_subword_mask[instanceIdx][:len(instance.token_ids)] = 1
-
     return {'token_ids': batch_tokens, 'seg_ids': batch_seg_ids, 'golds': golds, 'offsets': batch_offsets,
             'eval_mask': batch_eval_mask, 'subword_mask': batch_subword_mask}
 
@@ -157,7 +180,10 @@ def report_epoch(
         train_metrics: Dict[str, float],
         dev_metrics: Dict[str, float],
         epoch_start_time: datetime.datetime,
-        start_training_time: datetime.datetime):
+        start_training_time: datetime.datetime, 
+        device: str, 
+        train_loss_dict: Dict[str, float],
+        dev_loss_dict: Dict[str, float]):
     """
     Reports a variety of interesting and less interesting metrics that can
     be tracked across epochs. These are both logged and returned.
@@ -178,21 +204,35 @@ def report_epoch(
         The time this epoch started.
     start_training_time: datetime.datetime
         The time the training procedure started.
+    device: str
+        Used to decide whether to print GPU ram
+    train_loss_dict: Dict[str, float]
+        training losses
+    dev_loss_dict: Dict[str, float]
+        dev losses
 
     Returns
     -------
     info: Dict[str, float]
         A dictionary containing all information that has just been logged
     """
-    info = {'epoch': epoch, 'max_gpu_mem': torch.cuda.max_memory_allocated() * 1e-09}
+    info = {'epoch': epoch}
+    if 'cuda' in device:
+        info['max_gpu_mem'] = torch.cuda.max_memory_allocated() * 1e-09
 
     _proc_status = '/proc/%d/status' % os.getpid()
     data = open(_proc_status).read()
     i = data.index('VmRSS:')
     info['cur_ram'] = int(data[i:].split(None, 3)[1]) * 1e-06
+
+    # Might be nice to turn into a table?
+    for task in train_loss_dict:
+        info['train_' + task + '_loss'] = train_loss_dict[task]
     info['train_batch_loss'] = epoch_loss
     for metric in train_metrics:
         info['train_' + metric] = train_metrics[metric]
+    for task in dev_loss_dict:
+        info['dev_' + task + '_loss'] = dev_loss_dict[task]
     info['dev_batch_loss'] = dev_loss
     for metric in dev_metrics:
         info['dev_' + metric] = dev_metrics[metric]
