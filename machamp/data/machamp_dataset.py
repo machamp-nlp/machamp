@@ -59,14 +59,13 @@ class MachampDataset(Dataset):
 
         for dataset in datasets:
             for task in datasets[dataset]['tasks']:
-                self.tasks.append(task)
-                self.task_types.append(datasets[dataset]['tasks'][task]['task_type'])
-
-        # could be nicer in a separate function?, note that for the dependency
-        # task type the name has suffixes
-        self.task2type = {}
-        for task, task_type in zip(self.tasks, self.task_types):
-            self.task2type[task] = task_type
+                if task in self.tasks:
+                    if datasets[dataset]['tasks'][task]['task_type'] != self.task_to_tasktype(task):
+                        logger.error('Error task with same name, but different type found. Please rename and note that tasks with the same name share the same decoder head')
+                        exit(1)
+                else:
+                    self.tasks.append(task)
+                    self.task_types.append(datasets[dataset]['tasks'][task]['task_type'])
 
         if vocabulary == None:
             self.vocabulary = MachampVocabulary()

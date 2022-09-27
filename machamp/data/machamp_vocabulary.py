@@ -126,7 +126,7 @@ class MachampVocabulary():
             else:
                 return self.UNK_ID if self.hasUnk[namespace] else None
         if self.hasUnk[namespace]:
-            return self.namespaces[namespace].get(token, self.UNK_ID)
+            return self.namespaces[namespace].get(token, 0)
         else:
             return self.namespaces[namespace].get(token, None)
 

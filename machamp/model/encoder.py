@@ -93,13 +93,18 @@ class MachampEncoder():
         embedded_text: torch.tensor
             shape=(batch_size,max_sent_len,emb_size)
         """
-        # first detect whether token_type_ids (segment embeddings) are supported
-        argspec = inspect.getfullargspec(self.mlm.forward)
         args = {'input_ids': input_token_ids, 'attention_mask': subword_mask, 'output_hidden_states': True}
+        argspec = inspect.getfullargspec(self.mlm.forward)
+        # detect whether token_type_ids (segment embeddings) are supported
         if 'token_type_ids' in argspec[0]:
             args['token_type_ids'] = seg_ids
         if 'decoder_input_ids' in argspec[0]:
-            args['decoder_input_ids'] = seg_ids
+            batch_size = len(input_token_ids)
+            decoder_start_token_id = self.mlm.config.bos_token_id
+            if decoder_start_token_id == None:
+                decoder_start_token_id = self.mlm.config.decoder_start_token_id
+            torch.ones((batch_size, 1), dtype=torch.long, device=input_token_ids.device) * decoder_start_token_id
+            args['decoder_input_ids'] = input_token_ids
 
         output = self.mlm.forward(**args)
 

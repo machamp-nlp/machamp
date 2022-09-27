@@ -85,6 +85,9 @@ def train(
 
     if cmd != '':
         logger.info('cmd: ' + cmd)
+
+    if os.path.isfile('.git/logs/HEAD'):
+        logger.info('git commit '  + open('.git/logs/HEAD').readlines()[-1].split(' ')[1])
     random.seed(parameters_config['random_seed'])
     torch.manual_seed(parameters_config['random_seed'])
 
@@ -163,6 +166,7 @@ def train(
                     total_train_losses[task] = 0.0
                 total_train_losses[task] += loss_dict[task]
             loss.backward()
+            scheduler.step_batch()
             optimizer.step()
             epoch_loss += loss.item()
 

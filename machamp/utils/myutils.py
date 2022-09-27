@@ -128,9 +128,9 @@ def prep_batch(
         task_type = dataset.task_to_tasktype(task)
         is_word_level = task_type in ['seq', 'multiseq', 'seq_bio', 'tok', 'dependency', 'string2string', 'mlm']
 
-        if dataset.task2type[task.replace('-heads', '').replace('-rels', '')] == 'tok':
+        if task_type == 'tok':
             golds[task] = torch.zeros((batch_size, max_subword_len - 2), dtype=torch.long, device=device)
-        elif dataset.task2type[task.replace('-heads', '').replace('-rels', '')] == 'regression':
+        elif task_type == 'regression':
             golds[task] = torch.zeros(batch_size, dtype=torch.float, device=device)
         elif is_word_level:
             if len(batch[0].golds[task].shape) == 1:

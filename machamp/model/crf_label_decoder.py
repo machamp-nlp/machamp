@@ -71,13 +71,22 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
         we add 1 because we leave out the padding/unk 
         token in position 0 (thats what [:,:,1:] does)
         """
-        logits = self.forward(mlm_out, mask, gold)['logits']
+        logits = self.forward(mlm_out, mask)['logits']
+        best_paths = self.crf_layer.viterbi_tags(logits, mask, top_k=self.topn)
+
+        # Just get the top tags and ignore the scores.
+        predicted_tags = cast(List[List[int]], [x[0][0] for x in best_paths])
+
+
         if self.topn == 1:
-            # 0 is the padding/unk label, so skip it for the metric
-            maxes = torch.add(torch.argmax(logits[:, :, 1:], 2), 1)
+            class_probabilities = logits * 0.0
+            for i, instance_tags in enumerate(predicted_tags):
+                for j, tag_id in enumerate(instance_tags):
+                    class_probabilities[i, j, tag_id] = 1
+            maxes = torch.add(torch.argmax(class_probabilities[:, :, 1:], 2), 1)
             return {
                 'word_labels': [[self.vocabulary.id2token(token_id, self.task) for token_id in sent] for sent in maxes]}
-        else:
+        else: # TODO implement top-n
             tags = []
             probs = []
             class_probs = F.softmax(logits, -1)

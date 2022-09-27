@@ -1,7 +1,6 @@
 {
   "transformer_model": "bert-base-multilingual-cased",
   //"transformer_model": "xlm-roberta-large",
-  //"transformer_model": "facebook/mbart-large-50",
   "random_seed": 8446,
   "default_dec_dataset_embeds_dim": 12,
   "encoder": {
@@ -21,12 +20,14 @@
     },
     "seq": {
     },
+    "multiseq": {
+      "metric": "multi_acc",
+      "threshold": 0.0
+    },
     "seq_bio": {
       "metric": "span_f1"
     },
     "tok": {
-    },
-    "classification": {
     },
     "dependency": {
       "arc_representation_dim": 768,
@@ -37,6 +38,12 @@
     },
     "mlm": {
       "metric": "perplexity"
+    },
+    "classification": {
+    },
+    "multiclas": {
+      "metric": "multi_acc",
+      "threshold": 0.0
     },
     "regression": {
       "metric": "avg_dist"

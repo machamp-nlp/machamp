@@ -41,7 +41,7 @@ class MachampBatchSampler(Sampler):
 
         self.data_source = data_source
         self.batch_size = batch_size
-        self.max_words = max_words # TODO use this!
+        self.max_words = max_words
         self.batches = {}
         self.shuffle = shuffle
         self.smoothing_factor = smoothing_factor

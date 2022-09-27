@@ -189,16 +189,12 @@ def to_string(full_data: List[Any],
 def predict(model, dev_dataloader, serialization_dir, dataset_configs, sep_token_id, batch_size, device, vocabulary):
     model.eval()
     model.reset_metrics()
-    out_file = None
-    prev_dataset = ''
+    out_files = {}
     for batchIdx, batch in enumerate(dev_dataloader):
         dataset = batch[0].dataset
-        if dataset != prev_dataset:
-            if out_file != None:
-                out_file.close()
-            out_file = open(os.path.join(serialization_dir, dataset + '.out'), 'w')
-            prev_dataset = dataset
-
+        if dataset not in out_files:
+            out_files[dataset] = open (os.path.join(serialization_dir, dataset + '.out'), 'w')
+        out_file = out_files[dataset]
         enc_batch = prep_batch(batch, device, dev_dataloader.dataset)
         out_dict = model.get_output_labels(enc_batch['token_ids'], enc_batch['golds'], enc_batch['seg_ids'],
                                            enc_batch['eval_mask'], enc_batch['offsets'], enc_batch['subword_mask'])
@@ -211,6 +207,7 @@ def predict(model, dev_dataloader, serialization_dir, dataset_configs, sep_token
             output = to_string(batch[i].full_data, sent_dict, dataset_configs[dataset], batch[i].no_unk_subwords,
                                model.vocabulary, enc_batch['token_ids'][i], )
             out_file.write(output + '\n')
+    [out_files[out_file].close() for out_file in out_files]
     metrics = model.get_metrics()
     report_metrics(metrics)
 
@@ -235,7 +232,9 @@ def predict2(model, input_path, output_path, dataset, batch_size, raw_text, devi
     dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
 
     outfile = open(output_path, 'w')
+    idx = 0
     for batch in dev_dataloader:
+        idx += 1
         enc_batch = prep_batch(batch, device, dev_dataset)
         out_dict = model.get_output_labels(enc_batch['token_ids'], enc_batch['golds'], enc_batch['seg_ids'],
                                            enc_batch['eval_mask'], enc_batch['offsets'], enc_batch['subword_mask'])
@@ -248,5 +247,6 @@ def predict2(model, input_path, output_path, dataset, batch_size, raw_text, devi
             output = to_string(batch[i].full_data, sent_dict, data_config[dataset], batch[i].no_unk_subwords,
                                model.vocabulary, enc_batch['token_ids'][i], )
             outfile.write(output + '\n')
+    outfile.close()
     metrics = model.get_metrics()
     report_metrics(metrics)

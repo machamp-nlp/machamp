@@ -8,7 +8,7 @@ class MultiAccuracy():
         self.str = 'multi-acc.'
 
     def score(self, preds, golds, mask, vocabulary):
-        # TODO: can this be done more efficient?
+        # Maybe this be done more efficient by using torch functions?
         if len(preds.shape) == 3:
             for sent_idx in range(len(mask)):
                 for word_idx in range(len(mask[sent_idx])):

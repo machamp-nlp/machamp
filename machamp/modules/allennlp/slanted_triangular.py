@@ -120,6 +120,10 @@ class SlantedTriangular(_LRScheduler):
         else:
             self.batch_num_total_epoch_end.append(self.last_batch_num_total)
 
+        logger.info("Learning rates for each group: " + '\n')
+        for i, param_group in enumerate(reversed(self.optimizer.param_groups)):
+            logger.info(str(i) + ': ' + str(param_group["lr"]) + '\n')
+
         if self.gradual_unfreezing:
             # the method is called once when initialising before the
             # first epoch (epoch -1) and then always at the end of each

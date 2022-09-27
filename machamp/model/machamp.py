@@ -342,8 +342,9 @@ class MachampModel(torch.nn.Module):
             for sent_idx in range(len(mlm_out_token)):
                 mlm_out_token[sent_idx] = mlm_out_tok[sent_idx][tok_indices[sent_idx]]
 
- 
         for task, task_type in zip(self.tasks, self.task_types):
+            if task not in golds and task + '-rels' not in golds:
+                continue
             if task_type in ['classification', 'regression', 'multiclas']:
                 out_dict[task] = self.decoders[task].get_output_labels(mlm_out_sent, eval_mask, golds[task])
             elif self.task_types[self.tasks.index(task)] == 'dependency':

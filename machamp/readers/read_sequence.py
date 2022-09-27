@@ -108,7 +108,6 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
     token_ids = []
     offsets = []
     for token_idx in range(len(sent)):
-        # TODO remove hardcoded special start-end token, which some don't have (i.e. google/mt5-base)
         # we do not use return_tensors='pt' because we do not know the length beforehand
         if num_special_tokens == 2:
             tokked = tokenizer.encode(sent[token_idx][word_col_idx])[1:-1]
@@ -182,7 +181,7 @@ def get_offsets(gold_tok: List[str], subwords: List[str], norm: bool):
     return offsets, tok_labels
 
 
-def tok_xlmr(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer):  # TODO
+def tok_xlmr(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer): 
     """
     Tokenize the original text with a XLMRobertaTokenizer, while trying to
     keep the original characters. This is only possible when the input
