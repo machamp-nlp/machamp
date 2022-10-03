@@ -71,7 +71,7 @@ class MachampDataset(Dataset):
             self.vocabulary = MachampVocabulary()
         else:
             self.vocabulary = vocabulary
-
+        
         self.data = {}
         for dataset in self.datasets:
             # for backwards compatibility

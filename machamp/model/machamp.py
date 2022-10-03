@@ -227,10 +227,10 @@ class MachampModel(torch.nn.Module):
 
 
         if 'classification' in self.task_types or 'regression' in self.task_types or 'multiclas' in self.task_types:
-            mlm_out_sent = mlm_out[:, :1, :].squeeze() # always take first token, even if it is not a special token
+            # always take first token, even if it is not a special token
+            mlm_out_sent = mlm_out[:, :1, :].squeeze(1)
             if self.dropout != None:
                 mlm_out_sent = self.dropout(mlm_out_sent)
-
         if type(offsets) != type(None):
             mlm_out_token = torch.zeros((len(offsets), len(offsets[0]), len(mlm_out[0][0])), device=self.device)
             for sentIdx in range(len(offsets)):

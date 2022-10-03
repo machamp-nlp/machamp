@@ -22,6 +22,9 @@ class MachampVocabulary():
         self.hasUnk = {}
         self.UNK_ID = 0
         self.UNK = '@@unkORpad@@'
+        # This is perhaps not the neatest location, but it is put here for convenience, 
+        # as it is used in many places, and the vocabulary is availabl in all of them
+        self.pre_splits = {}
 
     def load_vocab(self, vocab_path: str, name: str):
         """
@@ -179,6 +182,7 @@ class MachampVocabulary():
 
         for namespace in self.namespaces:
             self.save_vocab(namespace, os.path.join(out_dir, namespace))
+        open(os.path.join(out_dir, 'pre_splits_vocab'), 'w').write(str(self.pre_splits))
 
     def save_vocab(self, name: str, vocab_path: str):
         """

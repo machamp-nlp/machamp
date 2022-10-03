@@ -258,10 +258,10 @@ class MachampEncoder():
                 mlm_out_split, mlm_preds = self.run_mlm(new_input_tokens, new_seg_ids, new_subword_mask)
                 if self.end_token_id != None:
                     mlm_out_merged = torch.full((batch_size, input_token_ids.size(1), mlm_out_split.size(-1)), self.end_token_id,
-                                             device=input_token_ids.device)
+                                             device=input_token_ids.device, dtype=torch.float32)
                 else:
                     mlm_out_merged = torch.zeros(batch_size, input_token_ids.size(1), mlm_out_split.size(-1),
-                                             device=input_token_ids.device)
+                                             device=input_token_ids.device, dtype=torch.float32)
                 splitted_idx = 0
                 for sent_idx in range(batch_size):
                     if amount_of_splits[sent_idx] == 1:
@@ -270,6 +270,9 @@ class MachampEncoder():
                     else:
                         # first of the splits, keep as is
                         end_idx = self.max_input_length-1 if self.end_token_id == None else self.max_input_length
+                        # It would be neater to merge this into the line above
+                        if self.num_extra_tokens == 0:
+                            end_idx += 1
                         mlm_out_merged[sent_idx][0:end_idx] = mlm_out_split[splitted_idx][0:end_idx]
                         num_subwords_per_batch = self.max_input_length - self.num_extra_tokens
 

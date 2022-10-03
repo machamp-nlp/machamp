@@ -122,9 +122,9 @@ def read_classification(
             subword_counter += len(encoding)
             if len(encoding) == 0:
                 logger.warning("empty sentence found in line " + str(
-                    sent_counter) + ', column ' + sent_idx + ' replaced with UNK token')
+                    sent_counter) + ', column ' + str(sent_idx) + ' replaced with UNK token')
                 if has_unk_token:
-                    encoding.append(0, tokenizer.unk_token_id)
+                    encoding.append(tokenizer.unk_token_id)
 
             if has_seg_ids:
                 seg_ids.extend([counter % 2] * len(encoding))

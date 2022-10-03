@@ -1,16 +1,16 @@
 import logging
 import unicodedata
-from typing import List
+from typing import List, Dict
 
 import torch
 from transformers import AutoTokenizer
-from transformers.models.bert.tokenization_bert import BasicTokenizer
 from transformers.models.bert.tokenization_bert import BertTokenizer
 from transformers.models.xlm_roberta.tokenization_xlm_roberta import XLMRobertaTokenizer
 
 from machamp.utils import myutils
 from machamp.data.machamp_vocabulary import MachampVocabulary
 from machamp.data.machamp_instance import MachampInstance
+from machamp.readers.machamp_basic_tokenizer import MachampBasicTokenizer
 from machamp.utils.lemma_edit import gen_lemma_rule
 
 logger = logging.getLogger(__name__)
@@ -127,8 +127,33 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
 
     return token_ids, offsets
 
+def getSpaceLocations(text):
+    space_locs = []
+    cur_char_idx = 0
+    for char in text:
+        if char == ' ':
+            space_locs.append(cur_char_idx)
+        else:
+            cur_char_idx += 1
+    return space_locs
 
-def get_offsets(gold_tok: List[str], subwords: List[str], norm: bool):
+def getSplitsFromSpaces(subwords, spaceIdxs):
+    splits = []
+    curCharIdx = 0
+    for subword in subwords:
+        new_subword = subword
+        rel_pos_splits = [spaceIdx-curCharIdx for spaceIdx in spaceIdxs]
+        for split_idx in reversed(rel_pos_splits):
+            if split_idx < len(new_subword) and split_idx > 0:
+                new_subword = new_subword[:split_idx] + ' ' + new_subword[split_idx:]
+        curCharIdx += len(subword)
+
+        #if new_subword != subword:
+        splits.append([subword, new_subword])
+    return splits
+
+# TODO add documention new arguments
+def get_offsets(gold_tok: List[str], subwords: List[str], norm: bool, pre_tokked):
     """
     Converts a list of gold-tokenized words and a list of subwords
     to the matching offsets as best as possible, and also produces
@@ -164,6 +189,37 @@ def get_offsets(gold_tok: List[str], subwords: List[str], norm: bool):
     subword_idx = 0
     offsets = []
     tok_labels = []
+    if ''.join(gold_tok).replace(' ', '') != ''.join(subwords):
+        
+        logger.error("error, characters between original text and gold annotation are not equal")
+        logger.error('orig: ' + ''.join(subwords))
+        logger.error('gold: ' + ''.join(gold_tok).replace(' ', ''))
+        logger.error('len(orig): ' + str(len(''.join(subwords))))
+        logger.error('len(gold): ' + str(len(''.join(gold_tok).replace(' ', ''))))
+        exit(1)
+    # Note that this only solves 95% of all cases I guess:
+    # [nononono] used to become [non ##ono ##no] and now it 
+    # becomes [no no nono], which is then tokenized to [no no non ##o]
+    # There are multiple ways to avoid this: pre-split more aggressively
+    # by splitting subwords instead of words (1), or split all splits, instead
+    # of only the non-found ones (2). Or one could find the subword ids "manually" (3)
+    # all of these seem to have also unwanted effects?
+    # 1) risk of splitting way too much alot -> al ot, now we learn to split al-> a l
+    # 2) risk of oversplitting again, this creates a mismatch between pre-training for long tokens.
+    #    this will be less than 1) I guess (at least for EN)
+    # 3) This is also hardcoding too much, and be a lot of work; I guess this is the most 
+    #    effective solution, but it would still not be robust when similar suffixes from 
+    #    many words need to be separated (I think Polish has this)
+    
+    # TODO check better if this is necessary:
+    if pre_tokked != None:
+        spacesGold = getSpaceLocations(' '.join(gold_tok))
+        spacesTok = getSpaceLocations(' '.join(subwords))
+        not_found_splits = [spaceIdx for spaceIdx in spacesGold if spaceIdx not in spacesTok]
+        splits = getSplitsFromSpaces(pre_tokked, not_found_splits)
+    else:
+        splits = {}
+
     if norm:
         gold_tok = [unicodedata.normalize('NFC', unicodedata.normalize('NFKD', myutils.clean_text(tok))) for tok in gold_tok]
     for word in gold_tok:
@@ -178,10 +234,10 @@ def get_offsets(gold_tok: List[str], subwords: List[str], norm: bool):
                 tok_labels.append('split')
         offsets.append(subword_idx)
     offsets = torch.tensor(offsets, dtype=torch.long)
-    return offsets, tok_labels
+    return offsets, tok_labels, splits
 
 
-def tok_xlmr(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer): 
+def tok_xlmr(orig: str, pre_tokenizer: MachampBasicTokenizer, tokenizer: AutoTokenizer): 
     """
     Tokenize the original text with a XLMRobertaTokenizer, while trying to
     keep the original characters. This is only possible when the input
@@ -194,7 +250,7 @@ def tok_xlmr(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer)
     ----------
     orig: str
         The original input as a string.
-    pre_tokenizer: BasicTokenizer
+    pre_tokenizer: MachampBasicTokenizer
         A tokenizer that splits punctuations. This is included even for
         XLM-R, because without it it would miss many gold tokenizations.
         For example ")." is not split in XLM-R, but in the gold tokenization
@@ -225,20 +281,18 @@ def tok_xlmr(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer)
                 no_unk_subwords.append(subword.replace('▁', ' '))
     return no_unk_subwords, token_ids
 
-def tok_bert(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer):
+def tok_bert(orig: str, pre_tokenizer: MachampBasicTokenizer, tokenizer: AutoTokenizer, pre_splits):
     """
     Tokenize the original text with a BertTokenizer, while trying to
-    keep the original characters. This is only possible when the input
-    is passed through utils.myutils.clean_text() first (or was already
-    clean), because the BertTokenizer does some normalization. We assume
-    here that the input is already cleaned!. We replace UNKs by their 
+    keep the original characters. We use our own BasicTokenizer, as
+    we need to skip the _clean_text call.We replace UNKs by their 
     original string, but still return the token_id of the UNK token.
 
     Parameters
     ----------
     orig: str
         The original input as a string.
-    pre_tokenizer: BasicTokenizer
+    pre_tokenizer: MachampBasicTokenizer
         The pre-tokenizer, used so that we can identify the original 
         inputs of [UNK]s more easily (they are already separated).
     tokenizer: AutoTokenizer
@@ -252,11 +306,19 @@ def tok_bert(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer)
     token_ids: List[int]
         The full list of token id's representing the input.
     """
-    orig = unicodedata.normalize('NFD', orig)
+    #orig = unicodedata.normalize('NFD', orig)
     no_unk_subwords = []
     token_ids = []
+
+    pre_tokked = []
     for word in pre_tokenizer.tokenize(orig):
-        tokked = tokenizer.encode(word)[1:-1]
+        if word in pre_splits:
+            pre_tokked.extend(pre_splits[word].split(' '))
+        else:
+            pre_tokked.append(word)
+
+    for word in pre_tokked:
+        tokked = tokenizer.encode(word)[1:-1] 
         token_ids.extend(tokked)
         tokked = tokenizer.convert_ids_to_tokens(tokked)
         if tokked == [tokenizer.unk_token]:
@@ -267,14 +329,15 @@ def tok_bert(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer)
                     no_unk_subwords.append(subword[2:])
                 else:
                     no_unk_subwords.append(subword)
-    return no_unk_subwords, token_ids
+    return no_unk_subwords, token_ids, pre_tokked
 
 
 def tokenize_and_annotate(
         full_data: List[List[str]],
         gold_tok: List[str],
-        pre_tokenizer: BasicTokenizer,
-        tokenizer: AutoTokenizer):
+        pre_tokenizer: MachampBasicTokenizer,
+        tokenizer: AutoTokenizer, 
+        pre_splits: Dict[str,str]):
     """
     Tokenizes the original input, and simultaneously generates annotation
     for the tokenization task. The annotation is saved as a list of True/
@@ -291,7 +354,7 @@ def tokenize_and_annotate(
         comments in the beginning of the instance.
     gold_tok: List[str]:
         The gold tokenization.
-    pre_tokenizer: BasicTokenizer
+    pre_tokenizer: MachampBasicTokenizer
         A tokenizer that splits punctuations. This is included even for
         XLM-R, because without it it would miss many gold tokenizations.
         For example ")." is not split in XLM-R, but in the gold tokenization
@@ -316,9 +379,9 @@ def tokenize_and_annotate(
     orig = ''
     for line in full_data:
         if line[0].startswith('# text =') and len(line[0]) > 9:
-            orig = myutils.clean_text(line[0][8:].strip())
+            orig = line[0][8:].strip()
         if line[0].startswith('# text=') and len(line[0]) > 9:
-            orig = myutils.clean_text(line[0][8:].strip())
+            orig = line[0][8:].strip()
     if orig == '':
         logger.error(
             'No original text found in file, altough tokenization task type is used. Make sure you have a comment in '
@@ -326,9 +389,9 @@ def tokenize_and_annotate(
         exit(1)
 
     if type(tokenizer) == XLMRobertaTokenizer:
-        no_unk_subwords, token_ids = tok_xlmr(orig, pre_tokenizer, tokenizer)
+        no_unk_subwords, token_ids, pre_tokked = tok_xlmr(orig, pre_tokenizer, tokenizer, pre_splits)
     elif type(tokenizer) == BertTokenizer:
-        no_unk_subwords, token_ids = tok_bert(orig, pre_tokenizer, tokenizer)
+        no_unk_subwords, token_ids, pre_tokked = tok_bert(orig, pre_tokenizer, tokenizer, pre_splits)
     else:
         logger.error("We have not implemented tokenization for the language model you choose: " + str(type(
             tokenizer)) + ". Unfortunately, this is a quite time-consuming process, because of differences in "
@@ -336,9 +399,36 @@ def tokenize_and_annotate(
                           "version if your models tokenizer is similar, by editing the tokenize_with_gold function in "
                           "machamp/readers/read_sequence.py")
         exit(1)
-    token_offsets, tok_labels = get_offsets(gold_tok, no_unk_subwords, type(tokenizer)==XLMRobertaTokenizer)
+    token_offsets, tok_labels, _ = get_offsets(gold_tok, no_unk_subwords, type(tokenizer)==XLMRobertaTokenizer, pre_tokked)
     return token_ids, token_offsets, tok_labels, no_unk_subwords
 
+def get_splits(all_sents, word_col_idx, pre_tokenizer, tokenizer):
+    all_splits = {}
+    for sent, full_data in all_sents:
+        orig_text = ''
+        for line in full_data:
+            if line[0].startswith('# text =') and len(line[0]) > 9:
+                orig_text = line[0][8:].strip()
+            if line[0].startswith('# text=') and len(line[0]) > 9:
+                orig_text = line[0][8:].strip()
+        gold_tok = [word[word_col_idx] for word in sent]
+        no_unk_subwords, token_ids, pre_tokked = tok_bert(orig_text, pre_tokenizer, tokenizer, {})
+        token_offsets, tok_labels, new_splits = get_offsets(gold_tok, no_unk_subwords, False, pre_tokked)
+        for src, tgt in new_splits:
+            if src not in all_splits:
+                all_splits[src] = {}
+            if tgt not in all_splits[src]:
+                all_splits[src][tgt] = 1
+            else:
+                all_splits[src][tgt] += 1
+    relevant_splits = {}
+    # For now take the last one, but this could be tuned based on the counts? 
+     # (i.e. it not be more than 10 times as uncommon as alternatives?)
+    for split in all_splits:
+        for tgt in all_splits[split]:
+            if ' ' in tgt:
+                relevant_splits[split] = tgt
+    return relevant_splits
 
 def read_sequence(
         dataset: str,
@@ -393,9 +483,19 @@ def read_sequence(
     has_tok_task = 'tok' in [config['tasks'][task]['task_type'] for task in config['tasks']]
     num_special_tokens = len(tokenizer.prepare_for_model([])['input_ids'])
     if has_tok_task:
-        pre_tokenizer = BasicTokenizer(strip_accents=False, do_lower_case=False, tokenize_chinese_chars=True)
+        pre_tokenizer = MachampBasicTokenizer(strip_accents=False, do_lower_case=False, tokenize_chinese_chars=True)
+        tokenizer.do_basic_tokenize = False
 
-    for sent, full_data in seqs2data(data_path):
+    all_sents = list(seqs2data(data_path))
+    if has_tok_task and is_train:
+        for task in config['tasks']:
+            if config['tasks'][task]['task_type'] == 'tok' and config['tasks'][task]['pre_split']:
+                pre_splits = get_splits(all_sents, word_col_idx, pre_tokenizer, tokenizer)
+                # TODO note that they are not per dataset as of now, might be sub-optimal for performance, 
+                # but is more generalizable
+                vocabulary.pre_splits.update(pre_splits)
+
+    for sent, full_data in all_sents:
         # sent is a list of lists, of shape sentenceLength, numColumns
         if max_sents != -1 and sent_counter >= max_sents and is_train:
             break
@@ -409,7 +509,7 @@ def read_sequence(
 
         if has_tok_task:
             token_ids, offsets, tok_labels, no_unk_subwords = tokenize_and_annotate(full_data, [
-                myutils.clean_text(line[word_col_idx]) for line in sent], pre_tokenizer, tokenizer)
+                line[word_col_idx] for line in sent], pre_tokenizer, tokenizer, vocabulary.pre_splits)
 
         else:
             token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, num_special_tokens, has_unk)
@@ -531,14 +631,37 @@ def read_sequence(
         # but it is tokenized to 6 tokens in EN_EWT. This means that we can never learn the right tokenization.
         # But even worse, we can't learn the other tasks on top of the tokenization of the raw text.
         # So we fall back to tokenize the gold-tokenized input, so that we do not throw away data for the 
-        # other tasks.
+        # other (non-tokenization) tasks.
         no_mapping = False
         for task in golds:
             if len(token_ids) - num_special_tokens < len(golds[task]):
                 no_mapping = True
-        if no_mapping:
-            print('skip')  # TODO
-            continue
+        if no_mapping and is_train:
+            # No mapping can be found, but we still want to train for the other tasks, so backoff to the gold
+            # tokenization
+            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, num_special_tokens, has_unk)
+            token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
+            no_unk_subwords =  tokenizer.convert_ids_to_tokens(token_ids)
+            if type(tokenizer) == BertTokenizer:
+                no_unk_subwords = [subword[:2] if subword.startswith('##') else subword for subword in no_unk_subwords] 
+            elif type(tokenizer) == XLMRobertaTokenizer:
+                no_unk_subwords = [subword.replace('▁', ' ') for subword in no_unk_subwords]
+
+            if has_tok_task: # this should always be true though
+                new_tok_labels = []
+                for i in range(len(offsets)):
+                    if i in offsets:
+                        new_tok_labels.append('split')
+                    else:
+                        new_tok_labels.append('merge')
+                for task in config['tasks']:
+                    if config['tasks'][task]['task_type'] == 'tok':
+                        tok_name = task
+                        break
+                golds[task] = torch.tensor(
+                    [vocabulary.token2id(subword_annotation, task, is_train) for subword_annotation in new_tok_labels],
+                    dtype=torch.long)
+
         if has_unk:
             unk_counter += sum(token_ids == tokenizer.unk_token_id)
         subword_counter += len(token_ids) - 2
@@ -558,8 +681,9 @@ def read_sequence(
             word_counter) + ' words.')
 
     logger.info('Stats ' + dataset + '(' + data_path + '):')
-    logger.info('Lines:    {:,}'.format(sent_counter))
-    logger.info('Words:    {:,}'.format(word_counter))
-    logger.info('Subwords: {:,}'.format(subword_counter))
-    logger.info('Unks:     {:,}'.format(unk_counter) + '\n')
+    logger.info('Lines:      {:,}'.format(sent_counter))
+    logger.info('Words:      {:,}'.format(word_counter))
+    logger.info('Subwords:   {:,}'.format(subword_counter))
+    logger.info('Unks:       {:,}'.format(unk_counter))
+    logger.info('Pre-splits: {:,}'.format(len(vocabulary.pre_splits)) + '\n')
     return data
