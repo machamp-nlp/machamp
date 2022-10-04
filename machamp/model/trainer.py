@@ -192,17 +192,28 @@ def train(
                 dev_loss += loss.item()
 
             dev_metrics = model.get_metrics()
-            callback.save_model(epoch, dev_metrics['sum'], model, serialization_dir)
+            callback.save_model(epoch, dev_metrics, model, serialization_dir)
         else:
             # use epoch number as metric, hack to always keep last model (as higher=better)
-            callback.save_model(epoch, epoch, model, serialization_dir)
+            callback.save_model(epoch, {'sum': epoch}, model, serialization_dir)
 
         if dev_batch_idx == 0:
             dev_batch_idx = 1
         if train_batch_idx == 0:
             train_batch_idx = 1
+
+        best_epoch = callback.get_best_epoch()
+        best_epoch_scores = callback.get_full_scores(best_epoch)
+
+        best_metrics = {'best_epoch': best_epoch}
+        print(best_epoch_scores)
+        for score_name in best_epoch_scores:
+            best_metrics['dev_best_' + score_name] = best_epoch_scores[score_name]
+        myutils.report_metrics(best_metrics)
+
         info_dict = myutils.report_epoch(epoch_loss / train_batch_idx, dev_loss / dev_batch_idx, epoch, train_metrics,
                                          dev_metrics, epoch_start_time, start_training_time, device, total_train_losses, total_dev_losses)
+        info_dict.update(best_metrics)
         json.dump(info_dict, open(os.path.join(serialization_dir, 'metrics_epoch_' + str(epoch) + '.json'), 'w'),
                   indent=4)
 
@@ -234,12 +245,13 @@ def train(
                 plot = plot_to_string(x, title='Dev scores (y) over epochs (x)', legend_labels=labels, lines=True)
             logger.info('\n' + '\n'.join(plot))
 
-    best_epoch = callback.copy_best(serialization_dir)
-    best_epoch_scores = json.load(open(os.path.join(serialization_dir, 'metrics_epoch_' + best_epoch + '.json')))
+    
+    best_epoch = callback.get_best_epoch()
+    callback.link_model(serialization_dir, best_epoch)
+    best_epoch_scores = callback.get_full_scores(epoch)
     best_metrics = {'best_epoch': best_epoch}
     for score_name in best_epoch_scores:
-        if score_name.startswith('dev_'):
-            best_metrics['best_' + score_name] = best_epoch_scores[score_name]
+        best_metrics['dev_best_' + score_name] = best_epoch_scores[score_name]
     myutils.report_metrics(best_metrics)
     info_dict.update(best_metrics)
     json.dump(info_dict, open(os.path.join(serialization_dir, 'metrics.json'), 'w'), indent=4)
