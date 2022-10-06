@@ -37,7 +37,7 @@ else:
     device = 'cuda:' + str(args.device)
 
 print('loading model...')
-model = torch.load(args.archive, map_location=device)
+model = torch.load(args.torch_model, map_location=device)
 model.device = device
 
 if args.topn != None:
