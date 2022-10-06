@@ -44,7 +44,6 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
         we add 1 because we leave out the padding/unk 
         token in position 0 (thats what [:,:,1:] does)
         """
-
         logits = self.forward(mlm_out, mask, gold)['logits']
         if self.topn == 1:
             # 0 is the padding/unk label, so skip it for the metric

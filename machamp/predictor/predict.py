@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import unicodedata 
@@ -190,10 +191,13 @@ def predict(model, dev_dataloader, serialization_dir, dataset_configs, sep_token
     model.eval()
     model.reset_metrics()
     out_files = {}
+    eval_files = {}
     for batchIdx, batch in enumerate(dev_dataloader):
         dataset = batch[0].dataset
         if dataset not in out_files:
             out_files[dataset] = open (os.path.join(serialization_dir, dataset + '.out'), 'w')
+            eval_files[dataset] = os.path.join(serialization_dir, dataset + '.out.eval')
+
         out_file = out_files[dataset]
         enc_batch = prep_batch(batch, device, dev_dataloader.dataset)
         out_dict = model.get_output_labels(enc_batch['token_ids'], enc_batch['golds'], enc_batch['seg_ids'],
@@ -210,6 +214,9 @@ def predict(model, dev_dataloader, serialization_dir, dataset_configs, sep_token
     [out_files[out_file].close() for out_file in out_files]
     metrics = model.get_metrics()
     report_metrics(metrics)
+    # For now print all metrics in .eval, as it is non-trivial to link the metrics to datasets (they can overlap)
+    for dataset in eval_files:
+        json.dump(metrics, open(eval_files[dataset], 'w'), indent=4)
 
 
 # TODO (a portion of) these 2 predict functions should be merged
@@ -250,3 +257,6 @@ def predict2(model, input_path, output_path, dataset, batch_size, raw_text, devi
     outfile.close()
     metrics = model.get_metrics()
     report_metrics(metrics)
+    eval_file = output_path + '.eval'
+    json.dump(metrics, open(eval_file, 'w'), indent=4)
+

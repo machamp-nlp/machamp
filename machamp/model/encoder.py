@@ -103,8 +103,8 @@ class MachampEncoder():
             decoder_start_token_id = self.mlm.config.bos_token_id
             if decoder_start_token_id == None:
                 decoder_start_token_id = self.mlm.config.decoder_start_token_id
-            torch.ones((batch_size, 1), dtype=torch.long, device=input_token_ids.device) * decoder_start_token_id
-            args['decoder_input_ids'] = input_token_ids
+            decoder_input_ids = torch.ones((batch_size, 1), dtype=torch.long, device=input_token_ids.device) * decoder_start_token_id
+            args['decoder_input_ids'] = decoder_input_ids
 
         output = self.mlm.forward(**args)
 
@@ -119,19 +119,20 @@ class MachampEncoder():
         if hasattr(output, 'logits'):
             logits = output.logits
 
+        all_layers = None
         if hasattr(output, 'hidden_states'):
-            return output.hidden_states[-1], logits
-        elif hasattr(output, 'last_hidden_state'):
-            return output.last_hidden_state, logits
-        elif hasattr(output, 'decoder_last_hidden_state'):
-            return output.decoder_last_hidden_state, logits
-        elif hasattr(output, 'encoder_last_hidden_state'):
-            return output.encoder_last_hidden_state, logits
+            all_layers = output.hidden_states
+        elif hasattr(output, 'decoder_hidden_states'):
+            all_layers = output.decoder_hidden_states
+        elif hasattr(output, 'encoder_hidden_states'):
+            all_layers = output.encoder_hidden_states
         else:
             logger.error(
-                'Error, not sure how to extract last hidden state from the encoder of ' + self.mlm.name_or_path + ' of type ' + str(
+                'Error, not sure how to extract hidden states from the encoder of ' + self.mlm.name_or_path + ' of type ' + str(
                     type(self.mlm)))
             exit(1)
+        # Shape= num_layers:batch_size:max_tokens:emb_size
+        return torch.stack(all_layers), logits
 
     def embed(self,
               input_token_ids: torch.tensor,
@@ -252,49 +253,52 @@ class MachampEncoder():
 
                             curBatchIdx += 1
 
-                # We make the batches longer, but this has no (or a little)
+                # We make the batches longer, but this has only a small
                 # effect on memory usage, as a maximum number of words per
                 # batch is used
                 mlm_out_split, mlm_preds = self.run_mlm(new_input_tokens, new_seg_ids, new_subword_mask)
+                num_layers = len(mlm_out_split)
                 if self.end_token_id != None:
-                    mlm_out_merged = torch.full((batch_size, input_token_ids.size(1), mlm_out_split.size(-1)), self.end_token_id,
+                    mlm_out_merged = torch.full((num_layers, batch_size, input_token_ids.size(1), mlm_out_split.size(-1)), self.end_token_id,
                                              device=input_token_ids.device, dtype=torch.float32)
                 else:
-                    mlm_out_merged = torch.zeros(batch_size, input_token_ids.size(1), mlm_out_split.size(-1),
+                    mlm_out_merged = torch.zeros(num_layers, batch_size, input_token_ids.size(1), mlm_out_split.size(-1),
                                              device=input_token_ids.device, dtype=torch.float32)
-                splitted_idx = 0
-                for sent_idx in range(batch_size):
-                    if amount_of_splits[sent_idx] == 1:
-                        mlm_out_merged[sent_idx][0:lengths[sent_idx]] = mlm_out_split[splitted_idx][0:lengths[sent_idx]]
-                        splitted_idx += 1
-                    else:
-                        # first of the splits, keep as is
-                        end_idx = self.max_input_length-1 if self.end_token_id == None else self.max_input_length
-                        # It would be neater to merge this into the line above
-                        if self.num_extra_tokens == 0:
-                            end_idx += 1
-                        mlm_out_merged[sent_idx][0:end_idx] = mlm_out_split[splitted_idx][0:end_idx]
-                        num_subwords_per_batch = self.max_input_length - self.num_extra_tokens
-
-                        splitted_idx += 1
-                        # all except first and last, has no CLS/SEP
-                        for i in range(1, amount_of_splits[sent_idx] - 1):
-                            beg = end_idx + (i-1) * num_subwords_per_batch
-                            end = beg + num_subwords_per_batch
-                            mlm_out_cursplit = mlm_out_split[splitted_idx]
-                            if self.end_token_id != None:
-                                mlm_out_cursplit = mlm_out_cursplit[:-1]
-                            if self.start_token_id != None:
-                                mlm_out_cursplit = mlm_out_cursplit[1:]
-        
-                            mlm_out_merged[sent_idx][beg:end] = mlm_out_cursplit
+                for layer_idx in range(num_layers):
+                    splitted_idx = 0
+                    for sent_idx in range(batch_size):
+                        if amount_of_splits[sent_idx] == 1:
+                            mlm_out_merged[layer_idx][sent_idx][0:lengths[sent_idx]] = mlm_out_split[layer_idx][splitted_idx][0:lengths[sent_idx]]
                             splitted_idx += 1
+                        else:
+                            # first of the splits, keep as is
+                            end_idx = self.max_input_length-1 if self.end_token_id == None else self.max_input_length
+                            # It would be neater to merge this into the line above
+                            if self.num_extra_tokens == 0:
+                                end_idx += 1
+                            mlm_out_merged[layer_idx][sent_idx][0:end_idx] = mlm_out_split[layer_idx][splitted_idx][0:end_idx]
+                            num_subwords_per_batch = self.max_input_length - self.num_extra_tokens
 
-                        # last of the splits, keep the SEP
-                        beg = end_idx + (amount_of_splits[sent_idx]-2) * num_subwords_per_batch
-                        end = lengths[sent_idx]
-                        mlm_out_merged[sent_idx][beg:end] = mlm_out_split[splitted_idx][0:end - beg]
-                        splitted_idx += 1
+                            splitted_idx += 1
+                            # all except first and last, has no CLS/SEP
+                            for i in range(1, amount_of_splits[sent_idx] - 1):
+                                beg = end_idx + (i-1) * num_subwords_per_batch
+                                end = beg + num_subwords_per_batch
+                                mlm_out_cursplit = mlm_out_split[layer_idx][splitted_idx]
+                                if self.end_token_id != None:
+                                    mlm_out_cursplit = mlm_out_cursplit[:-1]
+                                if self.start_token_id != None:
+                                    mlm_out_cursplit = mlm_out_cursplit[1:]
+        
+                                mlm_out_merged[layer_idx][sent_idx][beg:end] = mlm_out_cursplit
+                                splitted_idx += 1
+
+                            # last of the splits, keep the SEP
+                            beg = end_idx + (amount_of_splits[sent_idx]-2) * num_subwords_per_batch
+                            end = lengths[sent_idx]
+                            mlm_out_merged[layer_idx][sent_idx][beg:end] = mlm_out_split[layer_idx][splitted_idx][0:end - beg]
+                            splitted_idx += 1
                 # Note that mlm_preds is not split. This is an error/bug, but we hardcoded that for the MLM
-                # task splitting shouldn't happen, so it will never occur in practice
+                # task splitting shouldn't happen in the reader (its size is always < max_length), so it will 
+                # never occur in practice
                 return mlm_out_merged, mlm_preds

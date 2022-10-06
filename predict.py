@@ -11,7 +11,7 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s
 logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("archive", type=str, help="The path to the model.")
+parser.add_argument("torch_model", type=str, help="The path to the pytorch (*.pt) model.")
 parser.add_argument("file_paths", nargs='+',
                     help="contains a list of input and output files. You can predict on multiple files by having a "
                          "structure like: input1 output1 input2 output2.")
@@ -38,6 +38,8 @@ else:
 
 print('loading model...')
 model = torch.load(args.archive, map_location=device)
+model.device = device
+
 if args.topn != None:
     for decoder in model.decoders:
         model.decoders[decoder].topn = args.topn

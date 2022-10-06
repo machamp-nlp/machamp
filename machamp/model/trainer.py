@@ -119,17 +119,18 @@ def train(
     # extract the decoder attributes from the model (for MLM), and I wasnt sure how
     # to do it more elegantly
     first_group = []
-    second_group = ['^decoders.*']
+    second_group = ['^decoders.*', "scalars.*"]
     pred_head_names = ["pred_layer", "cls", "lm_head", "generator_lm_head", "predictions", "mlm", "vocab_projector"]
     for attribute in model.named_parameters():
         if attribute[0].startswith('mlm'):
             if attribute[0].split('.')[1] in pred_head_names:
                 second_group.append(attribute[0])
-            elif 'decoder' in attribute[
-                0]:  # for seq2seq models, this is a crude guess...., but if the second group is empty it crashes
+            elif 'decoder' in attribute[0]:  
+                # for seq2seq models, this is a crude guess...., but if the second group is empty it crashes
                 second_group.append(attribute[0])
             else:
                 first_group.append(attribute[0])
+
     # first group contains MLM
     # second group contains all decoder heads
     parameter_groups = [[first_group, {}], [second_group, {}]]
@@ -206,7 +207,6 @@ def train(
         best_epoch_scores = callback.get_full_scores(best_epoch)
 
         best_metrics = {'best_epoch': best_epoch}
-        print(best_epoch_scores)
         for score_name in best_epoch_scores:
             best_metrics['dev_best_' + score_name] = best_epoch_scores[score_name]
         myutils.report_metrics(best_metrics)
@@ -260,7 +260,12 @@ def train(
         logger.info('Predicting on dev sets')
     elif len(dev_dataloader.dataset.datasets) == 1:
         logger.info('Predicting on dev set')
-
+    
+    scalars = {}
+    for task in model.scalars:
+        if model.scalars[task] != None:
+            scalars[task] = model.scalars[task].scalar_parameters.data.tolist()
+    json.dump(scalars, open(os.path.join(serialization_dir, 'scalars.json'), 'w'), indent=4)
     # load the best model
     model = torch.load(os.path.join(serialization_dir, 'model.pt'), map_location=device)
     if len(dev_dataset) > 0:

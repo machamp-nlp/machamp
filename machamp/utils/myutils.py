@@ -455,3 +455,11 @@ class StreamToLogger(object):
 
     def flush(self):
         pass
+
+
+def apply_scalar(mlm_out, layers, scalar):
+    if len(layers) > 1:
+        return scalar(mlm_out[layers])
+    else:
+        return mlm_out[layers[0]]
+

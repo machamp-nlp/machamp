@@ -10,6 +10,8 @@ from transformers import logging as tf_logging
 
 tf_logging.set_verbosity_error()
 
+from machamp.metrics.avg_dist import AvgDist
+from machamp.metrics.perplexity import Perplexity
 from machamp.data.machamp_vocabulary import MachampVocabulary
 from machamp.model.classification_decoder import MachampClassificationDecoder
 from machamp.model.regression_decoder import MachampRegressionDecoder
@@ -19,11 +21,9 @@ from machamp.model.crf_label_decoder import MachampCRFDecoder
 from machamp.model.dependency_decoder import MachampDepDecoder
 from machamp.model.mlm_decoder import MachampLMDecoder
 from machamp.model.multiclas_decoder import MachampMulticlasDecoder
-
 from machamp.model.encoder import MachampEncoder
-from machamp.metrics.avg_dist import AvgDist
-from machamp.metrics.perplexity import Perplexity
-
+from machamp.modules.allennlp.scalar_mix import ScalarMix
+from machamp.utils import myutils 
 
 class MachampModel(torch.nn.Module):
     def __init__(self,
@@ -127,10 +127,22 @@ class MachampModel(torch.nn.Module):
         self.encoder = MachampEncoder(self.mlm, max_input_length, self.end_token, self.start_token)
 
         self.decoders = torch.nn.ModuleDict()
+        self.scalars = torch.nn.ModuleDict()
+        self.layers = {}
         for task, task_type in zip(self.tasks, self.task_types):
+
+            # should the scalars be done per uniq task/dataset combo?
+            # now they are done once if the tasks have the same name
             for dataset in dataset_configs:
                 if task in dataset_configs[dataset]['tasks']:
                     break
+            num_layers = len(dataset_configs[dataset]['tasks'][task]['layers_to_use']) 
+            if num_layers > 1:
+                self.scalars[task] = ScalarMix(num_layers)
+            else:
+                self.scalars[task] = None
+            self.layers[task] = dataset_configs[dataset]['tasks'][task]['layers_to_use']
+
             if task_type == 'classification':
                 decoder_type = MachampClassificationDecoder
             elif task_type in ['seq', 'string2string', 'tok']:
@@ -228,22 +240,23 @@ class MachampModel(torch.nn.Module):
 
         if 'classification' in self.task_types or 'regression' in self.task_types or 'multiclas' in self.task_types:
             # always take first token, even if it is not a special token
-            mlm_out_sent = mlm_out[:, :1, :].squeeze(1)
+            mlm_out_sent = mlm_out[:,:, :1, :].squeeze(2)
             if self.dropout != None:
                 mlm_out_sent = self.dropout(mlm_out_sent)
         if type(offsets) != type(None):
-            mlm_out_token = torch.zeros((len(offsets), len(offsets[0]), len(mlm_out[0][0])), device=self.device)
-            for sentIdx in range(len(offsets)):
-                mlm_out_token[sentIdx] = mlm_out[sentIdx][offsets[sentIdx]]
+            mlm_out_token = torch.zeros((len(mlm_out), len(offsets), len(offsets[0]), len(mlm_out[0][0][0])), device=self.device)
+            for layerIdx in range(len(mlm_out)):
+                for sentIdx in range(len(offsets)):
+                    mlm_out_token[layerIdx][sentIdx] = mlm_out[layerIdx][sentIdx][offsets[sentIdx]]
             if self.dropout != None:
                 mlm_out_token = self.dropout(mlm_out_token)
 
         if 'tok' in self.task_types:
             mlm_out_tok = mlm_out
             if self.start_token != None:
-                mlm_out_tok = mlm_out_tok[:,1:,:]
+                mlm_out_tok = mlm_out_tok[:,:,1:,:]
             if self.end_token != None:
-                mlm_out_tok = mlm_out_tok[:,:-1,:]
+                mlm_out_tok = mlm_out_tok[:,:,:-1,:]
             if self.dropout != None:
                 mlm_out_tok = self.dropout(mlm_out_tok)
 
@@ -254,19 +267,23 @@ class MachampModel(torch.nn.Module):
             for task, task_type in zip(self.tasks, self.task_types):
                 if task in golds or task + '-rels' in golds:
                     if task_type in ['classification', 'regression', 'multiclas']:
-                        out_dict = self.decoders[task].forward(mlm_out_sent, eval_mask, golds[task])
+                        mlm_out_task = myutils.apply_scalar(mlm_out_sent, self.layers[task], self.scalars[task])
+                        out_dict = self.decoders[task].forward(mlm_out_task, eval_mask, golds[task])
                     elif task_type == 'dependency':
-                        out_dict = self.decoders[task].forward(mlm_out_token, eval_mask, golds[task + '-heads'],
+                        mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
+                        out_dict = self.decoders[task].forward(mlm_out_task, eval_mask, golds[task + '-heads'],
                                                             golds[task + '-rels'])
                     elif task_type == 'tok':
+                        mlm_out_task = myutils.apply_scalar(mlm_out_tok, self.layers[task], self.scalars[task])
                         # We use the subword mask here for evaluation, as every subwords should have
                         # annotation (except the special start/end token, hence 2:). We do not use
                         # 1:-1, as all binary labels should shift with 2!
-                        out_dict = self.decoders[task].forward(mlm_out_tok, subword_mask[:, 2:], golds[task])
+                        out_dict = self.decoders[task].forward(mlm_out_task, subword_mask[:, 2:], golds[task])
                     elif task_type == 'mlm':
                         out_dict = self.decoders[task].forward(mlm_preds, golds[task])
                     else:
-                        out_dict = self.decoders[task].forward(mlm_out_token, eval_mask, golds[task])
+                        mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
+                        out_dict = self.decoders[task].forward(mlm_out_task, eval_mask, golds[task])
                     loss += out_dict['loss']
                     loss_dict[task] = out_dict['loss'].item()
         return loss, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, loss_dict
@@ -323,6 +340,7 @@ class MachampModel(torch.nn.Module):
 
         if has_tok:
             tok_task = self.tasks[self.task_types.index('tok')]
+            mlm_out_tok = myutils.apply_scalar(mlm_out_tok, self.layers[tok_task], self.scalars[tok_task])
             tok_pred = self.decoders[tok_task].get_output_labels(mlm_out_tok, subword_mask[:, 2:], golds[tok_task])['word_labels']
             # This could be done more efficient if a torch tensor was retrieved
             tok_indices = torch.zeros((mlm_out_tok.shape[0], mlm_out_tok.shape[1]), dtype=torch.long,
@@ -346,21 +364,24 @@ class MachampModel(torch.nn.Module):
             if task not in golds and task + '-rels' not in golds:
                 continue
             if task_type in ['classification', 'regression', 'multiclas']:
-                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_sent, eval_mask, golds[task])
+                mlm_out_task = myutils.apply_scalar(mlm_out_sent, self.layers[task], self.scalars[task])
+                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, eval_mask, golds[task])
             elif self.task_types[self.tasks.index(task)] == 'dependency':
+                mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
                 if has_tok:
-                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask)
+                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, eval_mask)
                 else:
-                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask, golds[task + '-heads'], golds[task+'-rels'])
+                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, eval_mask, golds[task + '-heads'], golds[task+'-rels'])
             elif task_type == 'tok':
                 out_dict[task] = {'word_labels': tok_pred}
             elif task_type == 'mlm':
                 out_dict[task] = self.decoders[task].get_output_labels(mlm_preds, golds[task])
             else:
+                mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
                 if has_tok:
-                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask)
+                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, eval_mask)
                 else:
-                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_token, eval_mask, golds[task])
+                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, eval_mask, golds[task])
         return out_dict
 
     def reset_metrics(self):

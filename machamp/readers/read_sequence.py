@@ -188,8 +188,8 @@ def read_sequence(
     learn_splits = False
     if has_tok_task and is_train:
         for task in config['tasks']:
-            learn_splits = config['tasks'][task]['task_type'] == 'tok' and config['tasks'][task]['pre_split']
-
+            if config['tasks'][task]['task_type'] == 'tok':
+                learn_splits = config['tasks'][task]['pre_split']
     for sent, full_data in all_sents:
         # sent is a list of lists, of shape sentenceLength, numColumns
         if max_sents != -1 and sent_counter >= max_sents and is_train:
@@ -209,7 +209,10 @@ def read_sequence(
             # but is more generalizable. 
             # They are also not picked in a smart way; we just keep the last for each..
             if new_splits != {}:
-                vocabular.pre_splits = new_splits
+                vocabulary.pre_splits = new_splits
+            # We assume that if we have only one special token, that it is the end token
+            if num_special_tokens == 2:
+                offsets = offsets+1 
 
         else:
             token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, num_special_tokens, has_unk)
