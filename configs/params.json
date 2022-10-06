@@ -7,16 +7,14 @@
     "dropout": 0.2,
     "max_input_length": 128,
     "subword_strategy": "last",
-    "layers_to_use": [
-      -1
-    ],
     "update_weights_encoder": true
   },
   "decoders": {
     "default_decoder": {
       "loss_weight": 1.0,
       "metric": "accuracy",
-      "topn": 1
+      "topn": 1,
+      "layers_to_use": [-1]
     },
     "seq": {
     },
@@ -28,6 +26,7 @@
       "metric": "span_f1"
     },
     "tok": {
+      "pre_split": true
     },
     "dependency": {
       "arc_representation_dim": 768,
