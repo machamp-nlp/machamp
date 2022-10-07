@@ -137,6 +137,8 @@ class MachampModel(torch.nn.Module):
             for dataset in dataset_configs:
                 if task in dataset_configs[dataset]['tasks']:
                     break
+            if 'layers_to_use' not in dataset_configs[dataset]['tasks'][task]:
+                dataset_configs[dataset]['tasks'][task]['layers_to_use'] = [-1]
             num_layers = len(dataset_configs[dataset]['tasks'][task]['layers_to_use']) 
             if num_layers > 1:
                 self.scalars[task] = ScalarMix(num_layers)
