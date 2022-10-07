@@ -270,8 +270,10 @@ class MachampEncoder():
                                 # amount of total subwords % amount of subwords per split
                                 src_end = src_beg + (lengths[sent_idx] - self.num_extra_tokens) % (self.max_input_length - self.num_extra_tokens) 
                                 tgt_end = lengths[sent_idx]
+                                src_end = lengths[sent_idx] - tgt_beg
                                 if self.end_token_id != None:
                                     src_end += 1
+                                    tgt_end += 1
                             mlm_out_merged[:,sent_idx,tgt_beg:tgt_end] = mlm_out_split[:,splitted_idx,src_beg:src_end]
                             splitted_idx += 1
 

@@ -23,11 +23,11 @@ parser.add_argument("--raw_text", action="store_true", help="Input raw sentences
 parser.add_argument("--topn", default=None, type=int, help='Output the top-n labels and their probability.')
 args = parser.parse_args()
 
-print('cmd: ' + ' '.join(sys.argv))
-print()
+logger.info('cmd: ' + ' '.join(sys.argv) + '\n')
 if len(args.file_paths) % 2 == 1:
-    print('Error: the number of files passed is not even. You need to pass an output file for each input file: ' + str(
+    logger.error('Error: the number of files passed is not even. You need to pass an output file for each input file: ' + str(
         args.file_paths))
+    exit(1)
 
 if args.device == None:
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -36,7 +36,7 @@ elif args.device == -1:
 else:
     device = 'cuda:' + str(args.device)
 
-print('loading model...')
+logger.info('loading model...')
 model = torch.load(args.torch_model, map_location=device)
 model.device = device
 
@@ -47,5 +47,5 @@ if args.topn != None:
 for dataIdx in range(0, len(args.file_paths), 2):
     input_path = args.file_paths[dataIdx]
     output_path = args.file_paths[dataIdx + 1]
-    print('predicting on ' + input_path + ', saving on ' + output_path)
+    logger.info('predicting on ' + input_path + ', saving on ' + output_path)
     predict2(model, input_path, output_path, args.dataset, args.batch_size, args.raw_text, device)
