@@ -1,3 +1,4 @@
+mkdir -p data
 wget https://nlp.stanford.edu/projects/nmt/data/wmt14.en-de/train.en
 wget https://nlp.stanford.edu/projects/nmt/data/wmt14.en-de/train.de
 paste train.en train.de > data/nmt.wmt14.ende.train
