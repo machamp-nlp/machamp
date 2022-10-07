@@ -363,6 +363,10 @@ class MachampModel(torch.nn.Module):
                     if tok_pred[sent_idx][subword_idx] == 'split': 
                         tok_indices[sent_idx][word_idx] = subword_idx 
                         word_idx += 1
+                # Add the last token
+                if tok_pred[sent_idx][subword_idx] == 'merge':
+                    tok_indices[sent_idx][word_idx] = subword_idx
+                    word_idx += 1
                 eval_mask[sent_idx][:word_idx] = 1
             # mlm_out_token = mlm_out_tok[0][tok_indices[0]]
             # unfortunately this one liner doesnt work for some reason, replaced with code below for now

@@ -126,8 +126,8 @@ def to_string(full_data: List[Any],
 
             # We have to do this here, because diacritics were split from characters
             # they can only be merged back now that they are not separate subwords anymore
-            for i in range(num_comments, len(full_data)):
-                full_data[i][1] = unicodedata.normalize('NFC', full_data[i][1])
+            #for i in range(num_comments, len(full_data)):
+                #full_data[i][1] = unicodedata.normalize('NFC', full_data[i][1])
 
                 
             # TODO hardcoded word indexes location for now (column 0)
