@@ -100,21 +100,17 @@ class MachampEncoder():
             args['token_type_ids'] = seg_ids
         if 'decoder_input_ids' in argspec[0]:
             batch_size = len(input_token_ids)
-            decoder_start_token_id = self.mlm.config.bos_token_id
-            if decoder_start_token_id == None:
-                decoder_start_token_id = self.mlm.config.decoder_start_token_id
-            decoder_input_ids = torch.ones((batch_size, 1), dtype=torch.long, device=input_token_ids.device) * decoder_start_token_id
+            decoder_start_token_id = self.mlm.config.bos_token_id or self.mlm.config.decoder_start_token_id
+            decoder_input_ids = torch.full((batch_size, 1), decoder_start_token_id, device=input_token_ids.device)
             args['decoder_input_ids'] = decoder_input_ids
+            # an alternative is to use input_token_ids, then one can use decoder_hidden states below
+            # on EWT one would get slightly higher scores, but also use 30% more gpu ram
 
         output = self.mlm.forward(**args)
 
         # Copy over language modeling predictions if they are present.
         # Note that this will usually (always?) be the case when mlm
-        # is an AutoModelForMaskedLM. We will however not always need
-        # it, in those cases. For example when we do MLM on one dataset
-        # and another task on another, it is copied always for now.
-        # Could potentially save space/time by detecting whether we need
-        # it?
+        # is an AutoModelForMaskedLM. 
         logits = None
         if hasattr(output, 'logits'):
             logits = output.logits
@@ -122,8 +118,8 @@ class MachampEncoder():
         all_layers = None
         if hasattr(output, 'hidden_states'):
             all_layers = output.hidden_states
-        elif hasattr(output, 'decoder_hidden_states'):
-            all_layers = output.decoder_hidden_states
+        #elif hasattr(output, 'decoder_hidden_states'):
+        #    all_layers = output.encoder_hidden_states
         elif hasattr(output, 'encoder_hidden_states'):
             all_layers = output.encoder_hidden_states
         else:
@@ -181,123 +177,104 @@ class MachampEncoder():
                 return self.run_mlm(input_token_ids[:, :self.max_input_length], seg_ids[:, :self.max_input_length],
                                     subword_mask[:, :self.max_input_length])
             else:  # split, embed, merge
+
+                # Split
                 batch_size = input_token_ids.size(0)
-                if self.end_token_id != None:
-                    lengths = [(torch.nonzero(input_token_ids[sent_idx] == self.end_token_id)[0]).item() + 1 for
-                           sent_idx in range(batch_size)]
-                else:
-                    lengths = []
-                    for sent_idx in range(batch_size):
-                        if 0 in input_token_ids[sent_idx]:
-                            lengths.append((torch.nonzero(input_token_ids[sent_idx] == 0)[0]).item() + 1)
-                        else:
-                            lengths.append(len(input_token_ids[sent_idx]))
-
-                amount_of_splits = [self.get_size(length, self.max_input_length) for length in lengths]
-                new_batch_size = sum(amount_of_splits)
-                if self.end_token_id != None:
-                    new_input_tokens = torch.full((new_batch_size, self.max_input_length), self.end_token_id,
-                                                  device=input_token_ids.device, dtype=torch.int64)
-                else:
-                    new_input_tokens = torch.full((new_batch_size, self.max_input_length), 0,
-                                                  device=input_token_ids.device, dtype=torch.int64)
-                new_seg_ids = torch.full((new_batch_size, self.max_input_length), 0, device=input_token_ids.device, dtype=torch.int64)
-                if type(subword_mask) != type(None):
-                    new_subword_mask = torch.full((new_batch_size, self.max_input_length), 0, device=input_token_ids.device, dtype=torch.int64)
-                curBatchIdx = 0
-                for sentIdx in range(batch_size):
-                    # if current sentence < max_len, just copy it
-                    if lengths[sentIdx] <= self.max_input_length:
-                        new_input_tokens[curBatchIdx][:lengths[sentIdx]] = input_token_ids[sentIdx][:lengths[sentIdx]]
-                        new_seg_ids[curBatchIdx][:lengths[sentIdx]] = seg_ids[sentIdx][:lengths[sentIdx]]
-                        new_subword_mask[curBatchIdx][:lengths[sentIdx]] = subword_mask[sentIdx][:lengths[sentIdx]]
-                        curBatchIdx += 1
+                find_end_token = 0 if self.end_token_id == None else self.end_token_id
+                # get lengths, note that they include special tokens
+                lengths = []
+                for sent_idx in range(batch_size):
+                    if find_end_token in input_token_ids[sent_idx]:
+                        lengths.append((torch.nonzero(input_token_ids[sent_idx] == find_end_token)[0]).item() + 1)
                     else:
-                        # remove special tokens for simplicity, we will add them in each split manually
-                        token_ids_sent = input_token_ids[sentIdx]
-                        seg_ids_sent = seg_ids[sentIdx]
-                        if type(subword_mask) != type(None):
-                            subword_mask_sent = subword_mask[sentIdx]
-
-                        if self.start_token_id != None:
-                            token_ids_sent = token_ids_sent[1:]
-                            seg_ids_sent = seg_ids_sent[1:]
-                            if type(subword_mask) != type(None):
-                                subword_mask_sent = subword_mask_sent[1:]
-                        if self.end_token_id != None:
-                            token_ids_sent = token_ids_sent[:-1]
-                            seg_ids_sent = seg_ids_sent[:-1]
-                            if type(subword_mask) != type(None):
-                                subword_mask_sent = subword_mask_sent[:-1]
-
-                        for split in range(amount_of_splits[sentIdx]):
-                            beg = (self.max_input_length - self.num_extra_tokens) * split
-                            if split + 1 == amount_of_splits[sentIdx]:
-                                end = lengths[sentIdx]-self.num_extra_tokens
-                            else:
-                                end = (self.max_input_length - self.num_extra_tokens) * (split + 1)
-                            if self.start_token_id != None:
-                                new_input_tokens[curBatchIdx][1:end - beg + 1] = token_ids_sent[beg:end]
-                                new_input_tokens[curBatchIdx][0] = self.start_token_id
-                                new_seg_ids[curBatchIdx][1:end - beg + 1] = seg_ids_sent[beg:end]
-                                new_seg_ids[curBatchIdx][0] = new_seg_ids[curBatchIdx][1]
-                                new_subword_mask[curBatchIdx][0] = 1
-                                new_subword_mask[curBatchIdx][1:end - beg + 1] = subword_mask_sent[beg:end]
-                                new_subword_mask[curBatchIdx][0] = 1
-                                new_subword_mask[curBatchIdx][1:end - beg + 1] = subword_mask_sent[beg:end]
-                            else:
-                                new_input_tokens[curBatchIdx][:end - beg] = token_ids_sent[beg:end]
-                                new_seg_ids[curBatchIdx][:end - beg] = seg_ids_sent[beg:end]
-                                new_subword_mask[curBatchIdx][:end - beg] = subword_mask_sent[beg:end]
-                                new_subword_mask[curBatchIdx][:end - beg] = subword_mask_sent[beg:end]
-
-                            curBatchIdx += 1
+                        lengths.append(len(input_token_ids[sent_idx]))
 
                 # We make the batches longer, but this has only a small
                 # effect on memory usage, as a maximum number of words per
                 # batch is used
+                amount_of_splits = [self.get_size(length, self.max_input_length) for length in lengths]
+                new_batch_size = sum(amount_of_splits)
+
+                new_input_tokens = torch.full((new_batch_size, self.max_input_length), find_end_token,
+                                                  device=input_token_ids.device, dtype=torch.int64)
+                new_seg_ids = torch.full((new_batch_size, self.max_input_length), 0, device=input_token_ids.device, dtype=torch.int64)
+                if type(subword_mask) != type(None):
+                    new_subword_mask = torch.full((new_batch_size, self.max_input_length), 0, device=input_token_ids.device, dtype=torch.int64)
+                if self.start_token_id != None:
+                    new_input_tokens[:,0] = self.start_token_id
+
+                curBatchIdx = 0
+                # TODO replace every instance of the formula with the constant
+                num_subwords_per_batch = self.max_input_length - self.num_extra_tokens
+                for sent_idx in range(batch_size):
+                    # if current sentence < max_len, just copy it
+                    if lengths[sent_idx] <= self.max_input_length:
+                        new_input_tokens[curBatchIdx][:lengths[sent_idx]] = input_token_ids[sent_idx][:lengths[sent_idx]]
+                        new_seg_ids[curBatchIdx][:lengths[sent_idx]] = seg_ids[sent_idx][:lengths[sent_idx]]
+                        new_subword_mask[curBatchIdx][:lengths[sent_idx]] = subword_mask[sent_idx][:lengths[sent_idx]]
+                        curBatchIdx += 1
+                    else:
+                        # remove special tokens for simplicity, we will add them in each split manually
+                        beg_idx = 0 if self.start_token_id == None else 1
+                        end_idx = None if self.end_token_id == None else -1 
+                        token_ids_sent = input_token_ids[sent_idx][beg_idx:end_idx]
+                        seg_ids_sent = seg_ids[sent_idx][beg_idx:end_idx]
+                        if type(subword_mask) != type(None):
+                            subword_mask_sent = subword_mask[sent_idx][beg_idx:end_idx]
+                        for split in range(amount_of_splits[sent_idx]):
+                            src_beg = (self.max_input_length - self.num_extra_tokens) * split
+                            tgt_beg = beg_idx
+                            if split + 1 == amount_of_splits[sent_idx]:
+                                src_end = lengths[sent_idx] - self.num_extra_tokens
+                                tgt_end = (lengths[sent_idx] - self.num_extra_tokens) - (split * (self.max_input_length - self.num_extra_tokens)) + tgt_beg
+                            else:
+                                src_end = (self.max_input_length - self.num_extra_tokens) * (split + 1)
+                                tgt_end = self.max_input_length - (1 if self.end_token_id != None else 0)
+
+                            new_input_tokens[curBatchIdx][tgt_beg:tgt_end] = token_ids_sent[src_beg:src_end]
+                            new_seg_ids[curBatchIdx][tgt_beg:tgt_end] = seg_ids_sent[src_beg:src_end]
+                            new_subword_mask[curBatchIdx][tgt_beg:tgt_end] = subword_mask_sent[src_beg:src_end]
+                            if self.start_token_id != None: 
+                                # Copy these from first subword to special start token
+                                # Note that the start token in new_input_tokens was already set earlier
+                                new_seg_ids[curBatchIdx][0] = new_seg_ids[curBatchIdx][1] 
+                                new_subword_mask[curBatchIdx][0] = new_subword_mask[curBatchIdx][1]
+                            if self.end_token_id != None:
+                                # Copy these from last subword to special end token
+                                # Note that the end token in new_input_tokens was already set earlier
+                                new_seg_ids[curBatchIdx][tgt_end] = new_seg_ids[curBatchIdx][tgt_end-1] 
+                                new_subword_mask[curBatchIdx][tgt_end] = new_subword_mask[curBatchIdx][tgt_end-1]
+
+                            curBatchIdx += 1
+
+                # Embed:
                 mlm_out_split, mlm_preds = self.run_mlm(new_input_tokens, new_seg_ids, new_subword_mask)
+
+                # Merge
                 num_layers = len(mlm_out_split)
-                if self.end_token_id != None:
-                    mlm_out_merged = torch.full((num_layers, batch_size, input_token_ids.size(1), mlm_out_split.size(-1)), self.end_token_id,
+                mlm_out_merged = torch.zeros(num_layers, batch_size, input_token_ids.size(1), mlm_out_split.size(-1),
                                              device=input_token_ids.device, dtype=torch.float32)
-                else:
-                    mlm_out_merged = torch.zeros(num_layers, batch_size, input_token_ids.size(1), mlm_out_split.size(-1),
-                                             device=input_token_ids.device, dtype=torch.float32)
-                for layer_idx in range(num_layers):
-                    splitted_idx = 0
-                    for sent_idx in range(batch_size):
-                        if amount_of_splits[sent_idx] == 1:
-                            mlm_out_merged[layer_idx][sent_idx][0:lengths[sent_idx]] = mlm_out_split[layer_idx][splitted_idx][0:lengths[sent_idx]]
-                            splitted_idx += 1
-                        else:
-                            # first of the splits, keep as is
-                            end_idx = self.max_input_length-1 if self.end_token_id == None else self.max_input_length
-                            # It would be neater to merge this into the line above
-                            if self.num_extra_tokens == 0:
-                                end_idx += 1
-                            mlm_out_merged[layer_idx][sent_idx][0:end_idx] = mlm_out_split[layer_idx][splitted_idx][0:end_idx]
-                            num_subwords_per_batch = self.max_input_length - self.num_extra_tokens
 
-                            splitted_idx += 1
-                            # all except first and last, has no CLS/SEP
-                            for i in range(1, amount_of_splits[sent_idx] - 1):
-                                beg = end_idx + (i-1) * num_subwords_per_batch
-                                end = beg + num_subwords_per_batch
-                                mlm_out_cursplit = mlm_out_split[layer_idx][splitted_idx]
+                splitted_idx = 0 # rename this is the global (/batch) index, split_idx is per sentence/utterance)
+                for sent_idx in range(batch_size):
+                    if amount_of_splits[sent_idx] == 1:
+                        mlm_out_merged[:,sent_idx,0:lengths[sent_idx]] = mlm_out_split[:,splitted_idx,0:lengths[sent_idx]]
+                        splitted_idx += 1
+                    else:
+                        for split_idx in range(amount_of_splits[sent_idx]):
+                            src_beg = 0 if (split_idx == 0 or self.start_token_id == None) else 1
+                            src_end = self.max_input_length - (1 if self.end_token_id != None else 0)
+                            tgt_beg = split_idx * (self.max_input_length-self.num_extra_tokens) + (1 if self.start_token_id != None and split_idx != 0 else 0)
+                            tgt_end = tgt_beg + self.max_input_length - self.num_extra_tokens + (1 if self.start_token_id != None and split_idx == 0 else 0)
+                            if split_idx == amount_of_splits[sent_idx]-1:
+                                # amount of total subwords % amount of subwords per split
+                                src_end = src_beg + (lengths[sent_idx] - self.num_extra_tokens) % (self.max_input_length - self.num_extra_tokens) 
+                                tgt_end = lengths[sent_idx]
                                 if self.end_token_id != None:
-                                    mlm_out_cursplit = mlm_out_cursplit[:-1]
-                                if self.start_token_id != None:
-                                    mlm_out_cursplit = mlm_out_cursplit[1:]
-        
-                                mlm_out_merged[layer_idx][sent_idx][beg:end] = mlm_out_cursplit
-                                splitted_idx += 1
-
-                            # last of the splits, keep the SEP
-                            beg = end_idx + (amount_of_splits[sent_idx]-2) * num_subwords_per_batch
-                            end = lengths[sent_idx]
-                            mlm_out_merged[layer_idx][sent_idx][beg:end] = mlm_out_split[layer_idx][splitted_idx][0:end - beg]
+                                    src_end += 1
+                            mlm_out_merged[:,sent_idx,tgt_beg:tgt_end] = mlm_out_split[:,splitted_idx,src_beg:src_end]
                             splitted_idx += 1
+
                 # Note that mlm_preds is not split. This is an error/bug, but we hardcoded that for the MLM
                 # task splitting shouldn't happen in the reader (its size is always < max_length), so it will 
                 # never occur in practice

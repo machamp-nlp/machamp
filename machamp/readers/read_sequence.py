@@ -212,7 +212,7 @@ def read_sequence(
                 vocabulary.pre_splits = new_splits
             # We assume that if we have only one special token, that it is the end token
             if num_special_tokens == 2:
-                offsets = offsets+1 
+                offsets = offsets 
 
         else:
             token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, num_special_tokens, has_unk)

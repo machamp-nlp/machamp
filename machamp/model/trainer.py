@@ -147,7 +147,7 @@ def train(
     all_dev_scores = {}
 
     for epoch in range(1, parameters_config['training']['num_epochs'] + 1):
-        logger.info('Epoch ' + str(epoch) + ': training')
+        logger.info('Epoch ' + str(epoch) + '/' + str(parameters_config['training']['num_epochs']) + ': training')
         epoch_start_time = datetime.datetime.now()
         model.train()
         model.reset_metrics()
@@ -264,8 +264,10 @@ def train(
     scalars = {}
     for task in model.scalars:
         if model.scalars[task] != None:
-            scalars[task] = model.scalars[task].scalar_parameters.data.tolist()
+            scalars[task] = torch.nn.functional.softmax(model.scalars[task].scalar_parameters.data).tolist()
     json.dump(scalars, open(os.path.join(serialization_dir, 'scalars.json'), 'w'), indent=4)
+
+
     # load the best model
     model = torch.load(os.path.join(serialization_dir, 'model.pt'), map_location=device)
     if len(dev_dataset) > 0:

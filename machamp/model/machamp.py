@@ -124,6 +124,7 @@ class MachampModel(torch.nn.Module):
         # we assume that if there is only one special token that it is the end token
         self.end_token = None if len(tokenizer_out) == 0 else tokenizer_out[-1]
         self.start_token = None if len(tokenizer_out) <= 1 else tokenizer_out[0]
+        self.num_special_tokens = 2 - [self.end_token, self.start_token].count(None)
         self.encoder = MachampEncoder(self.mlm, max_input_length, self.end_token, self.start_token)
 
         self.decoders = torch.nn.ModuleDict()
@@ -237,7 +238,6 @@ class MachampModel(torch.nn.Module):
         mlm_out_token = None
         mlm_out_tok = None
 
-
         if 'classification' in self.task_types or 'regression' in self.task_types or 'multiclas' in self.task_types:
             # always take first token, even if it is not a special token
             mlm_out_sent = mlm_out[:,:, :1, :].squeeze(2)
@@ -245,9 +245,14 @@ class MachampModel(torch.nn.Module):
                 mlm_out_sent = self.dropout(mlm_out_sent)
         if type(offsets) != type(None):
             mlm_out_token = torch.zeros((len(mlm_out), len(offsets), len(offsets[0]), len(mlm_out[0][0][0])), device=self.device)
-            for layerIdx in range(len(mlm_out)):
-                for sentIdx in range(len(offsets)):
-                    mlm_out_token[layerIdx][sentIdx] = mlm_out[layerIdx][sentIdx][offsets[sentIdx]]
+            mlm_out_nospecials = mlm_out
+            if self.start_token != None:
+                mlm_out_nospecials = mlm_out_nospecials[:,:,1:,:]
+            if self.end_token != None:
+                mlm_out_nospecials = mlm_out_nospecials[:,:,:-1,:]
+
+            for sentIdx in range(len(offsets)):
+                mlm_out_token[:,sentIdx] = mlm_out_nospecials[:,sentIdx,offsets[sentIdx]]
             if self.dropout != None:
                 mlm_out_token = self.dropout(mlm_out_token)
 
@@ -276,9 +281,8 @@ class MachampModel(torch.nn.Module):
                     elif task_type == 'tok':
                         mlm_out_task = myutils.apply_scalar(mlm_out_tok, self.layers[task], self.scalars[task])
                         # We use the subword mask here for evaluation, as every subwords should have
-                        # annotation (except the special start/end token, hence 2:). We do not use
-                        # 1:-1, as all binary labels should shift with 2!
-                        out_dict = self.decoders[task].forward(mlm_out_task, subword_mask[:, 2:], golds[task])
+                        # annotation (except the special start/end token).
+                        out_dict = self.decoders[task].forward(mlm_out_task, subword_mask[:, self.num_special_tokens:], golds[task])
                     elif task_type == 'mlm':
                         out_dict = self.decoders[task].forward(mlm_preds, golds[task])
                     else:
@@ -338,27 +342,34 @@ class MachampModel(torch.nn.Module):
         out_dict = {}
         has_tok = 'tok' in self.task_types
 
+
         if has_tok:
             tok_task = self.tasks[self.task_types.index('tok')]
-            mlm_out_tok = myutils.apply_scalar(mlm_out_tok, self.layers[tok_task], self.scalars[tok_task])
-            tok_pred = self.decoders[tok_task].get_output_labels(mlm_out_tok, subword_mask[:, 2:], golds[tok_task])['word_labels']
+            mlm_out_tok_merged = myutils.apply_scalar(mlm_out_tok, self.layers[tok_task], self.scalars[tok_task]) 
+            tok_pred = self.decoders[tok_task].get_output_labels(mlm_out_tok_merged, subword_mask[:, self.num_special_tokens:], golds[tok_task])['word_labels']
+            
             # This could be done more efficient if a torch tensor was retrieved
-            tok_indices = torch.zeros((mlm_out_tok.shape[0], mlm_out_tok.shape[1]), dtype=torch.long,
+            tok_indices = torch.zeros((mlm_out_tok_merged.shape[0], mlm_out_tok_merged.shape[1]), dtype=torch.long,
                                       device=self.device)
             eval_mask = torch.zeros_like(tok_indices)
+            
             for sent_idx in range(len(tok_pred)):
                 word_idx = 0
                 for subword_idx in range(len(tok_pred[sent_idx])):
-                    if subword_mask[sent_idx][subword_idx+2].item() and tok_pred[sent_idx][subword_idx] == 'split':
-                        tok_indices[sent_idx][word_idx] = subword_idx
+                    if not subword_mask[sent_idx][subword_idx+self.num_special_tokens].item():
+                        break
+                    if tok_pred[sent_idx][subword_idx] == 'split': 
+                        tok_indices[sent_idx][word_idx] = subword_idx 
                         word_idx += 1
                 eval_mask[sent_idx][:word_idx] = 1
             # mlm_out_token = mlm_out_tok[0][tok_indices[0]]
             # unfortunately this one liner doesnt work for some reason, replaced with code below for now
             # This is too large most times (whenever >0 tokens are split in subwords in largest sent of batch)
+            # TODO base it on tok_indices size!
             mlm_out_token = torch.zeros_like(mlm_out_tok)
-            for sent_idx in range(len(mlm_out_token)):
-                mlm_out_token[sent_idx] = mlm_out_tok[sent_idx][tok_indices[sent_idx]]
+            for layer_idx in range(len(mlm_out_tok)):
+                for sent_idx in range(len(mlm_out_token[0])):
+                    mlm_out_token[layer_idx][sent_idx] = mlm_out_tok[layer_idx][sent_idx][tok_indices[sent_idx]]
 
         for task, task_type in zip(self.tasks, self.task_types):
             if task not in golds and task + '-rels' not in golds:
