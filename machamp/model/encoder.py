@@ -273,7 +273,6 @@ class MachampEncoder():
                                 src_end = lengths[sent_idx] - tgt_beg
                                 if self.end_token_id != None:
                                     src_end += 1
-                                    tgt_end += 1
                             mlm_out_merged[:,sent_idx,tgt_beg:tgt_end] = mlm_out_split[:,splitted_idx,src_beg:src_end]
                             splitted_idx += 1
 
