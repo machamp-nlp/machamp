@@ -359,15 +359,22 @@ class MachampModel(torch.nn.Module):
                 word_idx = 0
                 for subword_idx in range(len(tok_pred[sent_idx])):
                     if not subword_mask[sent_idx][subword_idx+self.num_special_tokens].item():
+                        subword_idx-=1
                         break
                     if tok_pred[sent_idx][subword_idx] == 'split': 
                         tok_indices[sent_idx][word_idx] = subword_idx 
                         word_idx += 1
-                # Add the last token
+                # Add the last token if it was missed
                 if tok_pred[sent_idx][subword_idx] == 'merge':
                     tok_indices[sent_idx][word_idx] = subword_idx
                     word_idx += 1
                 eval_mask[sent_idx][:word_idx] = 1
+                #print(subword_idx)
+            #print(tok_pred)
+            #print(subword_mask)
+            #print(input_token_ids)
+            #print(eval_mask)
+            #print(tok_indices)
             # mlm_out_token = mlm_out_tok[0][tok_indices[0]]
             # unfortunately this one liner doesnt work for some reason, replaced with code below for now
             # This is too large most times (whenever >0 tokens are split in subwords in largest sent of batch)

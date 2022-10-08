@@ -115,14 +115,19 @@ def to_string(full_data: List[Any],
 
             # The first token has nothing to merge or split to, so it
             # has special handling (this just ensures we get into the "else"
-            shifted_tok_pred = ['split'] + tok_pred['word_labels']
+            tok_pred['word_labels']
+            full_data.append([''] * 10)  # TODO 10 is hardcoded
             for subword_idx in range(len(no_unk_subwords)):
+                full_data[-1][1] += no_unk_subwords[subword_idx]
+                #if tok_pred['word_labels'][subword_idx] == 'merge':
+                if tok_pred['word_labels'][subword_idx] == 'split' and subword_idx != len(no_unk_subwords)-1:
+                    full_data.append([''] * 10)
 
-                if shifted_tok_pred[subword_idx] == 'merge' and subword_idx > 0:
-                    full_data[-1][1] += no_unk_subwords[subword_idx]
-                else:
-                    full_data.append([''] * 10)  # TODO 10 is hardcoded, 1 as well
-                    full_data[-1][1] += no_unk_subwords[subword_idx]
+                #if shifted_tok_pred[subword_idx] == 'merge' and subword_idx > 0:
+                #    full_data[-1][1] += no_unk_subwords[subword_idx]
+                #else:
+                #    full_data.append([''] * 10)  # TODO 10 is hardcoded, 1 as well
+                #    full_data[-1][1] += no_unk_subwords[subword_idx]
 
             # We have to do this here, because diacritics were split from characters
             # they can only be merged back now that they are not separate subwords anymore
