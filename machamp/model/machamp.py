@@ -369,12 +369,6 @@ class MachampModel(torch.nn.Module):
                     tok_indices[sent_idx][word_idx] = subword_idx
                     word_idx += 1
                 eval_mask[sent_idx][:word_idx] = 1
-                #print(subword_idx)
-            #print(tok_pred)
-            #print(subword_mask)
-            #print(input_token_ids)
-            #print(eval_mask)
-            #print(tok_indices)
             # mlm_out_token = mlm_out_tok[0][tok_indices[0]]
             # unfortunately this one liner doesnt work for some reason, replaced with code below for now
             # This is too large most times (whenever >0 tokens are split in subwords in largest sent of batch)
