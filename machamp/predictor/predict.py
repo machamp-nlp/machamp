@@ -16,7 +16,7 @@ from machamp.data.machamp_sampler import MachampBatchSampler
 from machamp.data.machamp_vocabulary import MachampVocabulary
 
 
-def top_n_to_label(labels: List[Any], probs: List[float]):
+def top_n_to_label(labels: List[Any], probs: List[float], conn='=', sep='|'):
     """
     Helper function to convert a list of labels and probabilities to a string.
     Goes from ['NOUN', 'VERB'] and [0.5, 0.3] to 'NOUN=0.5|VERB=0.3'
@@ -28,6 +28,10 @@ def top_n_to_label(labels: List[Any], probs: List[float]):
         for dependency parsing.
     probs: List[float]
         A list of probabilities, which should have the same length as labels.
+    conn: str
+        String inserted between each label and its probability.
+    sep: str
+        String intervening between label-probability pairs.
 
     Returns
     -------
@@ -35,7 +39,7 @@ def top_n_to_label(labels: List[Any], probs: List[float]):
         A string representation of the two lists, separating each item with a |, and 
         each label-probability pair with a =.
     """
-    return '|'.join([label + '=' + str(prob) for label, prob in zip(labels, probs)])
+    return sep.join([label + conn + str(prob) for label, prob in zip(labels, probs)])
 
 
 def to_string(full_data: List[Any],
@@ -44,6 +48,8 @@ def to_string(full_data: List[Any],
               no_unk_subwords: List[str] = None,
               vocabulary: MachampVocabulary = None,
               token_ids: torch.tensor = None,
+              conn: str = '=',
+              sep: str = '|',
               ):
     """
     Combines the original input (fullData), and the predictions (preds) to a string format, 
@@ -69,6 +75,10 @@ def to_string(full_data: List[Any],
     token_ids: torch.tensor
         Contains the token_ids for this instance, only useful if a "tok" task is included, otherwise
         the original tokens read from the input file are kept.
+    conn: str
+        String inserted between each label and its probability.
+    sep: str
+        String intervening between label-probability pairs.
 
     Returns
     -------
@@ -89,7 +99,7 @@ def to_string(full_data: List[Any],
         for task in config['tasks']:
             task_idx = config['tasks'][task]['column_idx']
             if 'probs' in preds[task]:
-                full_data[task_idx] = top_n_to_label(preds[task]['sent_labels'], preds[task]['probs'])
+                full_data[task_idx] = top_n_to_label(preds[task]['sent_labels'], preds[task]['probs'], conn, sep)
             else:
                 full_data[task_idx] = preds[task]['sent_labels']
         return '\t'.join(full_data)
@@ -153,7 +163,8 @@ def to_string(full_data: List[Any],
                     if full_data[comment_idx][0].startswith('# ' + task + ': '):
                         if 'probs' in preds[task]:
                             full_data[comment_idx][0] = '# ' + task + ': ' + top_n_to_label(preds[task]['sent_labels'],
-                                                                                            preds[task]['probs'])
+                                                                                            preds[task]['probs'],
+                                                                                            conn, sep)
                         else:
                             full_data[comment_idx][0] = '# ' + task + ': ' + preds[task]['sent_labels']
 
@@ -164,9 +175,9 @@ def to_string(full_data: List[Any],
                     if task_type == 'dependency':
                         if 'indice_probs' in preds[task]:
                             full_data[token_idx + num_comments][task_idx] = top_n_to_label(
-                                preds[task]['dep_indices'][token_idx], preds[task]['indice_probs'][token_idx])
+                                preds[task]['dep_indices'][token_idx], preds[task]['indice_probs'][token_idx], conn, sep)
                             full_data[token_idx + num_comments][task_idx + 1] = top_n_to_label(
-                                preds[task]['dep_labels'][token_idx], preds[task]['tag_probs'][token_idx])
+                                preds[task]['dep_labels'][token_idx], preds[task]['tag_probs'][token_idx], conn, sep)
                         else:
                             full_data[token_idx + num_comments][task_idx] = str(preds[task]['dep_indices'][token_idx])
                             full_data[token_idx + num_comments][task_idx + 1] = preds[task]['dep_labels'][token_idx]
@@ -184,7 +195,7 @@ def to_string(full_data: List[Any],
 
                     if 'probs' in preds[task]:
                         full_data[token_idx + num_comments][task_idx] = top_n_to_label(
-                            preds[task]['word_labels'][token_idx], preds[task]['probs'][token_idx])
+                            preds[task]['word_labels'][token_idx], preds[task]['probs'][token_idx], conn, sep)
                     else:
                         full_data[token_idx + num_comments][task_idx] = preds[task]['word_labels'][token_idx]
 
@@ -228,7 +239,7 @@ def predict(model, dev_dataloader, serialization_dir, dataset_configs, sep_token
 # also quite some arguments seem to be unused?
 
 # This gets paths as input
-def predict2(model, input_path, output_path, dataset, batch_size, raw_text, device):
+def predict2(model, input_path, output_path, dataset, batch_size, raw_text, device, conn, sep):
     model.eval()
     model.reset_metrics()
     if dataset == None:
@@ -257,7 +268,7 @@ def predict2(model, input_path, output_path, dataset, batch_size, raw_text, devi
                 for key in out_dict[task]:
                     sent_dict[task][key] = out_dict[task][key][i]
             output = to_string(batch[i].full_data, sent_dict, data_config[dataset], batch[i].no_unk_subwords,
-                               model.vocabulary, enc_batch['token_ids'][i], )
+                               model.vocabulary, enc_batch['token_ids'][i], conn, sep)
             outfile.write(output + '\n')
     outfile.close()
     metrics = model.get_metrics()
