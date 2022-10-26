@@ -6,10 +6,11 @@
 
 > One arm alone can move mountains.
 
-MaChAmp is a toolkit with a focus on multi-task learning in Natural Language
-Processing (NLP). However, it can also be very useful for single-task setups.
-It has support for training on multiple datasets for a variety of standard NLP
-tasks. For more information we refer to the readme below and the paper:
+
+This code base is an extension of the
+[AllenNLP](https://github.com/allenai/allennlp) library with a focus on
+multi-task learning. It has support for training on multiple datasets for a
+variety of standard NLP tasks. For more information we refer to the paper:
 [Massive Choice, Ample Tasks (MACHAMP): A Toolkit for Multi-task Learning in
 NLP](https://arxiv.org/pdf/2005.14672.pdf)
 
@@ -183,7 +184,8 @@ predict on raw data)
 python3 predict.py logs/ewt/<DATE>/model.tar.gz data/twitter/dev.norm predictions/ewt.twitter.out --dataset UD-EWT --device 0
 ```
 
-The value of `--dataset` should match the specified dataset name in the dataset configuration.
+The value of `--dataset` should match the specified dataset name in the dataset configuration. You can also use --topn for
+most task-types, which will output the top-n labels and their confidences (after sigmoid/softmax).
 
 ## How to
 
@@ -193,7 +195,8 @@ Task types:
 * [string2string](docs/string2string.md): same as sequence labeling, but learns a conversion from the original word to
   the instance, and uses that as label (useful for lemmatization).
 * [seq_bio](docs/seq_bio.md): a masked CRF decoder enforcing complying with the BIO-scheme.
-* [multiseq](docs/multiseq.md): this task type is not available yet in MaChAmp 0.4
+* [multiseq](docs/multiseq.md): a multilabel version of seq: multilabel classification on the word level
+* [multiclas](docs/multiclas.md): a multilabel version of classification: multilabel classification on the utterance level.
 * [dependency](docs/dependency.md): dependency parsing.
 * [classification](docs/classification.md): sentence classification, predicts a label for N utterances of text.
 * [mlm](docs/mlm.md): masked language modeling.
@@ -208,11 +211,17 @@ Other things:
 * [Predict on raw data](docs/predict_raw.md): Not available in MaChAmp 0.4 yet
 * [Change evaluation metric](docs/metrics.md)
 * [Hyperparameters](docs/hyper.md)
+* [Layer attention](docs/layers.md)
 * [Sampling (smoothing) datasets](docs/sampling.md)
-* [Task-specific parameters](docs/task_params.md) (loss weight)
-* [Adding a new task-type](docs/new_task_type.md)
+* [Loss weighting](docs/loss.md)
 * [Fine-tuning on a MaChAmp model](docs/finetuning.md)
 * [Results](docs/results.md)
+* [Adding a new task-type](docs/new_task_type.md)
+* [Extract a model after finetuning](docs/extract_model.md)
+
+## Known issues
+
+* `--resume` results in different (usually lower) scores compared to training the model at once. 
 
 ## FAQ
 

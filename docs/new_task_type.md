@@ -1,9 +1,9 @@
-u### Adding a new task-type
+### Adding a new task-type
 [back to main README](../README.md)
 
 Adding a new task type can involve some effort, so I suggest to get in touch with robv@itu.dk.
 
-Basically it involves three steps:
+Basically it involves four steps:
 
 * Check if an existing dataset reader can match your task type; if it does, make sure it uses
   the correct one: `read_function` in `machamp/data/machamp_dataset.py`. If there is no reader that matches your data

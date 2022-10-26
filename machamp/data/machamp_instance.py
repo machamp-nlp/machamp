@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 import torch
 
 
-class MachampInstance():
+class MachampInstance:
     def __init__(self,
                  full_data: List[str],
                  token_ids: torch.tensor,

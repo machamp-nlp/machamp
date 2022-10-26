@@ -1,17 +1,17 @@
 import logging
 
-from machamp.metrics.multi_accuracy import MultiAccuracy
 from machamp.metrics.accuracy import Accuracy
 from machamp.metrics.avg_dist import AvgDist
 from machamp.metrics.f1 import F1
 from machamp.metrics.las import LAS
+from machamp.metrics.multi_accuracy import MultiAccuracy
 from machamp.metrics.perplexity import Perplexity
 from machamp.metrics.span_f1 import SpanF1
 
 logger = logging.getLogger(__name__)
 
 
-class Metric():
+class Metric:
     def __init__(self, metric_name: str):
         """
         This is a wrapper class that contains a metric (and perhaps 

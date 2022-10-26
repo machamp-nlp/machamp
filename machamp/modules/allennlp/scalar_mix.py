@@ -3,9 +3,10 @@ import logging
 from typing import List
 
 import torch
-from torch.nn import ParameterList, Parameter
+from torch.nn import Parameter
 
 logger = logging.getLogger(__name__)
+
 
 class ScalarMix(torch.nn.Module):
     """

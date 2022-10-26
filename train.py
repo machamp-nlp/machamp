@@ -25,7 +25,7 @@ parser.add_argument("--retrain", type=str, default='',
 parser.add_argument("--seed", type=int, default=8446, help="seed to use for training.")
 args = parser.parse_args()
 
-if len(args.dataset_configs) == 0:
+if args.resume == '' and (args.dataset_configs == None or len(args.dataset_configs) == 0):
     print('Please provide at least 1 dataset configuration')
     exit(1)
 
@@ -37,9 +37,11 @@ else:
     device = 'cuda:' + str(args.device)
 
 name = args.name
-if name == '':
+if args.resume == '' and name == '':
     names = [name[name.rfind('/') + 1: name.rfind('.') if '.' in name else len(name)] for name in args.dataset_configs]
     name = '.'.join(names)
+if args.resume != '':
+    name = args.resume.split('/')[1]
 
 cmd = ' '.join(sys.argv)
 

@@ -1,7 +1,7 @@
 import torch
 
 
-class LAS():
+class LAS:
     def __init__(self):
         self.cor = 0
         self.total = 0

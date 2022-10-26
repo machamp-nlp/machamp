@@ -1,0 +1,14 @@
+{
+    "UD_EWT": {
+        "train_data_path": "data/ewt.train",
+        "validation_data_path": "data/ewt.dev",
+        "word_idx": 1,
+        "tasks": {
+            "feats": {
+                "task_type": "multiseq",
+                "column_idx": 5
+            }
+        }
+    }
+}
+

@@ -1,11 +1,11 @@
 import torch
 
 
-class MultiAccuracy():
+class MultiAccuracy:
     def __init__(self):
         self.cor = 0
         self.total = 0
-        self.str = 'multi-acc.'
+        self.str = 'multi_acc.'
 
     def score(self, preds, golds, mask, vocabulary):
         # Maybe this be done more efficient by using torch functions?

@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import unicodedata 
 from typing import List, Any, Dict
 
 import torch
@@ -33,6 +32,7 @@ def top_n_to_label(labels: List[Any], probs: List[float], conn='=', sep='|'):
     sep: str
         String intervening between label-probability pairs.
 
+
     Returns
     -------
     string_representation: str
@@ -40,7 +40,6 @@ def top_n_to_label(labels: List[Any], probs: List[float], conn='=', sep='|'):
         each label-probability pair with a =.
     """
     return sep.join([label + conn + str(prob) for label, prob in zip(labels, probs)])
-
 
 def to_string(full_data: List[Any],
               preds: Dict[str, Dict[str, Any]],
@@ -92,14 +91,13 @@ def to_string(full_data: List[Any],
     # For word level annotation tasks, we have a different handling
     # so first detect whether we only have sentence level tasks
     task_types = [config['tasks'][task]['task_type'] for task in config['tasks']]
-    only_sent = sum([task_type in ['classification', 'regression', 'multiclas'] for task_type in task_types]) == len(config['tasks'])
-    # from transformers import AutoTokenizer
-    # tokzr = AutoTokenizer.from_pretrained('bert-base-multilingual-cased')
+    only_sent = sum([task_type in ['classification', 'regression', 'multiclas'] for task_type in task_types]) == \
+                len(config['tasks'])
     if only_sent:
         for task in config['tasks']:
             task_idx = config['tasks'][task]['column_idx']
             if 'probs' in preds[task]:
-                full_data[task_idx] = top_n_to_label(preds[task]['sent_labels'], preds[task]['probs'], conn, sep)
+                full_data[task_idx] = top_n_to_label(preds[task]['sent_labels'], preds[task]['probs'])
             else:
                 full_data[task_idx] = preds[task]['sent_labels']
         return '\t'.join(full_data)
@@ -125,34 +123,24 @@ def to_string(full_data: List[Any],
 
             # The first token has nothing to merge or split to, so it
             # has special handling (this just ensures we get into the "else"
-            tok_pred['word_labels']
             full_data.append([''] * 10)  # TODO 10 is hardcoded
             for subword_idx in range(len(no_unk_subwords)):
                 full_data[-1][1] += no_unk_subwords[subword_idx]
-                #if tok_pred['word_labels'][subword_idx] == 'merge':
+                # if tok_pred['word_labels'][subword_idx] == 'merge':
                 if tok_pred['word_labels'][subword_idx] == 'split' and subword_idx != len(no_unk_subwords)-1:
                     full_data.append([''] * 10)
 
-                #if shifted_tok_pred[subword_idx] == 'merge' and subword_idx > 0:
-                #    full_data[-1][1] += no_unk_subwords[subword_idx]
-                #else:
-                #    full_data.append([''] * 10)  # TODO 10 is hardcoded, 1 as well
-                #    full_data[-1][1] += no_unk_subwords[subword_idx]
-
-            # We have to do this here, because diacritics were split from characters
-            # they can only be merged back now that they are not separate subwords anymore
-            #for i in range(num_comments, len(full_data)):
-                #full_data[i][1] = unicodedata.normalize('NFC', full_data[i][1])
-
-                
             # TODO hardcoded word indexes location for now (column 0)
             for i in range(num_comments, len(full_data)):
                 full_data[i][0] = str(i - num_comments + 1)
+                for j in range(2, 10):
+                    full_data[i][j] = '_'
 
         for task in config['tasks']:
             task_type = config['tasks'][task]['task_type']
             if task_type == 'tok':
                 continue
+            num_comments = 0
             for num_comments in range(len(full_data)):
                 if len(full_data[num_comments]) == len(full_data[-1]):
                     break
@@ -163,8 +151,7 @@ def to_string(full_data: List[Any],
                     if full_data[comment_idx][0].startswith('# ' + task + ': '):
                         if 'probs' in preds[task]:
                             full_data[comment_idx][0] = '# ' + task + ': ' + top_n_to_label(preds[task]['sent_labels'],
-                                                                                            preds[task]['probs'],
-                                                                                            conn, sep)
+                                                                                            preds[task]['probs'], conn, sep)
                         else:
                             full_data[comment_idx][0] = '# ' + task + ': ' + preds[task]['sent_labels']
 
@@ -201,9 +188,23 @@ def to_string(full_data: List[Any],
 
         return '\n'.join(['\t'.join(token_info) for token_info in full_data]) + '\n'
 
+def write_pred(out_file, batch, device, dev_dataset, model, dataset_config, conn = '=', sep = '|'):
+    enc_batch = prep_batch(batch, device, dev_dataset)
+    out_dict = model.get_output_labels(enc_batch['token_ids'], enc_batch['golds'], enc_batch['seg_ids'],
+                                        enc_batch['eval_mask'], enc_batch['offsets'], enc_batch['subword_mask'])
+
+    for i in range(len(batch)):
+        sent_dict = {}
+        for task in out_dict:
+            sent_dict[task] = {}
+            for key in out_dict[task]:
+                sent_dict[task][key] = out_dict[task][key][i]
+        output = to_string(batch[i].full_data, sent_dict, dataset_config, batch[i].no_unk_subwords,
+                            model.vocabulary, enc_batch['token_ids'][i], )
+        out_file.write(output + '\n')
 
 # this gets a dataloader and output folder, then it writes for multiple datasets at once
-def predict(model, dev_dataloader, serialization_dir, dataset_configs, sep_token_id, batch_size, device, vocabulary):
+def predict_with_dataloaders(model, dev_dataloader, serialization_dir, dataset_configs, sep_token_id, batch_size, device, vocabulary):
     model.eval()
     model.reset_metrics()
     out_files = {}
@@ -211,22 +212,11 @@ def predict(model, dev_dataloader, serialization_dir, dataset_configs, sep_token
     for batchIdx, batch in enumerate(dev_dataloader):
         dataset = batch[0].dataset
         if dataset not in out_files:
-            out_files[dataset] = open (os.path.join(serialization_dir, dataset + '.out'), 'w')
+            out_files[dataset] = open(os.path.join(serialization_dir, dataset + '.out'), 'w')
             eval_files[dataset] = os.path.join(serialization_dir, dataset + '.out.eval')
 
         out_file = out_files[dataset]
-        enc_batch = prep_batch(batch, device, dev_dataloader.dataset)
-        out_dict = model.get_output_labels(enc_batch['token_ids'], enc_batch['golds'], enc_batch['seg_ids'],
-                                           enc_batch['eval_mask'], enc_batch['offsets'], enc_batch['subword_mask'])
-        for i in range(len(batch)):
-            sent_dict = {}
-            for task in out_dict:
-                sent_dict[task] = {}
-                for key in out_dict[task]:
-                    sent_dict[task][key] = out_dict[task][key][i]
-            output = to_string(batch[i].full_data, sent_dict, dataset_configs[dataset], batch[i].no_unk_subwords,
-                               model.vocabulary, enc_batch['token_ids'][i], )
-            out_file.write(output + '\n')
+        write_pred(out_file, batch, device, dev_dataloader.dataset, model, dataset_configs[dataset])
     [out_files[out_file].close() for out_file in out_files]
     metrics = model.get_metrics()
     report_metrics(metrics)
@@ -234,12 +224,8 @@ def predict(model, dev_dataloader, serialization_dir, dataset_configs, sep_token
     for dataset in eval_files:
         json.dump(metrics, open(eval_files[dataset], 'w'), indent=4)
 
-
-# TODO (a portion of) these 2 predict functions should be merged
-# also quite some arguments seem to be unused?
-
 # This gets paths as input
-def predict2(model, input_path, output_path, dataset, batch_size, raw_text, device, conn, sep):
+def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_text, device, conn, sep):
     model.eval()
     model.reset_metrics()
     if dataset == None:
@@ -251,26 +237,15 @@ def predict2(model, input_path, output_path, dataset, batch_size, raw_text, devi
     data_config = {dataset: model.dataset_configs[dataset]}
     data_config[dataset]['dev_data_path'] = input_path
     dev_dataset = MachampDataset(model.mlm.name_or_path, data_config, is_train=False, vocabulary=model.vocabulary)
-    dev_sampler = MachampBatchSampler(dev_dataset, batch_size, 1024, False, 1.0, False) # 1024 hardcoded
+    dev_sampler = MachampBatchSampler(dev_dataset, batch_size, 1024, False, 1.0, False)  # 1024 hardcoded
     dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
 
-    outfile = open(output_path, 'w')
+    out_file = open(output_path, 'w')
     idx = 0
     for batch in dev_dataloader:
         idx += 1
-        enc_batch = prep_batch(batch, device, dev_dataset)
-        out_dict = model.get_output_labels(enc_batch['token_ids'], enc_batch['golds'], enc_batch['seg_ids'],
-                                           enc_batch['eval_mask'], enc_batch['offsets'], enc_batch['subword_mask'])
-        for i in range(len(batch)):
-            sent_dict = {}
-            for task in out_dict:
-                sent_dict[task] = {}
-                for key in out_dict[task]:
-                    sent_dict[task][key] = out_dict[task][key][i]
-            output = to_string(batch[i].full_data, sent_dict, data_config[dataset], batch[i].no_unk_subwords,
-                               model.vocabulary, enc_batch['token_ids'][i], conn, sep)
-            outfile.write(output + '\n')
-    outfile.close()
+        write_pred(out_file, batch, device, dev_dataset, model, data_config[dataset], conn, sep)
+    out_file.close()
     metrics = model.get_metrics()
     report_metrics(metrics)
     eval_file = output_path + '.eval'

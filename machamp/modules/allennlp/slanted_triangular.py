@@ -58,8 +58,7 @@ class SlantedTriangular(_LRScheduler):
             last_epoch: int = -1,
             gradual_unfreezing: bool = False,
             discriminative_fine_tuning: bool = False,
-            decay_factor: float = 0.38,
-            type: str = None,
+            decay_factor: float = 0.38
     ) -> None:
         self.optimizer = optimizer
         self.num_epochs = num_epochs
@@ -120,9 +119,10 @@ class SlantedTriangular(_LRScheduler):
         else:
             self.batch_num_total_epoch_end.append(self.last_batch_num_total)
 
-        logger.info("Learning rates for each group: " + '\n')
-        for i, param_group in enumerate(reversed(self.optimizer.param_groups)):
-            logger.info(str(i) + ': ' + str(param_group["lr"]) + '\n')
+        if self.last_epoch != 0:
+            logger.info("Learning rates for each group: " + '\n')
+            for i, param_group in enumerate(reversed(self.optimizer.param_groups)):
+                logger.info(str(i) + ': ' + str(param_group["lr"]))
 
         if self.gradual_unfreezing:
             # the method is called once when initialising before the

@@ -22,7 +22,7 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
             topn: int = 1,
             **kwargs
     ) -> None:
-        super().__init__(task, vocabulary, loss_weight, metric, device)
+        super().__init__(task, vocabulary, loss_weight, metric, device, **kwargs)
 
         nlabels = len(self.vocabulary.get_vocab(task))
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
@@ -45,10 +45,9 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
 
     def forward(self, mlm_out, mask, gold=None):
         logits = self.hidden_to_label(mlm_out)
-        best_paths = self.crf_layer.viterbi_tags(logits, mask, top_k=self.topn)
+        best_paths = self.crf_layer.viterbi_tags(logits, mask)
 
-        # Just get the top tags and ignore the scores.
-        predicted_tags = cast(List[List[int]], [x[0][0] for x in best_paths])
+        predicted_tags = cast(List[List[int]], [x[0] for x in best_paths])
         out_dict = {'logits': logits}
         if type(gold) != type(None):
             log_likelihood = self.crf_layer.forward(logits, gold, mask)
@@ -71,14 +70,12 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
         we add 1 because we leave out the padding/unk 
         token in position 0 (thats what [:,:,1:] does)
         """
-        logits = self.forward(mlm_out, mask)['logits']
-        best_paths = self.crf_layer.viterbi_tags(logits, mask, top_k=self.topn)
-
-        # Just get the top tags and ignore the scores.
-        predicted_tags = cast(List[List[int]], [x[0][0] for x in best_paths])
-
-
+        logits = self.forward(mlm_out, mask, gold)['logits']
         if self.topn == 1:
+            best_paths = self.crf_layer.viterbi_tags(logits, mask)
+
+            predicted_tags = cast(List[List[int]], [x[0] for x in best_paths])
+
             class_probabilities = logits * 0.0
             for i, instance_tags in enumerate(predicted_tags):
                 for j, tag_id in enumerate(instance_tags):
@@ -86,15 +83,22 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
             maxes = torch.add(torch.argmax(class_probabilities[:, :, 1:], 2), 1)
             return {
                 'word_labels': [[self.vocabulary.id2token(token_id, self.task) for token_id in sent] for sent in maxes]}
-        else: # TODO implement top-n
-            tags = []
+        else:
+            best_paths = self.crf_layer.viterbi_tags(logits, mask, top_k=self.topn)
+            # for 2 sentences with topn==1, it looks like:
+            # [([3, 4, 3, 4, 4, 3, 4, 3, 4, 2, 1, 4, 2, 1, 2, 4, 2, 1, 4], 11.956195831298828), ([4, 3, 4, 3, 4, 3, 4,
+            # 3, 4, 1, 4, 3, 4, 4, 5, 5, 5, 5, 1, 1, 4, 3, 4], 13.938811302185059)]
+
+            labels = []
             probs = []
-            class_probs = F.softmax(logits, -1)
-            for sent_scores in class_probs:
-                tags.append([])
+            for sent in best_paths:
+                labels.append([])
                 probs.append([])
-                for word_scores in sent_scores:
-                    topk = torch.topk(word_scores[1:], self.topn)
-                    tags[-1].append([self.vocabulary.id2token(label_id + 1, self.task) for label_id in topk.indices])
-                    probs[-1].append([score.item() for score in topk.values])
-            return {'word_labels': tags, 'probs': probs}
+                normed_probs = F.softmax(torch.tensor([x[1] for x in sent]), -1).tolist()
+                for word_idx in range(len(sent[0][0])):
+                    labels[-1].append([])
+                    probs[-1].append([])
+                    for n in range(self.topn):
+                        labels[-1][-1].append(self.vocabulary.id2token(sent[n][0][word_idx], self.task))
+                        probs[-1][-1].append(normed_probs[n])
+            return {'word_labels': labels, 'probs': probs}

@@ -10,7 +10,6 @@ import torch
 import transformers
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from uniplot import plot_to_string
 
 from machamp.utils import myutils
 from machamp.model.machamp import MachampModel
@@ -19,7 +18,25 @@ from machamp.data.machamp_dataset import MachampDataset
 from machamp.utils import image
 from machamp.data.machamp_sampler import MachampBatchSampler
 from machamp.modules.allennlp.slanted_triangular import SlantedTriangular
-from machamp.predictor.predict import predict
+from machamp.predictor.predict import predict_with_dataloaders
+
+
+def evaluate(dev_dataloader, model, train_dataset):
+    total_dev_losses = {}
+    dev_bach_idx = 0
+    for dev_batch_idx, batch in enumerate(tqdm(dev_dataloader, file=sys.stdout)):
+        batch = myutils.prep_batch(batch, model.device, train_dataset)
+        _, _, _, _, _, loss_dict = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'],
+                                                 batch['eval_mask'],
+                                                 batch['offsets'], batch['subword_mask'])
+        for task in loss_dict:
+            if task not in total_dev_losses:
+                total_dev_losses[task] = 0.0
+            total_dev_losses[task] += loss_dict[task]
+
+    avg_dev_losses = {x: total_dev_losses[x] / (dev_batch_idx + 1) for x in total_dev_losses}
+    avg_dev_losses['sum'] = sum(avg_dev_losses.values())
+    return avg_dev_losses
 
 
 def train(
@@ -56,10 +73,19 @@ def train(
         The command invoked to start the training
     """
     start_time = datetime.datetime.now()
-    if resume:  # TODO make this work
+    first_epoch = 1
+    if resume:
         parameters_config = myutils.load_json(resume + '/params-config.json')
         dataset_configs = myutils.load_json(resume + '/dataset-configs.json')
         serialization_dir = resume
+        # We actually look for the first saved training state, as the last might not have been completely
+        # written.
+        epoch = 1
+        for epoch in range(1, parameters_config['training']['num_epochs'] + 1):
+            train_state_path = os.path.join(serialization_dir, 'train_state_epoch_' + str(epoch) + '.pt')
+            if os.path.isfile(train_state_path):
+                break
+        first_epoch = epoch + 1
     else:
         parameters_config = myutils.load_json(parameters_config_path)
         dataset_configs = myutils.merge_configs(dataset_config_paths, parameters_config)
@@ -73,9 +99,10 @@ def train(
         if seed != None:
             parameters_config['random_seed'] = seed
 
-        json.dump(dataset_configs, open(serialization_dir + '/dataset-config.json', 'w'), indent=4)
-        json.dump(parameters_config, open(serialization_dir + '/params-configs.json', 'w'), indent=4)
+        json.dump(parameters_config, open(serialization_dir + '/params-config.json', 'w'), indent=4)
+        json.dump(dataset_configs, open(serialization_dir + '/dataset-configs.json', 'w'), indent=4)
 
+    # We create the logger here, because now we have a directory to also write it to
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
                         level=logging.INFO, handlers=[logging.FileHandler(os.path.join(serialization_dir, 'log.txt')),
                                                       logging.StreamHandler(sys.stdout)])
@@ -87,33 +114,35 @@ def train(
         logger.info('cmd: ' + cmd)
 
     if os.path.isfile('.git/logs/HEAD'):
-        logger.info('git commit '  + open('.git/logs/HEAD').readlines()[-1].split(' ')[1])
+        logger.info('git commit ' + open('.git/logs/HEAD').readlines()[-1].split(' ')[1])
     random.seed(parameters_config['random_seed'])
     torch.manual_seed(parameters_config['random_seed'])
 
     batch_size = parameters_config['batching']['batch_size']
     train_dataset = MachampDataset(parameters_config['transformer_model'], dataset_configs, is_train=True,
-                                  max_input_length=parameters_config['encoder']['max_input_length'])
+                                   max_input_length=parameters_config['encoder']['max_input_length'])
     train_sampler = MachampBatchSampler(train_dataset, batch_size, parameters_config['batching']['max_tokens'], True,
-                                       parameters_config['batching']['sampling_smoothing'],
-                                       parameters_config['batching']['sort_by_size'])
+                                        parameters_config['batching']['sampling_smoothing'],
+                                        parameters_config['batching']['sort_by_size'])
     train_dataloader = DataLoader(train_dataset, batch_sampler=train_sampler, collate_fn=lambda x: x)
+
     # Note that the vocabulary is only saved for debugging purposes, there is also a copy in the model.pt
     train_dataset.vocabulary.save_vocabs(os.path.join(serialization_dir, 'vocabularies'))
 
     dev_dataset = MachampDataset(parameters_config['transformer_model'], dataset_configs, is_train=False,
-                                vocabulary=train_dataset.vocabulary,
-                                max_input_length=parameters_config['encoder']['max_input_length'])
+                                 vocabulary=train_dataset.vocabulary,
+                                 max_input_length=parameters_config['encoder']['max_input_length'])
     dev_sampler = MachampBatchSampler(dev_dataset, batch_size, parameters_config['batching']['max_tokens'], True, 1.0,
-                                     parameters_config['batching']['sort_by_size'])
+                                      parameters_config['batching']['sort_by_size'])
     dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
 
-    callback = Callback(parameters_config['training']['keep_top_n'])
-
-    model = MachampModel(train_dataset.vocabulary, train_dataset.tasks, train_dataset.task_types,
-                         parameters_config['transformer_model'], device, dataset_configs, train_dataset.tokenizer,
-                         **parameters_config['encoder'])
-    model.to(device)
+    if resume:
+        model_path = os.path.join(serialization_dir, 'model_' + str(epoch) + '.pt')
+        model = torch.load(model_path)
+    else:
+        model = MachampModel(train_dataset.vocabulary, train_dataset.tasks, train_dataset.task_types,
+                             parameters_config['transformer_model'], device, dataset_configs, train_dataset.tokenizer,
+                             **parameters_config['encoder'], retrain=retrain)
 
     # This  makes the use of regexes not so usefull anymore, but we need to
     # extract the decoder attributes from the model (for MLM), and I wasnt sure how
@@ -125,12 +154,11 @@ def train(
         if attribute[0].startswith('mlm'):
             if attribute[0].split('.')[1] in pred_head_names:
                 second_group.append(attribute[0])
-            elif 'decoder' in attribute[0]:  
-                # for seq2seq models, this is a crude guess...., but if the second group is empty it crashes
+            elif 'decoder' in attribute[0]:
+                # for seq2seq models. This is a bit of a guess...., but if the second group is empty it crashes
                 second_group.append(attribute[0])
             else:
                 first_group.append(attribute[0])
-
     # first group contains MLM
     # second group contains all decoder heads
     parameter_groups = [[first_group, {}], [second_group, {}]]
@@ -139,29 +167,43 @@ def train(
     optimizer = transformers.AdamW(parameter_groups, **parameters_config['training']['optimizer'])
     scheduler = SlantedTriangular(optimizer, parameters_config['training']['num_epochs'], len(train_dataloader),
                                   **parameters_config['training']['learning_rate_scheduler'])
+    callback = Callback(serialization_dir, parameters_config['training']['num_epochs'],
+                        parameters_config['training']['keep_top_n'])
 
-    start_training_time = datetime.datetime.now()
-    logger.info("MaChAmp succesfully initialized in {:.1f}s".format((start_training_time - start_time).seconds))
+    if resume:
+        checkpoint = torch.load(train_state_path, map_location=device)
+        # model = torch.load(model_path, map_location=device)
+        callback = checkpoint['callback']
+        callback.serialization_dir = serialization_dir
+
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        scheduler.load_state_dict(checkpoint['scheduler'])
+        del checkpoint
+        # https://pytorch.org/tutorials/recipes/recipes/saving_and_loading_a_general_checkpoint.html
+
+    model.to(device)
+
+    logger.info("MaChAmp succesfully initialized in {:.1f}s".format((datetime.datetime.now() - start_time).seconds))
     logger.info(image.machamp)
     logger.info('starting training...')
-    all_dev_scores = {}
 
-    for epoch in range(1, parameters_config['training']['num_epochs'] + 1):
+    for epoch in range(first_epoch, parameters_config['training']['num_epochs'] + 1):
         logger.info('Epoch ' + str(epoch) + '/' + str(parameters_config['training']['num_epochs']) + ': training')
-        epoch_start_time = datetime.datetime.now()
+        callback.start_epoch_timer()
         model.train()
         model.reset_metrics()
-        epoch_loss = 0.0
         total_train_losses = {}
 
+        train_batch_idx = 0
         for train_batch_idx, batch in enumerate(tqdm(train_dataloader, file=sys.stdout)):
             optimizer.zero_grad()
             # we create the batches again every epoch to save 
             # gpu ram, it is quite fast anyways
             batch = myutils.prep_batch(batch, device, train_dataset)
 
-            loss, _, _, _, _, loss_dict = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
-                                          batch['offsets'], batch['subword_mask'])
+            loss, _, _, _, _, loss_dict = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'],
+                                                        batch['eval_mask'],
+                                                        batch['offsets'], batch['subword_mask'])
             for task in loss_dict:
                 if task not in total_train_losses:
                     total_train_losses[task] = 0.0
@@ -169,113 +211,64 @@ def train(
             loss.backward()
             scheduler.step_batch()
             optimizer.step()
-            epoch_loss += loss.item()
-
         scheduler.step()
         train_metrics = model.get_metrics()
-        logger.info('Epoch ' + str(epoch) + ': evaluating on dev')
-        model.eval()
-        model.reset_metrics()
-        dev_loss = 0.0
-        dev_metrics = {}
-        dev_batch_idx = 1
-        total_dev_losses = {}
+        avg_train_losses = {x: total_train_losses[x] / (train_batch_idx + 1) for x in total_train_losses}
+        avg_train_losses['sum'] = sum(avg_train_losses.values())
+        callback.add_train_results(epoch, avg_train_losses, train_metrics)
+
         if len(dev_dataset) > 0:
-
-            for dev_batch_idx, batch in enumerate(tqdm(dev_dataloader, file=sys.stdout)):
-                batch = myutils.prep_batch(batch, device, train_dataset)
-                loss, _, _, _, _, loss_dict = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'], batch['eval_mask'],
-                                              batch['offsets'], batch['subword_mask'])
-                for task in loss_dict:
-                    if task not in total_dev_losses:
-                        total_dev_losses[task] = 0.0
-                    total_dev_losses[task] += loss_dict[task]
-                dev_loss += loss.item()
-
+            logger.info('Epoch ' + str(epoch) + ': evaluating on dev')
+            model.eval()
+            model.reset_metrics()
+            total_dev_losses = evaluate(dev_dataloader, model, train_dataset)
             dev_metrics = model.get_metrics()
-            callback.save_model(epoch, dev_metrics, model, serialization_dir)
-        else:
-            # use epoch number as metric, hack to always keep last model (as higher=better)
-            callback.save_model(epoch, {'sum': epoch}, model, serialization_dir)
+            callback.add_dev_results(epoch, total_dev_losses, dev_metrics)
+        callback.end_epoch(epoch, model)
 
-        if dev_batch_idx == 0:
-            dev_batch_idx = 1
-        if train_batch_idx == 0:
-            train_batch_idx = 1
+        estimated_total_time = (datetime.datetime.now() - callback.epoch_start_time).seconds * \
+                               parameters_config['training']['num_epochs']
+        # We only save the training state if training takes longer than 45 minutes, because it is quite disk
+        # intensive (and in many cases time consuming); the state is ~3 times larger as the model
+        if estimated_total_time > 45 * 60:
+            state_path = os.path.join(serialization_dir, 'train_state_epoch_' + str(epoch) + '.pt')
+            logger.info("Saving training state, so that we can use --resume if needed")
+            logger.info("Path: " + state_path)
+            # Model is already saved separately
+            torch.save({'callback': callback, 'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict()},
+                       state_path)
+        prev_state_path = os.path.join(serialization_dir, 'train_state_epoch_' + str(epoch - 1) + '.pt')
+        if os.path.isfile(prev_state_path):
+            logger.info("Removing old training state.")
+            logger.info("Path: " + prev_state_path)
+            os.remove(prev_state_path)
 
-        best_epoch = callback.get_best_epoch()
-        best_epoch_scores = callback.get_full_scores(best_epoch)
+    # Remove last training state, if we want to keep training, we need to 
+    # reinitate the schedulers etc. anyways
+    state_path = os.path.join(serialization_dir, 'train_state_epoch_' + str(epoch) + '.pt')
+    if os.path.isfile(state_path):
+        os.remove(state_path)
 
-        best_metrics = {'best_epoch': best_epoch}
-        for score_name in best_epoch_scores:
-            best_metrics['dev_best_' + score_name] = best_epoch_scores[score_name]
-        myutils.report_metrics(best_metrics)
-
-        info_dict = myutils.report_epoch(epoch_loss / train_batch_idx, dev_loss / dev_batch_idx, epoch, train_metrics,
-                                         dev_metrics, epoch_start_time, start_training_time, device, total_train_losses, total_dev_losses)
-        info_dict.update(best_metrics)
-        json.dump(info_dict, open(os.path.join(serialization_dir, 'metrics_epoch_' + str(epoch) + '.json'), 'w'),
-                  indent=4)
-
-        # plot graph, should maybe be moved to callback?
-        if 'sum' in dev_metrics:
-            outlier = False
-            if epoch > 4:
-                mean = sum(all_dev_scores['sum']) / len(all_dev_scores['sum'])
-                stdev = torch.std(torch.tensor(all_dev_scores['sum'])).item()
-                dist = abs(mean - all_dev_scores['sum'][0])
-                outlier = dist > stdev
-
-            for metric in dev_metrics:
-                if metric not in all_dev_scores:
-                    all_dev_scores[metric] = []
-                all_dev_scores[metric].append(dev_metrics[metric])
-            x = []
-            mins = []
-            for metric in sorted(all_dev_scores):
-                if metric != 'sum':
-                    x.append(all_dev_scores[metric])
-                    if epoch > 4:
-                        mins.append(min(all_dev_scores[metric][1:]))
-            labels = [label for label in sorted(all_dev_scores) if label != 'sum']
-            if outlier:
-                plot = plot_to_string(x, title='Dev scores (y) over epochs (x)', legend_labels=labels, lines=True,
-                                      y_min=min(mins))
-            else:
-                plot = plot_to_string(x, title='Dev scores (y) over epochs (x)', legend_labels=labels, lines=True)
-            logger.info('\n' + '\n'.join(plot))
-
-    
-    best_epoch = callback.get_best_epoch()
-    callback.link_model(serialization_dir, best_epoch)
-    best_epoch_scores = callback.get_full_scores(epoch)
-    best_metrics = {'best_epoch': best_epoch}
-    for score_name in best_epoch_scores:
-        best_metrics['dev_best_' + score_name] = best_epoch_scores[score_name]
-    myutils.report_metrics(best_metrics)
-    info_dict.update(best_metrics)
-    json.dump(info_dict, open(os.path.join(serialization_dir, 'metrics.json'), 'w'), indent=4)
-
-    if len(dev_dataloader.dataset.datasets) > 1:
-        logger.info('Predicting on dev sets')
-    elif len(dev_dataloader.dataset.datasets) == 1:
-        logger.info('Predicting on dev set')
-    
+    # We log the scalars in a separate files if they are used.
     scalars = {}
     for task in model.scalars:
         if model.scalars[task] != None:
             scalars[task] = torch.nn.functional.softmax(model.scalars[task].scalar_parameters.data).tolist()
     json.dump(scalars, open(os.path.join(serialization_dir, 'scalars.json'), 'w'), indent=4)
 
-
-    # load the best model
+    # Run a final prediction with the best model
+    logger.info('Predicting on dev set' + 's' * (len(dev_dataloader.dataset.datasets) > 1))
+    # save same memory:
+    del model
+    del train_dataloader
+    del train_sampler
     model = torch.load(os.path.join(serialization_dir, 'model.pt'), map_location=device)
     if len(dev_dataset) > 0:
         # We have to re-read the dataset, because the old one might be shuffled (this happens in place in the sampler)
         dev_dataset = MachampDataset(parameters_config['transformer_model'], dataset_configs, is_train=False,
-                                    vocabulary=train_dataset.vocabulary)
+                                     vocabulary=train_dataset.vocabulary)
         dev_sampler = MachampBatchSampler(dev_dataset, batch_size, parameters_config['batching']['max_tokens'], False,
-                                         1.0, False)
+                                          1.0, False)
         dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
-        predict(model, dev_dataloader, serialization_dir, dataset_configs, train_dataset.tokenizer.sep_token_id,
+        predict_with_dataloaders(model, dev_dataloader, serialization_dir, dataset_configs, train_dataset.tokenizer.sep_token_id,
                 batch_size, device, train_dataset.vocabulary)

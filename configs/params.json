@@ -6,7 +6,6 @@
   "encoder": {
     "dropout": 0.2,
     "max_input_length": 128,
-    "subword_strategy": "last",
     "update_weights_encoder": true
   },
   "decoders": {
@@ -16,49 +15,48 @@
       "topn": 1,
       "layers_to_use": [-1]
     },
-    "seq": {
-    },
-    "multiseq": {
-      "metric": "multi_acc",
-      "threshold": 0.0
-    },
-    "seq_bio": {
-      "metric": "span_f1"
-    },
-    "tok": {
-      "pre_split": true
+    "classification": {
     },
     "dependency": {
       "arc_representation_dim": 768,
       "tag_representation_dim": 256,
       "metric": "las"
     },
-    "string2string": {
-    },
     "mlm": {
       "metric": "perplexity"
     },
-    "classification": {
-    },
     "multiclas": {
       "metric": "multi_acc",
-      "threshold": 0.0
+      "threshold": 0.7
+    },
+    "multiseq": {
+      "metric": "multi_acc",
+      "threshold": 0.7
     },
     "regression": {
       "metric": "avg_dist"
+    },
+    "seq": {
+    },
+    "seq_bio": {
+      "metric": "span_f1"
+    },
+    "string2string": {
+    },
+    "tok": {
+      "pre_split": true
     }
   },
   "batching": {
     "max_tokens": 1024,
     "batch_size": 32,
     "sort_by_size": true,
-    "sampling_smoothing": 1.0
-    // 1.0 == original size, 0.0==all equal
+    "sampling_smoothing": 1.0 // 1.0 == original size, 0.0==all equal
   },
   "training": {
     "keep_top_n": 1,
     "learning_rate_scheduler": {
-      "type": "slanted_triangular",
+      //"type": "slanted_triangular",
       "cut_frac": 0.3,
       "decay_factor": 0.38,
       "discriminative_fine_tuning": true,

@@ -62,6 +62,7 @@ def read_mlm(
     subword_counter = 0
     has_unk = tokenizer.unk_token != None
     masker = DataCollatorForLanguageModeling(tokenizer)
+    num_special_tokens = len(tokenizer.prepare_for_model([])['input_ids'])
 
     if len(config['tasks']) > 1:
         logger.error("MLM is currently only supported as single task on a dataset.")
@@ -91,19 +92,26 @@ def read_mlm(
         # if index = -1, the dataset name is used, and this is handled in the superclass
         # dec_dataset_embeds = []
         # if 'dec_dataset_embed_idx' in config and config['dec_dataset_embed_idx'] != -1:
-        #    instance.add_field('dec_dataset_embeds', SequenceLabelField([token[config['dec_dataset_embed_idx']] for token in sent]), input_field, label_namespace='dec_dataset_embeds')
+        #    instance.add_field('dec_dataset_embeds', SequenceLabelField([token[config['dec_dataset_embed_idx']] for
+        #                                       token in sent]), input_field, label_namespace='dec_dataset_embeds')
         # enc_dataset_embeds = []
         # if 'enc_dataset_embed_idx' in config and config['enc_dataset_embed_idx'] != -1:
-        #    instance.add_field('enc_dataset_embeds', SequenceLabelField([token[config['enc_dataset_embed_idx']] for token in sent]), input_field, label_namespace='enc_dataset_embeds')
+        #    instance.add_field('enc_dataset_embeds', SequenceLabelField([token[config['enc_dataset_embed_idx']]
+        #                                       for token in sent]), input_field, label_namespace='enc_dataset_embeds')
 
         input_text, output_labels = masker.torch_mask_tokens(token_ids.view(1, -1))
         input_text = input_text[0]
         output_labels = output_labels[0]
-        task_type = config['tasks'][task]['task_type']
+        output_labels[output_labels == -100] = 0
+        if num_special_tokens == 2:
+            output_labels = output_labels[1:-1]
+        elif num_special_tokens == 1:
+            output_labels = output_labels[:-1]
         golds = {task: output_labels}
-        offsets = torch.arange(0,len(input_text))
-
-        data.append(MachampInstance([line], input_text, torch.zeros((len(token_ids)), dtype=torch.long), golds, dataset, offsets))
+    
+        offsets = torch.arange(0, len(input_text)-num_special_tokens)
+        data.append(MachampInstance([line], input_text, torch.zeros((len(token_ids)), dtype=torch.long), golds, dataset,
+                                    offsets))
     if is_train and max_sents != -1 and sent_counter < max_sents:
         logger.warning('Maximum sentences was set to ' + str(max_sents) + ', but dataset only contains ' + str(
             sent_counter) + ' lines. Note that this could be because empty lines are ignored')
@@ -111,7 +119,7 @@ def read_mlm(
         logger.warning('Maximum (sub)words was set to ' + str(max_words) + ', but dataset only contains ' + str(
             subword_counter) + ' subwords.')
 
-    logger.info('Stats ' + dataset + '(' + data_path + '):')
+    logger.info('Stats ' + dataset + ' (' + data_path + '):')
     logger.info('Lines:    {:,}'.format(sent_counter))
     logger.info('Subwords: {:,}'.format(subword_counter))
     logger.info('Unks:     {:,}'.format(unk_counter) + '\n')

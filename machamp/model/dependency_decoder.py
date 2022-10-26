@@ -5,7 +5,7 @@ import copy
 import logging
 from typing import Dict, Tuple
 
-import numpy # TODO get rid of numpy?
+import numpy
 import torch
 import torch.nn.functional as F
 
@@ -108,9 +108,9 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
             topn: int = 1,
             tag_representation_dim: int = 256,
             arc_representation_dim: int = 768,
-            **kwargs,
+            **kwargs
     ) -> None:
-        super().__init__(task, vocabulary, loss_weight, metric, device)
+        super().__init__(task, vocabulary, loss_weight, metric, device, **kwargs)
 
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
         arc_representation_dim = arc_representation_dim  # + dec_dataset_embeds_dim
@@ -134,7 +134,6 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         ).to(self.device)
 
         self._head_sentinel = torch.nn.Parameter(torch.randn([1, 1, self.input_dim], device=self.device))
-        representation_dim = self.input_dim
 
     def forward(
             self,  # type: ignore
@@ -188,13 +187,12 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         mask : `torch.Tensor`
             A mask denoting the padded elements in the batch.
         """
-        predicted_heads, predicted_head_tags, _, topnHeads_indices, topnHeads_values, topnLabels_indices, topnLabels_values, arc_nll, tag_nll = self._parse(
-            embedded_text, mask, gold_head_tags, gold_head_indices
-        )
+        predicted_heads, predicted_head_tags, _, topn_heads_indices, topn_heads_values, topn_labels_indices, \
+        topn_labels_values, arc_nll, tag_nll = self._parse(embedded_text, mask, gold_head_tags, gold_head_indices)
 
         out_dict = dict(predicted_heads=predicted_heads, predicted_head_tags=predicted_head_tags,
-                        topnHeads_indices=topnHeads_indices, topnHeads_values=topnHeads_values,
-                        topnLabels_indices=topnLabels_indices, topnLabels_values=topnLabels_values,
+                        topn_heads_indices=topn_heads_indices, topn_heads_values=topn_heads_values,
+                        topn_labels_indices=topn_labels_indices, topn_labels_values=topn_labels_values,
                         arc_nll=arc_nll, tag_nll=tag_nll)
 
         if type(gold_head_indices) != type(None):
@@ -212,32 +210,30 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         forward_dict = self.forward(mlm_out, mask, gold_heads, gold_rels)
         heads = forward_dict['predicted_heads']
         head_tags = forward_dict['predicted_head_tags']
-        topnHeads_indices = forward_dict['topnHeads_indices']
-        topnHeads_values = forward_dict['topnHeads_values']
-        topnLabels_indices = forward_dict['topnLabels_indices']
-        topnLabels_values = forward_dict['topnLabels_values']
-        arc_nll = forward_dict['arc_nll']
-        tag_nll = forward_dict['tag_nll']
+        topn_heads_indices = forward_dict['topn_heads_indices']
+        topn_heads_values = forward_dict['topn_heads_values']
+        topn_labels_indices = forward_dict['topn_labels_indices']
+        topn_labels_values = forward_dict['topn_labels_values']
 
         if self.topn not in [0, 1, None]:
-            for length, topn_heads, topn_head_probs, topn_labels, topn_label_probs in zip(lengths, topnHeads_indices,
-                                                                                          topnHeads_values,
-                                                                                          topnLabels_indices,
-                                                                                          topnLabels_values):
-                sentIndices = []
-                sentIndiceProbs = []
-                sentLabels = []
-                sentLabelProbs = []
+            for length, topn_heads, topn_head_probs, topn_labels, topn_label_probs in zip(lengths, topn_heads_indices,
+                                                                                          topn_heads_values,
+                                                                                          topn_labels_indices,
+                                                                                          topn_labels_values):
+                sent_indices = []
+                sent_indice_probs = []
+                sent_labels = []
+                sent_label_probs = []
                 for word_idx in range(0, length):
-                    sentLabels.append(
+                    sent_labels.append(
                         [self.vocabulary.id2token(label.item(), self.task) for label in topn_labels[word_idx]])
-                    sentIndices.append([str(x.item()) for x in topn_heads[word_idx]])
-                    sentIndiceProbs.append([x.item() for x in topn_head_probs[word_idx]])
-                    sentLabelProbs.append([x.item() for x in topn_label_probs[word_idx]])
-                head_tag_labels.append(sentLabels)
-                head_indices.append(sentIndices)
-                indice_probs.append(sentIndiceProbs)
-                tag_probs.append(sentLabelProbs)
+                    sent_indices.append([str(x.item()) for x in topn_heads[word_idx]])
+                    sent_indice_probs.append([x.item() for x in topn_head_probs[word_idx]])
+                    sent_label_probs.append([x.item() for x in topn_label_probs[word_idx]])
+                head_tag_labels.append(sent_labels)
+                head_indices.append(sent_indices)
+                indice_probs.append(sent_indice_probs)
+                tag_probs.append(sent_label_probs)
             return {'dep_labels': head_tag_labels, 'dep_indices': head_indices, 'indice_probs': indice_probs,
                     'tag_probs': tag_probs}
         else:
@@ -257,7 +253,9 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
             mask: torch.Tensor,
             head_tags: torch.LongTensor = None,
             head_indices: torch.LongTensor = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> Tuple[
+        torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
+        torch.Tensor]:
 
         batch_size, _, encoding_dim = encoded_text.size()
 
@@ -288,15 +286,15 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         minus_mask = ~mask * minus_inf
         attended_arcs = attended_arcs + minus_mask.unsqueeze(2) + minus_mask.unsqueeze(1)
 
-        topnHeads_indices = None
-        topnHeads_values = None
-        topnLabels_indices = None
-        topnLabels_values = None
-        self.getTopN = self.topn != 1
-        if self.getTopN:
-            predicted_heads, predicted_head_tags, topnHeads_indices, topnHeads_values, topnLabels_indices, topnLabels_values = self._greedy_decode(
-                head_tag_representation, child_tag_representation, attended_arcs, mask
-            )
+        topn_heads_indices = None
+        topn_heads_values = None
+        topn_labels_indices = None
+        topn_labels_values = None
+        self.get_top_n = self.topn != 1
+        if self.get_top_n:
+            predicted_heads, predicted_head_tags, topn_heads_indices, topn_heads_values, topn_labels_indices, \
+            topn_labels_values = self._greedy_decode(head_tag_representation, child_tag_representation, attended_arcs,
+                                                     mask)
         else:
             predicted_heads, predicted_head_tags = self._mst_decode(
                 head_tag_representation, child_tag_representation, attended_arcs, mask
@@ -320,8 +318,8 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
                 head_tags=predicted_head_tags.long(),
                 mask=mask,
             )
-        return predicted_heads[:, 1:], predicted_head_tags[:,
-                                       1:], mask, topnHeads_indices, topnHeads_values, topnLabels_indices, topnLabels_values, arc_nll, tag_nll
+        return predicted_heads[:, 1:], predicted_head_tags[:, 1:], mask, topn_heads_indices, topn_heads_values, \
+               topn_labels_indices, topn_labels_values, arc_nll, tag_nll
 
     def _construct_loss(
             self,
@@ -457,7 +455,7 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
             head_tag_representation, child_tag_representation, heads
         )
         _, head_tags = head_tag_logits.max(dim=2)
-        if self.getTopN:
+        if self.get_top_n:
             probs = F.softmax(attended_arcs, -1)
             topn = min(probs.shape[2], self.topn)
             topk_heads = torch.topk(probs, topn, dim=2)

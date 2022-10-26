@@ -18,12 +18,12 @@ def to_spans(tags):
     return spans
 
 
-class SpanF1():
+class SpanF1:
     def __init__(self):
         self.tps = 0
         self.fps = 0
         self.fns = 0
-        self.str = 'span-f1'
+        self.str = 'span_f1'
 
     def score(self, preds, golds, mask, vocabulary_list):
         golds = golds * mask

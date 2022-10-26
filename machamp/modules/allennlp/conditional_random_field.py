@@ -1,9 +1,12 @@
 """
 Conditional random field
 """
+import logging
 from typing import List, Tuple, Union
 
 import torch
+
+logger = logging.getLogger(__name__)
 
 import machamp.modules.allennlp.util as util
 
@@ -153,7 +156,7 @@ def is_transition_allowed(
             ]
         )
     else:
-        print("Unknown constraint type: {constraint_type}")
+        logger.error("Unknown constraint type: {constraint_type}")
         exit(1)
 
 
@@ -374,17 +377,13 @@ class ConditionalRandomField(torch.nn.Module):
         transitions[:num_tags, :num_tags] = constrained_transitions.data
 
         if self.include_start_end_transitions:
-            transitions[
-            start_tag, :num_tags
-            ] = self.start_transitions.detach() * self._constraint_mask[
-                                                  start_tag, :num_tags
-                                                  ].data + -10000.0 * (
-                        1 - self._constraint_mask[start_tag, :num_tags].detach()
-                )
+            transitions[start_tag, :num_tags] = self.start_transitions.detach() * self._constraint_mask[
+                                                                                  start_tag, :num_tags].data + -10000.0 \
+                                                * (1 - self._constraint_mask[start_tag, :num_tags].detach())
             transitions[:num_tags, end_tag] = self.end_transitions.detach() * self._constraint_mask[
                                                                               :num_tags, end_tag
                                                                               ].data + -10000.0 * (
-                                                          1 - self._constraint_mask[:num_tags, end_tag].detach())
+                                                      1 - self._constraint_mask[:num_tags, end_tag].detach())
         else:
             transitions[start_tag, :num_tags] = -10000.0 * (
                     1 - self._constraint_mask[start_tag, :num_tags].detach()

@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict
+from typing import List
 
 import torch
 from transformers import AutoTokenizer
@@ -7,10 +7,10 @@ from transformers.models.bert.tokenization_bert import BasicTokenizer
 from transformers.models.bert.tokenization_bert import BertTokenizer
 from transformers.models.xlm_roberta.tokenization_xlm_roberta import XLMRobertaTokenizer
 
+from machamp.data.machamp_instance import MachampInstance
+from machamp.data.machamp_vocabulary import MachampVocabulary
 from machamp.utils import myutils
 from machamp.utils import tok_utils
-from machamp.data.machamp_vocabulary import MachampVocabulary
-from machamp.data.machamp_instance import MachampInstance
 from machamp.utils.lemma_edit import gen_lemma_rule
 
 logger = logging.getLogger(__name__)
@@ -62,6 +62,8 @@ def seqs2data(tabular_file: str, skip_first_line: bool = False):
             yield sent[beg_idx:], sent
             sent = []
         else:
+            if line.startswith('# text'):  # because tab in UD_Munduruku-TuDeT
+                line = line.replace('\t', ' ')
             sent.append([token for token in line.rstrip("\n").split('\t')])
 
     # adds the last sentence when there is no empty line
@@ -75,7 +77,8 @@ def seqs2data(tabular_file: str, skip_first_line: bool = False):
         yield sent[beg_idx:], sent
 
 
-def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_idx: int, num_special_tokens: int, has_unk: bool):
+def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_idx: int, num_special_tokens: int,
+                    has_unk: bool):
     """
     A tokenizer that tokenizes each token separately (over gold tokenization). 
     We found that this is the most robust method to tokenize overall (handling
@@ -90,7 +93,7 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
         of lists.
     word_col_idx: int:
         The column index that contains the input words.
-    num_special_toks: int
+    num_special_tokens: int
         Number of special tokens, here assumed to be 2 (start/end token) or 1
         (only end token)
     has_unk: bool
@@ -122,7 +125,7 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
         if len(tokked) == 0 and has_unk:
             tokked = [tokenizer.unk_token_id]
         token_ids.extend(tokked)
-        offsets.append(len(token_ids)-1)  
+        offsets.append(len(token_ids) - 1)
     offsets = torch.tensor(offsets, dtype=torch.long)
 
     return token_ids, offsets
@@ -183,13 +186,16 @@ def read_sequence(
     if has_tok_task:
         pre_tokenizer = BasicTokenizer(strip_accents=False, do_lower_case=False, tokenize_chinese_chars=True)
         tokenizer.do_basic_tokenize = False
+        script_finder = tok_utils.ScriptFinder()
+        type_tokenizer = myutils.identify_tokenizer(tokenizer)
 
     all_sents = list(seqs2data(data_path))
-    learn_splits = False
-    if has_tok_task and is_train:
+    do_splits = False
+    if has_tok_task:
         for task in config['tasks']:
             if config['tasks'][task]['task_type'] == 'tok':
-                learn_splits = config['tasks'][task]['pre_split']
+                do_splits = config['tasks'][task]['pre_split']
+    learn_splits = do_splits and is_train
     for sent, full_data in all_sents:
         # sent is a list of lists, of shape sentenceLength, numColumns
         if max_sents != -1 and sent_counter >= max_sents and is_train:
@@ -203,30 +209,37 @@ def read_sequence(
                 exit(1)
 
         if has_tok_task:
-            token_ids, offsets, tok_labels, no_unk_subwords, new_splits = tok_utils.tokenize_and_annotate(full_data, [
-                line[word_col_idx] for line in sent], pre_tokenizer, tokenizer, vocabulary.pre_splits, learn_splits)
+            gold_tokens = [line[word_col_idx] for line in sent]
+            token_ids, offsets, tok_labels, no_unk_subwords, new_splits = tok_utils.tokenize_and_annotate(full_data,
+                                                                                                          gold_tokens,
+                                                                                                          pre_tokenizer,
+                                                                                                          tokenizer,
+                                                                                                          vocabulary.pre_splits,
+                                                                                                          learn_splits,
+                                                                                                          script_finder,
+                                                                                                          do_splits,
+                                                                                                          type_tokenizer)
             # Note that the splits are not per dataset as of now, might be sub-optimal for performance, 
             # but is more generalizable. 
             # They are also not picked in a smart way; we just keep the last for each..
             if new_splits != {}:
                 vocabulary.pre_splits = new_splits
             # We assume that if we have only one special token, that it is the end token
-            if num_special_tokens == 2:
-                offsets = offsets 
 
         else:
             token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, num_special_tokens, has_unk)
             no_unk_subwords = None
         token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
 
-
         # if index = -1, the dataset name is used, and this is handled in the superclass
         # dec_dataset_embeds = []
         # if 'dec_dataset_embed_idx' in config and config['dec_dataset_embed_idx'] != -1:
-        #    instance.add_field('dec_dataset_embeds', SequenceLabelField([token[config['dec_dataset_embed_idx']] for token in sent]), input_field, label_namespace='dec_dataset_embeds')
+        #    instance.add_field('dec_dataset_embeds', SequenceLabelField([token[config['dec_dataset_embed_idx']] for
+        #                                           token in sent]), input_field, label_namespace='dec_dataset_embeds')
         # enc_dataset_embeds = []
         # if 'enc_dataset_embed_idx' in config and config['enc_dataset_embed_idx'] != -1:
-        #    instance.add_field('enc_dataset_embeds', SequenceLabelField([token[config['enc_dataset_embed_idx']] for token in sent]), input_field, label_namespace='enc_dataset_embeds')
+        #    instance.add_field('enc_dataset_embeds', SequenceLabelField([token[config['enc_dataset_embed_idx']] for
+        #                                           token in sent]), input_field, label_namespace='enc_dataset_embeds')
 
         col_idxs = {}
         golds = {}
@@ -255,8 +268,7 @@ def read_sequence(
                 if task_type == 'string2string':
                     golds[task] = torch.tensor([vocabulary.token2id(
                         gen_lemma_rule(token_info[word_col_idx], token_info[task_idx]), task, is_train) for token_info
-                                                in sent], dtype=torch.long)
-
+                        in sent], dtype=torch.long)
 
                 # Special handling for multiseq, as it required a different labelfield
                 elif task_type == 'multiseq':
@@ -265,7 +277,8 @@ def read_sequence(
                         label_list = token_info[task_idx].split("|")
                         label_sequence.append([vocabulary.token2id(label, task, is_train) for label in label_list])
                     max_labels = max([len(label) for label in label_sequence])
-                    padded_label_sequence = [labels + [vocabulary.UNK_ID] * (max_labels-len(labels)) for labels in label_sequence]
+                    padded_label_sequence = [labels + [vocabulary.UNK_ID] * (max_labels - len(labels)) for labels in
+                                             label_sequence]
                     golds[task] = torch.tensor(padded_label_sequence, dtype=torch.long)
                 else:
                     golds[task] = torch.tensor(
@@ -278,10 +291,10 @@ def read_sequence(
                     if not word_data[task_idx].isdigit():
                         logger.error(
                             "Your dependency file " + data_path + " seems to contain invalid structures sentence " +
-                                str(sent_counter) + " contains a non-integer head: " + word_data[
-                                task_idx] + "\nIf you directly used UD data, this could be due to multiword tokens, "
-                                            "which we currently do not support, you can clean your conllu file by "
-                                            "using scripts/misc/cleanconl.py")
+                                            str(sent_counter) + " contains a non-integer head: " + word_data[
+                                            task_idx] + "\nIf you directly used UD data, this could be due to " +
+                                            "multiword tokens, which we currently do not support, you can clean your " +
+                                            "conllu file by using scripts/misc/cleanconl.py")
                         exit(1)
                 try:
                     heads = [int(token_info[task_idx]) for token_info in sent]
@@ -336,38 +349,39 @@ def read_sequence(
         # So we fall back to tokenize the gold-tokenized input, so that we do not throw away data for the 
         # other (non-tokenization) tasks.
         no_mapping = False
-        for task in golds:
-            if len(token_ids) - num_special_tokens < len(golds[task]):
-                no_mapping = True
+        for task in config['tasks']:
+            if config['tasks'][task]['task_type'] != 'classification':
+                if len(token_ids) - num_special_tokens < len(golds[task]):
+                    no_mapping = True
         if no_mapping and is_train:
             # No mapping can be found, but we still want to train for the other tasks, so backoff to the gold
             # tokenization
             token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, num_special_tokens, has_unk)
             token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
-            no_unk_subwords =  tokenizer.convert_ids_to_tokens(token_ids)
+            no_unk_subwords = tokenizer.convert_ids_to_tokens(token_ids)
             if type(tokenizer) == BertTokenizer:
-                no_unk_subwords = [subword[:2] if subword.startswith('##') else subword for subword in no_unk_subwords] 
+                no_unk_subwords = [subword[:2] if subword.startswith('##') else subword for subword in no_unk_subwords]
             elif type(tokenizer) == XLMRobertaTokenizer:
                 no_unk_subwords = [subword.replace('▁', ' ') for subword in no_unk_subwords]
 
-            if has_tok_task: # this should always be true though
+            if has_tok_task:  # this should always be true though
                 new_tok_labels = []
                 for i in range(len(offsets)):
                     if i in offsets:
                         new_tok_labels.append('split')
                     else:
                         new_tok_labels.append('merge')
-                for task in config['tasks']:
-                    if config['tasks'][task]['task_type'] == 'tok':
-                        tok_name = task
+                for tok_task in config['tasks']:
+                    if config['tasks'][tok_task]['task_type'] == 'tok':
                         break
-                golds[task] = torch.tensor(
-                    [vocabulary.token2id(subword_annotation, task, is_train) for subword_annotation in new_tok_labels],
+                golds[tok_task] = torch.tensor(
+                    [vocabulary.token2id(subword_annotation, tok_task, is_train) for subword_annotation in
+                     new_tok_labels],
                     dtype=torch.long)
 
         if has_unk:
             unk_counter += sum(token_ids == tokenizer.unk_token_id)
-        subword_counter += len(token_ids) - 2
+        subword_counter += len(token_ids) - num_special_tokens
         word_counter += len(offsets)
         if max_words != -1 and word_counter > max_words and is_train:
             break
@@ -383,7 +397,7 @@ def read_sequence(
         logger.warning('Maximum words was set to ' + str(max_words) + ', but dataset only contains ' + str(
             word_counter) + ' words.')
 
-    logger.info('Stats ' + dataset + '(' + data_path + '):')
+    logger.info('Stats ' + dataset + ' (' + data_path + '):')
     logger.info('Lines:      {:,}'.format(sent_counter))
     logger.info('Words:      {:,}'.format(word_counter))
     logger.info('Subwords:   {:,}'.format(subword_counter))

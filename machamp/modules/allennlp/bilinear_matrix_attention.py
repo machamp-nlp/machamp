@@ -4,7 +4,7 @@ from torch.nn.parameter import Parameter
 
 
 # linear activation
-class Identity():
+class Identity:
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return x
 

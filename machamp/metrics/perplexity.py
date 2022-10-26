@@ -1,7 +1,7 @@
 import math
 
 
-class Perplexity():
+class Perplexity:
     def __init__(self):
         self.sum = 0
         self.number = 0

@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, Tuple, List
 
 from torch.utils.data import Dataset
@@ -8,7 +9,6 @@ from machamp.data.machamp_vocabulary import MachampVocabulary
 from machamp.readers.read_classification import read_classification
 from machamp.readers.read_mlm import read_mlm
 from machamp.readers.read_sequence import read_sequence
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,9 @@ class MachampDataset(Dataset):
             for task in datasets[dataset]['tasks']:
                 if task in self.tasks:
                     if datasets[dataset]['tasks'][task]['task_type'] != self.task_to_tasktype(task):
-                        logger.error('Error task with same name, but different type found. Please rename and note that tasks with the same name share the same decoder head')
+                        logger.error(
+                            'Error task with same name, but different type found. Please rename and note that tasks '
+                            'with the same name share the same decoder head')
                         exit(1)
                 else:
                     self.tasks.append(task)
@@ -71,7 +73,7 @@ class MachampDataset(Dataset):
             self.vocabulary = MachampVocabulary()
         else:
             self.vocabulary = vocabulary
-        
+
         self.data = {}
         for dataset in self.datasets:
             # for backwards compatibility
@@ -115,7 +117,7 @@ class MachampDataset(Dataset):
             elif num_mlm != 0:
                 read_function = read_mlm
             # read seq2seq data
-            #elif num_s2s != 0:
+            # elif num_s2s != 0:
             #    read_function = read_seq2seq
             # read word-level annotation (conll-like)
             else:
@@ -149,10 +151,10 @@ class MachampDataset(Dataset):
         task_trimmed = task.replace('-heads', '').replace('-rels', '')
         if task_trimmed in self.tasks:
             index = self.tasks.index(task_trimmed)
+            return self.task_types[index]
         else:
             logger.error(task + ' not found in ' + str(self.tasks))
             exit(1)
-        return self.task_types[index]
 
     def __len__(self):
         """

@@ -1,10 +1,7 @@
 import copy
-import datetime
 import json
 import logging
-import os
 import re
-import unicodedata
 from typing import List, Dict, Tuple, Optional, Any, Union, Iterator
 
 import _jsonnet
@@ -13,9 +10,11 @@ import torch
 logger = logging.getLogger(__name__)
 
 from transformers import tokenization_utils
+from transformers import AutoTokenizer
 
 from machamp.data.machamp_instance import MachampInstance
 from machamp.data.machamp_dataset import MachampDataset
+from machamp.modules.allennlp.scalar_mix import ScalarMix
 
 ParameterGroupsType = List[Tuple[List[str], Dict[str, Any]]]
 
@@ -98,8 +97,10 @@ def prep_batch(
         'token_ids': Token ID's, looks like: [101, 20386, 19353, 102]
         'seg_ids': Indicate the segment id's, usually 0's, and can have 1's for other segments
         'golds': the gold annotation for the task, differs per task-type
-        'offsets': The starting or ending index of each word based on wordpiece indices (note: is different length than token_ids)
-        'subword_mask': The masking for the language model, shape=(batch_size, max_sent_len_subwords) filled with 1s and 0s. 
+        'offsets': The starting or ending index of each word based on wordpiece indices (note: is different length than
+        token_ids)
+        'subword_mask': The masking for the language model, shape=(batch_size, max_sent_len_subwords) filled with 1s
+        and 0s.
         'eval_mask': The masking for the evaluation. Is the length of the annotation.
     """
     batch_size = len(batch)
@@ -135,7 +136,7 @@ def prep_batch(
         elif is_word_level:
             if len(batch[0].golds[task].shape) == 1:
                 golds[task] = torch.zeros((batch_size, max_token_len), dtype=torch.long, device=device)
-            else: # multiple annotations per token
+            else:  # multiple annotations per token
                 num_labels = len(dataset.vocabulary.get_vocab(task))
                 golds[task] = torch.zeros((batch_size, max_token_len, num_labels), dtype=torch.long, device=device)
         elif task_type == 'multiclas':
@@ -164,88 +165,12 @@ def prep_batch(
             else:
                 golds[task][instanceIdx] = instance.golds[task]
 
-
         if has_word_level and type(batch[0].offsets) != type(None):
             batch_offsets[instanceIdx][:len(instance.offsets)] = instance.offsets
             batch_eval_mask[instanceIdx][:len(instance.offsets)] = 1
         batch_subword_mask[instanceIdx][:len(instance.token_ids)] = 1
     return {'token_ids': batch_tokens, 'seg_ids': batch_seg_ids, 'golds': golds, 'offsets': batch_offsets,
             'eval_mask': batch_eval_mask, 'subword_mask': batch_subword_mask}
-
-
-def report_epoch(
-        epoch_loss: float,
-        dev_loss: float,
-        epoch: int,
-        train_metrics: Dict[str, float],
-        dev_metrics: Dict[str, float],
-        epoch_start_time: datetime.datetime,
-        start_training_time: datetime.datetime, 
-        device: str, 
-        train_loss_dict: Dict[str, float],
-        dev_loss_dict: Dict[str, float]):
-    """
-    Reports a variety of interesting and less interesting metrics that can
-    be tracked across epochs. These are both logged and returned.
-
-    Parameters
-    ----------
-    epoch_loss: float
-        Loss on the training data.
-    dev_loss: float
-        Loss on the dev data.
-    epoch: int
-        The epoch we are currently on.
-    train_metrics: Dict[str, float]
-        All metrics based on the training data.
-    dev_metrics: Dict[str, float]
-        All metrics based on the dev data.
-    epoch_start_time: datetime.datetime
-        The time this epoch started.
-    start_training_time: datetime.datetime
-        The time the training procedure started.
-    device: str
-        Used to decide whether to print GPU ram
-    train_loss_dict: Dict[str, float]
-        training losses
-    dev_loss_dict: Dict[str, float]
-        dev losses
-
-    Returns
-    -------
-    info: Dict[str, float]
-        A dictionary containing all information that has just been logged
-    """
-    info = {'epoch': epoch}
-    if 'cuda' in device:
-        info['max_gpu_mem'] = torch.cuda.max_memory_allocated() * 1e-09
-
-    _proc_status = '/proc/%d/status' % os.getpid()
-    data = open(_proc_status).read()
-    i = data.index('VmRSS:')
-    info['cur_ram'] = int(data[i:].split(None, 3)[1]) * 1e-06
-
-    # Might be nice to turn into a table?
-    for task in train_loss_dict:
-        info['train_' + task + '_loss'] = train_loss_dict[task]
-    info['train_batch_loss'] = epoch_loss
-    for metric in train_metrics:
-        info['train_' + metric] = train_metrics[metric]
-    for task in dev_loss_dict:
-        info['dev_' + task + '_loss'] = dev_loss_dict[task]
-    info['dev_batch_loss'] = dev_loss
-    for metric in dev_metrics:
-        info['dev_' + metric] = dev_metrics[metric]
-    info['epoch_time'] = str(datetime.datetime.now() - epoch_start_time).split('.')[0]
-    info['total_time'] = str(datetime.datetime.now() - start_training_time).split('.')[0]
-    for key in info:
-        if type(info[key]) == float:
-            info[key] = '{:.4f}'.format(info[key])
-    longest_key = max([len(key) for key in info]) + 1
-    for key, value in info.items():
-        logger.info(key + ' ' * (longest_key - len(key)) + ': ' + str(value))
-    logger.info('\n')
-    return info
 
 
 def report_metrics(metrics: Dict[str, float]):
@@ -457,9 +382,55 @@ class StreamToLogger(object):
         pass
 
 
-def apply_scalar(mlm_out, layers, scalar):
+def apply_scalar(mlm_out: torch.tensor, layers: List, scalar: ScalarMix):
+    """
+    Applies attention to the layers of the output of the LM. 
+    If the number of layers is 1, no attention is necessary. 
+
+    Parameters
+    ----------
+    mlm_out: torch.tensor
+        Input, shape = [layers, batch_size, num_tokens, emb_size]
+    layers: List
+        Which layers we should use (indices)
+    scalar: ScalarMix):
+        The scalar to apply
+
+    Returns
+    -------
+    result: torch.tensor
+        Shape should equal the input, but then without the first dimension
+    """
     if len(layers) > 1:
         return scalar(mlm_out[layers])
     else:
         return mlm_out[layers[0]]
+
+
+def identify_tokenizer(tokenizer: AutoTokenizer):
+    """
+    Identifies the strategy the tokenizer uses to represent (the absence of) whitespaces. 
+    Could be one of 'wordpiece', 'sentencepiece' or 'other'. Note that some have no special
+    characters for this, I am not sure what to do with those yet (tokenization should be easier?)
+    other exceptions are xlm-mlm-100-1280 is special, it has </w> and sberbank-ai/mGPT 
+    has a Ġ for whitespaces.
+
+    Parameters
+    ----------
+    tokenizer: AutoTokenizer
+        the tokenizer to inspect
+    
+    Returns
+    -------
+    tokenizer_type: str
+        the type of the tokenizer, one of 'wordpiece', 'sentencepiece' or 'other'
+    """
+    result = ''.join(tokenizer.tokenize('test testestest'))
+    if '##' in result:
+        return 'wordpiece'
+    elif '▁' in result:
+        return 'sentencepiece'
+    else:
+        return 'other'
+
 

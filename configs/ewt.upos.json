@@ -6,7 +6,9 @@
         "tasks": {
             "upos": {
                 "task_type": "seq",
-                "column_idx": 3
+                "column_idx": 3,
+                //"layers_to_use": [-1]
+                "layers_to_use": [0,1,2,3,4,5,6,7,8,9,10,11]
             }
         }
     }

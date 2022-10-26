@@ -48,7 +48,7 @@ def read_classification(
         is_train: bool,
         max_sents: int,
         max_words: int,
-        max_input_words: int):
+        max_input_length: int):
     """
     Reads sentence level annotated files. We assume there is one sentence/
     utterance in each line, and annotations are separated with tabs ('\t').
@@ -73,7 +73,7 @@ def read_classification(
         The maximum number of sentences to read.
     max_words: int
         The maximum amount of words to read, rounds down.
-    max_input_words
+    max_input_length
         The maximum amount of subwords to input to the encoder, not used here.
 
     Returns
@@ -98,6 +98,7 @@ def read_classification(
     has_seg_ids = 'token_type_ids' in test_tok and 1 in test_tok['token_type_ids']
     if 'skip_first_line' not in config:
         config['skip_first_line'] = False
+    sent_counter = 0
     for sent_counter, data_instance in enumerate(lines2data(data_path, config['skip_first_line'])):
         if max_sents != -1 and sent_counter > max_sents:
             break
@@ -137,9 +138,11 @@ def read_classification(
         seg_ids = torch.tensor(seg_ids, dtype=torch.long)
 
         # if 'dec_dataset_embed_idx' in config and config['dec_dataset_embed_idx'] != -1:
-        #    instance.add_field('dec_dataset_embeds', SequenceLabelField([data_instance[config['dec_dataset_embed_idx']] for _ in full_input]), input_field, label_namespace= 'dec_dataset_embeds')
+        #    instance.add_field('dec_dataset_embeds', SequenceLabelField([data_instance[config['dec_dataset_embed_idx']]
+        #                                   for _ in full_input]), input_field, label_namespace= 'dec_dataset_embeds')
         # if 'enc_dataset_embed_idx' in config and config['enc_dataset_embed_idx'] != -1:
-        #    instance.add_field('enc_dataset_embeds', SequenceLabelField([data_instance[config['enc_dataset_embed_idx']] for _ in full_input]), input_field, label_namespace= 'dec_dataset_embeds')
+        #    instance.add_field('enc_dataset_embeds', SequenceLabelField([data_instance[config['enc_dataset_embed_idx']]
+        #                                   for _ in full_input]), input_field, label_namespace= 'dec_dataset_embeds')
 
         if sent_counter == 0 and is_train:
             for task in config['tasks']:  # sep. loop for efficiency
@@ -156,7 +159,7 @@ def read_classification(
                     continue
                 else:
                     logger.error('Annotation for task ' + task + ' is missing in ' + dataset + ':' + str(
-                        sent_idx) + ', collumn ' + str(col_idxs[task]))
+                        sent_counter) + ', collumn ' + str(col_idxs[task]))
                     exit(1)
             gold = data_instance[task_idx]
             if task_type == 'regression':
@@ -167,7 +170,8 @@ def read_classification(
                         sent_idx) + " should have a float (for regression task)")
                     exit(1)
             elif task_type == 'multiclas':
-                gold = torch.tensor([vocabulary.token2id(label, task, is_train) for label in gold.split('|')], dtype=torch.long)
+                gold = torch.tensor([vocabulary.token2id(label, task, is_train) for label in gold.split('|')],
+                                    dtype=torch.long)
             else:
                 gold = vocabulary.token2id(gold, task, is_train)
             col_idxs[task] = task_idx
@@ -181,7 +185,7 @@ def read_classification(
         logger.warning('Maximum (sub)words was set to ' + str(max_words) + ', but dataset only contains ' + str(
             subword_counter) + ' subwords.')
 
-    logger.info('Stats ' + dataset + '(' + data_path + '):')
+    logger.info('Stats ' + dataset + ' (' + data_path + '):')
     logger.info('Lines:    {:,}'.format(sent_counter + 1))
     logger.info('Subwords: {:,}'.format(subword_counter))
     logger.info('Unks:     {:,}'.format(unk_counter) + '\n')

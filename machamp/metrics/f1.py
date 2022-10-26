@@ -5,13 +5,13 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-class F1():
+class F1:
     def __init__(self, type_f1):
         self.tps = []
         self.fps = []
         self.fns = []
         self.type_f1 = type_f1
-        self.str = 'f1-' + type_f1
+        self.str = 'f1_' + type_f1
 
     def score(self, preds, golds, mask, vocabulary):
         max_label = torch.max(torch.cat((preds, golds)))

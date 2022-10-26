@@ -1,8 +1,8 @@
 {
   "Wiki_fy": {
     "train_data_path": "data/wiki/fy.train",
-    "dev_data_path": "data/wiki/fy.dev.small",
-    "max_sents": 5000,
+    "dev_data_path": "data/wiki/fy.dev",
+    "max_sents": 10000,
     "tasks": {
       "masking": {
         "task_type": "mlm"

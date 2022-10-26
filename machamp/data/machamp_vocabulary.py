@@ -7,7 +7,7 @@
 
 import os
 
-class MachampVocabulary():
+class MachampVocabulary:
     def __init__(self):
         """
         A class that can represent multiple vocabularies. They are kep apart by 

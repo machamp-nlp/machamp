@@ -80,15 +80,15 @@ class MachampBatchSampler(Sampler):
             batch size, and each tuple consists of the dataset
             name and the index of the batch.
         """
-        datasetSizes = [(dataset, len(self.batches[dataset])) for dataset in self.batches]
+        dataset_sizes = [(dataset, len(self.batches[dataset])) for dataset in self.batches]
         new_sizes = []
-        total_size = sum([datasetSize[1] for datasetSize in datasetSizes])
+        total_size = sum([datasetSize[1] for datasetSize in dataset_sizes])
         total_new_prob = 0.0
-        for dataset, size in datasetSizes:
+        for dataset, size in dataset_sizes:
             pi = size / total_size
             total_new_prob += math.pow(pi, self.smoothing_factor)
 
-        for dataset, size in datasetSizes:
+        for dataset, size in dataset_sizes:
             pi = size / total_size
             prob = (1 / pi) * (math.pow(pi, self.smoothing_factor) / total_new_prob)
             new_sizes.append(int(size * prob))
@@ -102,10 +102,10 @@ class MachampBatchSampler(Sampler):
             # counter is used to keep track of which dataset we need to be in
             # for example: dataset1.newsize=100, dataset2.newsize=900, if counter
             # < 100 we have to get a batch from dataset1
-            for dataset, size in zip([x[0] for x in datasetSizes], new_sizes):
+            for dataset, size in zip([x[0] for x in dataset_sizes], new_sizes):
                 new_counter = counter + size
                 if counter <= batch_id < new_counter:
-                    dataset_idx = [x[0] == dataset for x in datasetSizes].index(True)
+                    dataset_idx = [x[0] == dataset for x in dataset_sizes].index(True)
                     yield self.batches[dataset][dataset_batch_idxs[dataset_idx]]
                     dataset_batch_idxs[dataset_idx] += 1
                     # if we handled all items in this dataset, restart

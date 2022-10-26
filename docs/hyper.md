@@ -23,11 +23,10 @@ python3 train.py --dataset_configs configs/ewt.json --device 0 --name ewt --para
 Parameters that will likely have an effect on performance include:
 
 * [embeddings](change_embeds.md) which are used
-* `data_loader/batch_sampler/batch_size`
+* `batching/batch_size`: You should probably also change `batching/max_tokens' accordingly. We have this parameter, because it
+saves a lot of GPU ram.
 * `trainer/optimizer/lr` in combination with:
-    * `trainer/learning_rate_scheduler/decay_factor`
-    * `trainer/learning_rate_scheduler/discriminative_fine_tuning`
-      and `trainer/learning_rate_scheduler/gradual_unfreezing`
-    * `trainer/num_epochs`
-* `model/dropout`
+* `trainer/num_epochs`
+* `encoder/dropout`
+
 

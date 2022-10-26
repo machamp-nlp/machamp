@@ -1,7 +1,7 @@
 import torch
 
 
-class AvgDist():
+class AvgDist:
     def __init__(self):
         self.dists = []
         self.str = 'avg_dist.'

@@ -182,7 +182,7 @@ def load_conllu(file):
     index, sentence_start = 0, None
     while True:
         line = file.readline()
-        print(line)
+        #print(line.strip())
         if not line:
             break
         line = _decode(line.rstrip("\r\n"))
@@ -199,7 +199,6 @@ def load_conllu(file):
             # Add parent and children UDWord links and check there are no cycles
             def process_word(word):
                 if word.parent == "remapping":
-                    print(word.columns)
                     raise UDError("There is a cycle in a sentence")
                 if word.parent is None:
                     head = int(word.columns[HEAD])
@@ -241,8 +240,8 @@ def load_conllu(file):
         # even if one of them tokenizes the space. Use any Unicode character
         # with category Zs.
         columns[FORM] = "".join(filter(lambda c: unicodedata.category(c) != "Zs", columns[FORM]))
-        if not columns[FORM]:
-            raise UDError("There is an empty FORM in the CoNLL-U file")
+        #if not columns[FORM]:
+        #    raise UDError("There is an empty FORM in the CoNLL-U file")
 
         # Save token
         ud.characters.extend(columns[FORM])
