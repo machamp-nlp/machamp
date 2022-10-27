@@ -226,7 +226,7 @@ Other things:
 ## FAQ
 
 If your question is not mentioned here, you can contact us on
-slack: https://join.slack.com/t/machamp-workspace/shared_invite/zt-1fo5mmnx1-Z6MmIS~UR~A2ukufed~slA
+slack: https://join.slack.com/t/machamp-workspace/shared_invite/zt-1imbnsyud-2D4qBsiWUnDXedNjv~JIYg
 
 Q: How can I easily compare my own amazing parser to your scores on UD version X?  
 A: Check the [results page](docs/results.md)
