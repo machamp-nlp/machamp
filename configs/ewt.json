@@ -1,30 +1,28 @@
 {
-    "UD": {
-        "train_data_path": "data/ewt.train",
-        "validation_data_path": "data/ewt.dev",
-        "word_idx": 1,
-        "tasks": {
-            "upos": {
-                "task_type": "seq",
-                "column_idx": 3
-            },
-            "xpos": {
-                "task_type": "seq",
-                "column_idx": 4
-            },
-            "lemma": {
-                "task_type": "string2string",
-                "column_idx": 2
-            },
-            "feats": {
-                "task_type": "seq",
-                "column_idx": 5
-            },
-            "dependency": {
-                "task_type": "dependency",
-                "column_idx": 6
-            }
-        }
+  "UD_EWT": {
+    "train_data_path": "data/ewt.train",
+    "dev_data_path": "data/ewt.dev",
+    "word_idx": 1,
+    //"max_sents": 1000,
+    "tasks": {
+      "upos": {
+        "task_type": "seq",
+        "column_idx": 3
+      },
+      "lemma": {
+        "task_type": "string2string",
+        "column_idx": 2
+      },
+      "feats": {
+        //"task_type": "multiseq",
+        "task_type": "seq",
+        "column_idx": 5
+      },
+      "dependency": {
+        "task_type": "dependency",
+        "column_idx": 6
+      }
     }
+  }
 }
 

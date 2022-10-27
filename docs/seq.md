@@ -1,4 +1,5 @@
 ### seq task-type
+
 [back to main README](../README.md)
 
 The `seq` task-type is used for standard sequence labeling tasks. It assumes one
@@ -22,7 +23,7 @@ The dataset configuration file should looks like this (assuming the data is stor
 {
     "POS": {
         "train_data_path": "machamp.train",
-        "validation_data_path": "machoke.dev",
+        "dev_data_path": "machoke.dev",
         "word_idx": 0,
         "tasks": {
             "upos": {

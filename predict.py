@@ -1,64 +1,55 @@
-import os
-import logging
 import argparse
-import tarfile
-import copy
-from pathlib import Path
+import logging
+import sys
 
-from allennlp.common import Params
-from allennlp.common.util import import_module_and_submodules
+import torch
 
-from machamp import util
+from machamp.predictor.predict import predict_with_paths
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
-                    level=logging.INFO)
+                    level=logging.INFO, handlers=[logging.StreamHandler(sys.stdout)])
 logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("archive", type=str, help="The archive file")
-parser.add_argument("input_file", type=str, help="The input file to predict")
-parser.add_argument("pred_file", type=str, help="The output prediction file")
+parser.add_argument("torch_model", type=str, help="The path to the pytorch (*.pt) model.")
+parser.add_argument("file_paths", nargs='+',
+                    help="contains a list of input and output files. You can predict on multiple files by having a "
+                         "structure like: input1 output1 input2 output2.")
 parser.add_argument("--dataset", default=None, type=str,
                     help="name of the dataset, needed to know the word_idx/sent_idxs to read from")
-#parser.add_argument("--write_scores", default=None, type=str, # TODO
-#                    help="If set, evaluate the prediction and store it in the given file")
-parser.add_argument("--device", default=None, type=int, help="CUDA device number; set to -1 for CPU")
-parser.add_argument("--batch_size", default=None, type=int, help="The size of each prediction batch")
+parser.add_argument("--device", default=None, type=int, help="CUDA device number; set to -1 for CPU.")
+parser.add_argument("--batch_size", default=32, type=int, help="The size of each prediction batch.")
 parser.add_argument("--raw_text", action="store_true", help="Input raw sentences, one per line in the input file.")
+parser.add_argument("--topn", default=None, type=int, help='Output the top-n labels and their probability.')
+parser.add_argument("--conn", default='=', type=str, help="With --topn, string inserted between each label and its probability.")
+parser.add_argument("--sep", default='|', type=str, help="With --topn, string inserted between label-probability pairs.")
 args = parser.parse_args()
 
-import_module_and_submodules("machamp")
-
-archive_dir = Path(args.archive).resolve().parent
-
-if not os.path.isfile(archive_dir / "weights.th"):
-    with tarfile.open(args.archive) as tar:
-        tar.extractall(archive_dir)
-
-config_file = archive_dir / "config.json"
-
-params = Params.from_file(config_file)
-
-if args.device is not None:
-    params['trainer']['cuda_device'] = args.device
-params['dataset_reader']['is_raw'] = args.raw_text
-
-if args.dataset is None and len(params['dataset_reader']['datasets']) > 1:
-    logger.error("please provide --dataset, because we currently don't support writing " +
-                 "tasks of multiple datasets in one run.\nOptions: " +
-                 str([dataset for dataset in params['dataset_reader']['datasets']]))
+logger.info('cmd: ' + ' '.join(sys.argv) + '\n')
+if len(args.file_paths) % 2 == 1:
+    logger.error(
+        'Error: the number of files passed is not even. You need to pass an output file for each input file: ' + str(
+            args.file_paths))
     exit(1)
 
-if args.dataset not in params['dataset_reader']['datasets'] and args.dataset is not None:
-    logger.error("Non existing --dataset option specified, please pick one from: " + 
-                 str([dataset for dataset in params['dataset_reader']['datasets']]))
-    exit(1)
+if args.device == None:
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+elif args.device == -1:
+    device = 'cpu'
+else:
+    device = 'cuda:' + str(args.device)
 
-if args.dataset:
-    datasets = copy.deepcopy(params['dataset_reader']['datasets'])
-    for iter_dataset in datasets:
-        if iter_dataset != args.dataset:
-            del params['dataset_reader']['datasets'][iter_dataset]
+logger.info('loading model...')
+model = torch.load(args.torch_model, map_location=device)
+model.device = device
 
-util.predict_model_with_archive("machamp_predictor", params, archive_dir, args.input_file, args.pred_file,
-                                batch_size=args.batch_size)
+if args.topn != None:
+    for decoder in model.decoders:
+        model.decoders[decoder].topn = args.topn
+
+for dataIdx in range(0, len(args.file_paths), 2):
+    input_path = args.file_paths[dataIdx]
+    output_path = args.file_paths[dataIdx + 1]
+    logger.info('predicting on ' + input_path + ', saving on ' + output_path)
+    predict_with_paths(model, input_path, output_path, args.dataset, args.batch_size, args.raw_text, device, args.conn, args.sep)
+

@@ -1,9 +1,13 @@
-# If you have problems installing all these packages, the only necessary
-# install to run MaChAmp is allennlp==1.3. The other ones are just specified
-# here for reproducibility.
+# Note that networkX is only needed to convert UD-files and uniplot 
+# is optional (but highly recommended)
 
-allennlp==1.3
-transformers==4.0.0
-torch==1.7.0
-networkx
+transformers>=4.0.0,<=4.21.3
+torch>=1.3.0,<=1.12.1
+sentencepiece
+jsonnet
+tqdm
+uniplot
+networkx==2.5
+# sacremoses # only for XLMTokenizer
+# protobuf==3.20.0 # only for T5
 

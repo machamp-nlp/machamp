@@ -1,27 +1,27 @@
 ### Fine-tuning on a MaChAmp model
+
 [back to main README](../README.md)
 
-By default, MaChAmp trains on all datasets jointly. However, for some tasks it
-might be beneficial to train sequentially. This means that you first finetune
-embeddings for one task, save the parameters, and then re-train on another
-task. Only for the first dataset, the original parameters of the embeddings
-defined in params.json is loaded, after this they are automatically replaced
-with the ones from the previous dataset.
-
-MaChAmp supports two interfaces to this functionality. With the first, we 
-directly define all the dataset configurations in the order that they should
-be used:
+As opposed to earlier versions of MaChAmp (and Udify), we now define the layer attention per task. 
+This allows for more flexibility, and lets the model choose which parts of the encoder to focus on for
+each task (optimal weights are probably different for different types of tasks). Accordingly, the `layer_to_use`
+parameter is now defined in the dataset configuration. It should be noted that the input word embeddings are also
+a layer; so to use perform attention over all layers in a 12-layer BERT model, the dataset configuration would
+look like:
 
 ```
-python3 train.py --dataset_configs configs/en_mlm.json configs/ewt.json --sequential
+"UD_English-EWT": {
+    "train_data_path": "../data/ud-treebanks-v2.5.singleToken/UD_English-EWT/en_ewt-ud-train.conllu",
+    "dev_data_path": "../data/ud-treebanks-v2.5.singleToken/UD_English-EWT/en_ewt-ud-dev.conllu",
+    "word_idx": 1,
+    "tasks": {
+        "upos": {
+            "task_type": "seq",
+            "column_idx": 3,
+            "layers_to_use": [0,1,2,3,4,5,6,7,8,9,10,11,12]
+            }
+    }
+}
 ```
 
-In the second method, we train each model separately. This also allows to 
-use a separate params.json for each finetuning step (in which replacing the
-embeddings has no effect, since they are replaced). This is done as follows:
-
-```
-python3 train.py --dataset_config configs/en_mlm
-python3 train.py --dataset_config configs/ewt.json --finetune logs/en_mlm/2020.12.08_21.04.10/
-```
-
+Note that the default `layers_to_use` use is set to `[-1]`, and it can be changed in the [hyperparameters](hyper.md) (decoders.default_decoder.layers_to_use)
