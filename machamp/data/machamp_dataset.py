@@ -9,6 +9,7 @@ from machamp.data.machamp_vocabulary import MachampVocabulary
 from machamp.readers.read_classification import read_classification
 from machamp.readers.read_mlm import read_mlm
 from machamp.readers.read_sequence import read_sequence
+from machamp.readers.read_raw import read_raw
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,8 @@ class MachampDataset(Dataset):
                  is_raw: bool = False,
                  is_train: bool = True,
                  vocabulary: MachampVocabulary = None,
-                 max_input_length: int = 512):
+                 max_input_length: int = 512,
+                 raw_text: bool = False):
         """
         A machamp dataset can actually hold multiple datasets. They are saved in
         self.data, which holds as keys the names of the datasets, and as values
@@ -108,10 +110,10 @@ class MachampDataset(Dataset):
                              'word-level and text-level tasks, use column_idx: -1 for the text level tasks')
 
             # read raw input
-            # if self.is_raw:
-            #    read_function = read_raw
+            if self.is_raw:
+                read_function = read_raw
             # read classification data
-            if num_tasks == num_classification:
+            elif num_tasks == num_classification:
                 read_function = read_classification
             # read raw data for MLM
             elif num_mlm != 0:

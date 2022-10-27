@@ -81,13 +81,13 @@ def read_mlm(
             token_ids = token_ids[list(range(max_input_length-1)) + [len(token_ids) - 1]]
 
         # skip empty lines
-        if len(token_ids) <= 2:
+        if len(token_ids) <= num_special_tokens:
             continue
         sent_counter += 1
 
         if has_unk:
             unk_counter += sum(token_ids == tokenizer.unk_token_id)
-        subword_counter += len(token_ids) - 2
+        subword_counter += len(token_ids) - num_special_tokens
 
         # if index = -1, the dataset name is used, and this is handled in the superclass
         # dec_dataset_embeds = []

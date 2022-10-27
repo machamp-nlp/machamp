@@ -85,14 +85,13 @@ def to_string(full_data: List[Any],
         A single string (that can contain multiple lines), in which the full original input is there, 
         except that the label indices for the tasks we tackle is replaced by the predictions.
     """
-
     # This code can be much shorter if the if probs in preds[task] can be propagated to the function above
-
     # For word level annotation tasks, we have a different handling
     # so first detect whether we only have sentence level tasks
     task_types = [config['tasks'][task]['task_type'] for task in config['tasks']]
     only_sent = sum([task_type in ['classification', 'regression', 'multiclas'] for task_type in task_types]) == \
                 len(config['tasks'])
+
     if only_sent:
         for task in config['tasks']:
             task_idx = config['tasks'][task]['column_idx']
@@ -188,10 +187,10 @@ def to_string(full_data: List[Any],
 
         return '\n'.join(['\t'.join(token_info) for token_info in full_data]) + '\n'
 
-def write_pred(out_file, batch, device, dev_dataset, model, dataset_config, conn = '=', sep = '|'):
-    enc_batch = prep_batch(batch, device, dev_dataset)
+def write_pred(out_file, batch, device, dev_dataset, model, dataset_config, raw_text, conn = '=', sep = '|'):
+    enc_batch = prep_batch(batch, device, dev_dataset, raw_text)
     out_dict = model.get_output_labels(enc_batch['token_ids'], enc_batch['golds'], enc_batch['seg_ids'],
-                                        enc_batch['eval_mask'], enc_batch['offsets'], enc_batch['subword_mask'])
+                                        enc_batch['eval_mask'], enc_batch['offsets'], enc_batch['subword_mask'], raw_text)
 
     for i in range(len(batch)):
         sent_dict = {}
@@ -229,14 +228,14 @@ def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_
     model.eval()
     model.reset_metrics()
     if dataset == None:
-        if len(model.dataset_configs) > 1:
+        if len(model.dataset_configs) > 1 and not raw_text:
             logger.error(
                 'Error, please indicate the dataset with --dataset, so that MaChAmp knows how to read the data')
             exit(1)
         dataset = list(model.dataset_configs.keys())[0]
     data_config = {dataset: model.dataset_configs[dataset]}
     data_config[dataset]['dev_data_path'] = input_path
-    dev_dataset = MachampDataset(model.mlm.name_or_path, data_config, is_train=False, vocabulary=model.vocabulary)
+    dev_dataset = MachampDataset(model.mlm.name_or_path, data_config, is_train=False, vocabulary=model.vocabulary, is_raw=raw_text)
     dev_sampler = MachampBatchSampler(dev_dataset, batch_size, 1024, False, 1.0, False)  # 1024 hardcoded
     dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
 
@@ -244,10 +243,11 @@ def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_
     idx = 0
     for batch in dev_dataloader:
         idx += 1
-        write_pred(out_file, batch, device, dev_dataset, model, data_config[dataset], conn, sep)
+        write_pred(out_file, batch, device, dev_dataset, model, data_config[dataset], raw_text, conn, sep)
     out_file.close()
-    metrics = model.get_metrics()
-    report_metrics(metrics)
-    eval_file = output_path + '.eval'
-    json.dump(metrics, open(eval_file, 'w'), indent=4)
+    if not raw_text:
+        metrics = model.get_metrics()
+        report_metrics(metrics)
+        eval_file = output_path + '.eval'
+        json.dump(metrics, open(eval_file, 'w'), indent=4)
 

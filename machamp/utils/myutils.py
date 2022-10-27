@@ -72,7 +72,8 @@ def merge_configs(dataset_configs: List[str], parameters_config: Dict):
 def prep_batch(
         batch: List[MachampInstance],
         device: str,
-        dataset: MachampDataset):
+        dataset: MachampDataset,
+        assume_word_level: bool = False):
     """
     Converts a list of instances into a batch that can be used in the 
     forward pass of a MachampModel training. This means it converts a
@@ -89,6 +90,11 @@ def prep_batch(
         Description of cuda device to use, i.e.: "cpu" or "gpu:0"
     dataset: MachampDataset
         Used for task-types.
+    assume_word_level: bool
+        Normally, we check the gold annotations to see whether we need word
+        level information (i.e. offsets); but if gold data is absent, and we
+        still need to perform token level tasks, this variable can enforce
+        getting the word level information.
         
 
     Returns
@@ -113,7 +119,7 @@ def prep_batch(
 
     # Assuming here that batches are homogeneous, only checking
     # the first element.
-    has_word_level = False
+    has_word_level = assume_word_level
     for task in batch[0].golds:
         task_type = dataset.task_to_tasktype(task)
         if task_type in ['seq', 'multiseq', 'seq_bio', 'tok', 'dependency', 'string2string', 'mlm']:

@@ -128,7 +128,7 @@ class MachampModel(torch.nn.Module):
             for dataset in dataset_configs:
                 if task in dataset_configs[dataset]['tasks']:
                     break
-                if 'layers_to_use' not in dataset_configs[dataset]['tasks'][task]:
+                if task in dataset_configs[dataset]['tasks']  and 'layers_to_use' not in dataset_configs[dataset]['tasks'][task]:
                     dataset_configs[dataset]['tasks'][task]['layers_to_use'] = [-1]  # not a great place for defaults
                     # but the default is set in params.json, this is just for backwards compatability
             # we pick the number of layers from the last dataset for this task!
@@ -268,28 +268,29 @@ class MachampModel(torch.nn.Module):
         loss_dict = {}
         if golds != {}:
             for task, task_type in zip(self.tasks, self.task_types):
-                if task in golds or task + '-rels' in golds:
-                    if task_type in ['classification', 'regression', 'multiclas']:
-                        mlm_out_task = myutils.apply_scalar(mlm_out_sent, self.layers[task], self.scalars[task])
-                        out_dict = self.decoders[task].forward(mlm_out_task, eval_mask, golds[task])
-                    elif task_type == 'dependency':
-                        mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
-                        out_dict = self.decoders[task].forward(mlm_out_task, eval_mask, golds[task + '-heads'],
+                if task not in golds and task + '-rels' not in golds: # task not in current dataset
+                    continue 
+                if task_type in ['classification', 'regression', 'multiclas']:
+                    mlm_out_task = myutils.apply_scalar(mlm_out_sent, self.layers[task], self.scalars[task])
+                    out_dict = self.decoders[task].forward(mlm_out_task, eval_mask, golds[task])
+                elif task_type == 'dependency':
+                    mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
+                    out_dict = self.decoders[task].forward(mlm_out_task, eval_mask, golds[task + '-heads'],
                                                                golds[task + '-rels'])
-                    elif task_type == 'tok':
-                        mlm_out_task = myutils.apply_scalar(mlm_out_tok, self.layers[task], self.scalars[task])
-                        # We use the subword mask here for evaluation, as every subwords should have
-                        # annotation (except the special start/end token).
-                        out_dict = self.decoders[task].forward(mlm_out_task, subword_mask[:, self.num_special_tokens:],
+                elif task_type == 'tok':
+                    mlm_out_task = myutils.apply_scalar(mlm_out_tok, self.layers[task], self.scalars[task])
+                    # We use the subword mask here for evaluation, as every subwords should have
+                    # annotation (except the special start/end token).
+                    out_dict = self.decoders[task].forward(mlm_out_task, subword_mask[:, self.num_special_tokens:],
                                                                golds[task])
-                    elif task_type == 'mlm':
-                        # Not sure how to apply scalar here, as prediction is already done..
-                        out_dict = self.decoders[task].forward(mlm_preds[:, 1:-1, :], golds[task], subword_mask)
-                    else:
-                        mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
-                        out_dict = self.decoders[task].forward(mlm_out_task, eval_mask, golds[task])
-                    loss += out_dict['loss']
-                    loss_dict[task] = out_dict['loss'].item()
+                elif task_type == 'mlm':
+                    # Not sure how to apply scalar here, as prediction is already done..
+                    out_dict = self.decoders[task].forward(mlm_preds[:, 1:-1, :], golds[task], subword_mask)
+                else:
+                    mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
+                    out_dict = self.decoders[task].forward(mlm_out_task, eval_mask, golds[task])
+                loss += out_dict['loss']
+                loss_dict[task] = out_dict['loss'].item()
         return loss, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, loss_dict
 
     def get_output_labels(self,
@@ -298,7 +299,8 @@ class MachampModel(torch.nn.Module):
                           seg_ids: torch.tensor = None,
                           eval_mask: torch.tensor = None,
                           offsets: torch.tensor = None,
-                          subword_mask: torch.tensor = None):
+                          subword_mask: torch.tensor = None, 
+                          raw_text: bool=False):
         """
         Run the forward pass, and convert the output indices to labels where
         necessary. 
@@ -329,6 +331,9 @@ class MachampModel(torch.nn.Module):
             Mask for the subwords to take into account, 
             shape=(batch_size, max_sent_len_subwords) filled with 1s and 0s. 
             Only relevant for tokenization task type.
+        raw_text:
+            No gold annotation available; means here that we predict for all 
+            tasks.
 
         Returns
         -------
@@ -340,6 +345,7 @@ class MachampModel(torch.nn.Module):
         _, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, _ = self.forward(input_token_ids, {}, seg_ids,
                                                                                  eval_mask, offsets,
                                                                                  subword_mask, True)
+
         out_dict = {}
         has_tok = 'tok' in self.task_types
 
@@ -378,7 +384,13 @@ class MachampModel(torch.nn.Module):
                     mlm_out_token[layer_idx][sent_idx] = mlm_out_tok[layer_idx][sent_idx][indices]
 
         for task, task_type in zip(self.tasks, self.task_types):
-            if task not in golds and task + '-rels' not in golds:
+            if task not in golds: # not a neat location for this?
+                if task_type == 'dependency':
+                    golds[task + '-heads'] = None
+                    golds[task + '-rels'] = None
+                else:
+                    golds[task] = None
+            if not raw_text and task not in golds and task + '-rels' not in golds:
                 continue
             if task_type in ['classification', 'regression', 'multiclas']:
                 mlm_out_task = myutils.apply_scalar(mlm_out_sent, self.layers[task], self.scalars[task])
