@@ -262,6 +262,7 @@ def train(
     del model
     del train_dataloader
     del train_sampler
+    del optimizer
     model = torch.load(os.path.join(serialization_dir, 'model.pt'), map_location=device)
     if len(dev_dataset) > 0:
         # We have to re-read the dataset, because the old one might be shuffled (this happens in place in the sampler)

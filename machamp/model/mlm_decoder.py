@@ -25,7 +25,7 @@ class MachampLMDecoder(MachampDecoder, torch.nn.Module):
         size = gold.shape[0] * gold.shape[1]
         pred_input = mlm_preds.reshape(size, mlm_preds.shape[-1])
         lm_loss = self.loss_function(pred_input, gold.view(size))
-        self.metric.score(lm_loss)
+        self.metric.score(lm_loss.item())
 
         return {'loss': self.loss_weight * lm_loss}
 

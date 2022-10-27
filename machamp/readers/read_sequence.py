@@ -350,8 +350,10 @@ def read_sequence(
         # other (non-tokenization) tasks.
         no_mapping = False
         for task in config['tasks']:
-            if config['tasks'][task]['task_type'] != 'classification':
-                if len(token_ids) - num_special_tokens < len(golds[task]):
+            task_type = config['tasks'][task]['task_type']
+            if task_type != 'classification':
+                gold_name = task if task_type != 'dependency' else task + '-heads'
+                if len(token_ids) - num_special_tokens < len(golds[gold_name]):
                     no_mapping = True
         if no_mapping and is_train:
             # No mapping can be found, but we still want to train for the other tasks, so backoff to the gold
