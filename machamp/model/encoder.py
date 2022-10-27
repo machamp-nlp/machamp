@@ -101,10 +101,15 @@ class MachampEncoder:
         if 'decoder_input_ids' in argspec[0]:
             batch_size = len(input_token_ids)
             decoder_start_token_id = self.mlm.config.bos_token_id or self.mlm.config.decoder_start_token_id
-            decoder_input_ids = torch.full((batch_size, 1), decoder_start_token_id, device=input_token_ids.device)
+            if decoder_start_token_id == None:
+                # An alternative is to use input_token_ids, then one can use decoder_hidden states below
+                # on EWT one would get slightly higher scores, but also use 30% more gpu ram
+                # This might not really make sense. But if we can't find the decoder start token, then we 
+                # use it anyways.
+                decoder_input_ids = input_token_ids
+            else:
+                decoder_input_ids = torch.full((batch_size, 1), decoder_start_token_id, device=input_token_ids.device)
             args['decoder_input_ids'] = decoder_input_ids
-            # an alternative is to use input_token_ids, then one can use decoder_hidden states below
-            # on EWT one would get slightly higher scores, but also use 30% more gpu ram
 
         output = self.mlm.forward(**args)
 
