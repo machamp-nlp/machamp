@@ -1,4 +1,3 @@
-mkdir -p data
 wget https://nlp.stanford.edu/projects/nmt/data/iwslt15.en-vi/train.en
 wget https://nlp.stanford.edu/projects/nmt/data/iwslt15.en-vi/train.vi
 
