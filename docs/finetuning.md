@@ -17,12 +17,13 @@ be used:
 python3 train.py --dataset_configs configs/en_mlm.json configs/ewt.json --sequential
 ```
 
-In the second method, we train each model separately. This also allows to
-use a separate params.json for each finetuning step (in which replacing the
-embeddings has no effect, since they are replaced). This is done as follows:
+Note that without --sequential, this would train on both tasks simultaneously.
+In the second method, we train each model separately. This also allows to use a
+separate params.json for each finetuning step (in which the language model
+should match the previous model). This is done as follows:
 
 ```
 python3 train.py --dataset_configs configs/en_mlm
-python3 train.py --dataset_configs configs/ewt.json --finetune logs/en_mlm/2020.12.08_21.04.10/
+python3 train.py --dataset_configs configs/ewt.json --retrain logs/en_mlm/2020.12.08_21.04.10/
 ```
 
