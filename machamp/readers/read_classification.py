@@ -114,13 +114,9 @@ def read_classification(
                         sent_idx) + ' is missing, should contain input.')
                 exit(1)
             encoding = tokenizer.encode(data_instance[sent_idx].strip())[1:-1]
-            if has_start_token:
-                encoding = encoding[1:]
-            if has_end_token:
-                encoding = encoding[:-1]
+            subword_counter += len(encoding)
             if tokenizer.sep_token_id != None:
                 encoding = encoding + [copy.deepcopy(tokenizer.sep_token_id)]
-            subword_counter += len(encoding)
             if len(encoding) == 0:
                 logger.warning("empty sentence found in line " + str(
                     sent_counter) + ', column ' + str(sent_idx) + ' replaced with UNK token')
