@@ -20,8 +20,8 @@ def make_file(name, task, idx, time):
     out_file.write('#SBATCH --gres=gpu\n')
     out_file.write('#SBATCH --mem=30G\n')
     out_file.write('#SBATCH --mail-type=BEGIN,END,FAIL\n')
-    # out_file.write('#SBATCH partition=brown\n')
-    out_file.write('#SBATCH --partition=red\n')
+    out_file.write('#SBATCH --partition=brown,red\n')
+    #out_file.write('#SBATCH --partition=red\n')
     #out_file.write('#SBATCH --nodelist=desktop17\n')
 
     out_file.write('\n')
