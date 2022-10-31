@@ -345,7 +345,6 @@ class MachampModel(torch.nn.Module):
         _, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, _ = self.forward(input_token_ids, {}, seg_ids,
                                                                                  eval_mask, offsets,
                                                                                  subword_mask, True)
-
         out_dict = {}
         has_tok = 'tok' in self.task_types
 
@@ -376,7 +375,8 @@ class MachampModel(torch.nn.Module):
                     tok_indices[sent_idx][word_idx] = subword_idx
                     word_idx += 1
                 eval_mask[sent_idx][:word_idx] = 1
-            #mlm_out_token = torch.zeros_like(mlm_out_tok)
+
+            mlm_out_token = torch.zeros_like(mlm_out_tok)
             for layer_idx in range(len(mlm_out_tok)):
                 for sent_idx in range(len(mlm_out_token[0])):
                     length = mlm_out_token.shape[-1]
