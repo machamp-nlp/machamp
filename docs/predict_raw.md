@@ -5,7 +5,7 @@ Prediction on raw data is very similar as [predicting on full datasets](predict_
 
 ```
 I choose you Machamp !
-Machamp, use mega punch !
+Machamp , use mega punch !
 ```
 
 Assuming this text is saved in `battle.txt`, the command would be:
