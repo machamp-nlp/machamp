@@ -20,21 +20,39 @@ class F1:
             self.fps.append(0)
             self.fns.append(0)
 
+        # A: Check whether to run the evaluation at the token- or sentence-level
+        # @TODO: Perhaps there could be better ways to handle this - but this way classification 
+        # tasks work (no errors when inspecting golds for "word_idx" indices)
+        # R: I changed it  to check the shape of gold, so that it also works when
+        # doing token and sent level at the same time
+        is_token_level = len(golds.shape) == 2#True if (mask != None) else False
+        # TODO, it might be nicer to convert them to a similar shape?
+
         for sent_idx in range(len(golds)):
-            for word_idx in range(len(golds[sent_idx])):
-                if mask[sent_idx][word_idx]:
-                    gold = golds[sent_idx][word_idx]
-                    pred = preds[sent_idx][word_idx]
-                    if gold == pred:
-                        self.tps[gold.item()] += 1
-                    else:
-                        self.fps[pred.item()] += 1
-                        self.fns[gold.item()] += 1
+            if is_token_level:
+                for word_idx in range(len(golds[sent_idx])):
+                    if mask[sent_idx][word_idx]:
+                        gold = golds[sent_idx][word_idx]
+                        pred = preds[sent_idx][word_idx]
+                        if gold == pred:
+                            self.tps[gold.item()] += 1
+                        else:
+                            self.fps[pred.item()] += 1
+                            self.fns[gold.item()] += 1
+            else:
+                gold = golds[sent_idx]
+                pred = preds[sent_idx]
+                if gold == pred:
+                    self.tps[gold.item()] += 1
+                else:
+                    self.fps[pred.item()] += 1
+                    self.fns[gold.item()] += 1
 
     def reset(self):
         self.tps = []
         self.fps = []
         self.fns = []
+        self.total = 0
 
     def get_f1(self, tp, fp, fn):
         precision = 0.0 if tp + fp == 0 else tp / (tp + fp)
