@@ -114,7 +114,7 @@ def train(
         logger.info('cmd: ' + cmd)
 
     if os.path.isfile('.git/logs/HEAD'):
-        logger.info('git commit ' + open('.git/logs/HEAD').readlines()[-1].split(' ')[1])
+        logger.info('git commit ' + open('.git/logs/HEAD', encoding="utf-8", errors='ignore').readlines()[-1].split(' ')[1])
     random.seed(parameters_config['random_seed'])
     torch.manual_seed(parameters_config['random_seed'])
 

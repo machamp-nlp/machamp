@@ -45,7 +45,7 @@ def seqs2data(tabular_file: str, skip_first_line: bool = False):
         the comments in the beginning of the instance.
     """
     sent = []
-    for line in open(tabular_file, mode="r", encoding="utf-8"):
+    for line in open(tabular_file, mode="r", encoding="utf-8", errors='ignore'):
         if skip_first_line:
             skip_first_line = False
             continue

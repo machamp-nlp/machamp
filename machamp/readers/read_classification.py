@@ -29,7 +29,7 @@ def lines2data(input_file: str, skip_first_line: bool = False):
     full_data: List[str]
         A list with the columns read in the file. 
     """
-    for line in open(input_file, mode='r', encoding='utf-8'):
+    for line in open(input_file, mode='r', encoding='utf-8', errors='ignore'):
         if skip_first_line:
             skip_first_line = False
             continue

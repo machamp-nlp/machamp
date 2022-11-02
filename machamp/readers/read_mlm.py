@@ -69,7 +69,7 @@ def read_mlm(
         exit(1)
     task = list(config['tasks'])[0]
 
-    for line in open(data_path):
+    for line in open(data_path, encoding="utf-8", errors='ignore'):
         line = line.rstrip('\n')
         if max_sents != -1 and sent_counter >= max_sents and is_train:
             break

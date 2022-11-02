@@ -39,7 +39,7 @@ class MachampVocabulary:
         """
         vocab = {}
         inverse_vocab = []
-        with open(vocab_path, "r", encoding="utf-8") as reader:
+        with open(vocab_path, "r", encoding="utf-8", errors='ignore') as reader:
             tokens = reader.readlines()
         for index, token in enumerate(tokens):
             token = token.rstrip("\n")
