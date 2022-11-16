@@ -113,6 +113,7 @@ do supertagging (from the PMB), jointly with XPOS tags (from the UD) and RTE
         "train_data_path": "pmb.train",
         "dev_data_path": "pmb.dev",
         "word_idx": 0,
+        "tasks": {
             "ccg": {
                 "task_type": "seq",
                 "column_idx": 3
