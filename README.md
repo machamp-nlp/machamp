@@ -174,7 +174,7 @@ For predicting on new data you can use `predict.py`, and provide it with the
 model-archive, input data, and an output path:
 
 ```
-python3 predict.py logs/ewt/<DATE>/model.tar.gz data/twitter/dev.norm predictions/ewt.twitter.out --device 0
+python3 predict.py logs/ewt/<DATE>/model.pt data/twitter/dev.norm predictions/ewt.twitter.out --device 0
 ```
 
 If training is done on multiple datasets, you have to define which dataset-tasks you want to predict (the model also
@@ -182,7 +182,7 @@ assumes the same data format as this training data, see [--raw_text](docs/predic
 predict on raw data)
 
 ```
-python3 predict.py logs/ewt/<DATE>/model.tar.gz data/twitter/dev.norm predictions/ewt.twitter.out --dataset UD-EWT --device 0
+python3 predict.py logs/ewt/<DATE>/model.pt data/twitter/dev.norm predictions/ewt.twitter.out --dataset UD-EWT --device 0
 ```
 
 The value of `--dataset` should match the specified dataset name in the dataset configuration. You can also use --topn for
