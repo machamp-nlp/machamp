@@ -152,8 +152,8 @@ setup is illustrated here:
                 "column_idx": 3
             }
         }
-    }
-   "POS2": {
+    },
+    "POS2": {
         "train_data_path": "data/ud_gum_train.conllu",
         "dev_data_path": "data/ud_gum_dev.conllu",
         "word_idx": 1,
