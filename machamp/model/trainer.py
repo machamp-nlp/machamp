@@ -273,3 +273,5 @@ def train(
         dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
         predict_with_dataloaders(model, dev_dataloader, serialization_dir, dataset_configs, train_dataset.tokenizer.sep_token_id,
                 batch_size, device, train_dataset.vocabulary)
+
+    return os.path.join(serialization_dir, 'model.pt')
