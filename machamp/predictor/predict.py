@@ -28,6 +28,7 @@ def top_n_to_label(labels: List[Any], probs: List[float], conn='=', sep='|'):
     probs: List[float]
         A list of probabilities, which should have the same length as labels.
     conn: str
+        "max_sents": 100,
         String inserted between each label and its probability.
     sep: str
         String intervening between label-probability pairs.
@@ -224,7 +225,7 @@ def predict_with_dataloaders(model, dev_dataloader, serialization_dir, dataset_c
         json.dump(metrics, open(eval_files[dataset], 'w'), indent=4)
 
 # This gets paths as input
-def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_text, device, conn, sep):
+def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_text, device, conn='=', sep='|'):
     model.eval()
     model.reset_metrics()
     if dataset == None:

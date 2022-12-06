@@ -18,7 +18,7 @@ from machamp.data.machamp_dataset import MachampDataset
 from machamp.utils import image
 from machamp.data.machamp_sampler import MachampBatchSampler
 from machamp.modules.allennlp.slanted_triangular import SlantedTriangular
-from machamp.predictor.predict import predict_with_dataloaders
+from machamp.predictor.predict import predict_with_paths
 
 
 def evaluate(dev_dataloader, model, train_dataset):
@@ -257,21 +257,18 @@ def train(
     json.dump(scalars, open(os.path.join(serialization_dir, 'scalars.json'), 'w'), indent=4)
 
     # Run a final prediction with the best model
-    logger.info('Predicting on dev set' + 's' * (len(dev_dataloader.dataset.datasets) > 1))
-    # save same memory:
-    del model
-    del train_dataloader
-    del train_sampler
-    del optimizer
-    model = torch.load(os.path.join(serialization_dir, 'model.pt'), map_location=device)
     if len(dev_dataset) > 0:
-        # We have to re-read the dataset, because the old one might be shuffled (this happens in place in the sampler)
-        dev_dataset = MachampDataset(parameters_config['transformer_model'], dataset_configs, is_train=False,
-                                     vocabulary=train_dataset.vocabulary)
-        dev_sampler = MachampBatchSampler(dev_dataset, batch_size, parameters_config['batching']['max_tokens'], False,
-                                          1.0, False)
-        dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
-        predict_with_dataloaders(model, dev_dataloader, serialization_dir, dataset_configs, train_dataset.tokenizer.sep_token_id,
-                batch_size, device, train_dataset.vocabulary)
+        logger.info('Predicting on dev set' + 's' * (len(dev_dataloader.dataset.datasets) > 1))
+        # save same memory:
+        del model
+        del train_dataloader
+        del train_sampler
+        del optimizer
+        model = torch.load(os.path.join(serialization_dir, 'model.pt'), map_location=device)
+        for dataset_name in dataset_configs:
+            if 'dev_data_path' in dataset_configs[dataset_name]:
+                in_path = dataset_configs[dataset_name]['dev_data_path']
+                out_path = os.path.join(serialization_dir, dataset_name + '.out')
+                predict_with_paths(model, in_path, out_path, dataset_name, batch_size, False, device) 
 
     return os.path.join(serialization_dir, 'model.pt')
