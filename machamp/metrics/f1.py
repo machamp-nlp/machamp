@@ -67,6 +67,8 @@ class F1:
             f1s = []
             for label_idx in range(1, len(self.tps)):
                 f1s.append(self.get_f1(self.tps[label_idx], self.fps[label_idx], self.fns[label_idx]))
+            if len(f1s) == 0:
+                return 0.0
             return self.str, sum(f1s) / len(f1s)
 
         elif self.type_f1 == 'binary':
