@@ -84,9 +84,12 @@ class Callback:
             info['max_gpu_mem'] = torch.cuda.max_memory_allocated() * 1e-09
 
         _proc_status = '/proc/%d/status' % os.getpid()
-        data = open(_proc_status).read()
-        i = data.index('VmRSS:')
-        info['cur_ram'] = int(data[i:].split(None, 3)[1]) * 1e-06
+        if os.path.isfile(_proc_status):
+            data = open(_proc_status).read()
+            i = data.index('VmRSS:')
+            info['cur_ram'] = int(data[i:].split(None, 3)[1]) * 1e-06
+        else:
+            info['cur_ram'] = 0
         info['time_epoch'] = str(datetime.datetime.now() - self.epoch_start_time).split('.')[0]
         info['time_total'] = str(datetime.datetime.now() - self.start_time).split('.')[0]
         for key in info:
