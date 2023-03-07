@@ -342,8 +342,8 @@ class MachampModel(torch.nn.Module):
             (lists of) the outputs for this task.
         """
         # Run transformer model on input
-        _, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, _ = self.forward(input_token_ids, {}, seg_ids,
-                                                                                 eval_mask, offsets,
+        _, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, _ = self.forward(input_token_ids, golds, seg_ids, 
+                                                                                 eval_mask, offsets, 
                                                                                  subword_mask, True)
         out_dict = {}
         has_tok = 'tok' in self.task_types
