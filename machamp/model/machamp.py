@@ -342,12 +342,11 @@ class MachampModel(torch.nn.Module):
             (lists of) the outputs for this task.
         """
         # Run transformer model on input
-        _, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, _ = self.forward(input_token_ids, golds, seg_ids, 
+        _, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, _ = self.forward(input_token_ids, {}, seg_ids, 
                                                                                  eval_mask, offsets, 
                                                                                  subword_mask, True)
         out_dict = {}
         has_tok = 'tok' in self.task_types
-
         if has_tok:
             tok_task = self.tasks[self.task_types.index('tok')]
             mlm_out_tok_merged = myutils.apply_scalar(mlm_out_tok, self.layers[tok_task], self.scalars[tok_task])
@@ -384,7 +383,7 @@ class MachampModel(torch.nn.Module):
                     mlm_out_token[layer_idx][sent_idx] = mlm_out_tok[layer_idx][sent_idx][indices]
 
         for task, task_type in zip(self.tasks, self.task_types):
-            if task not in golds: # not a neat location for this?
+            if task not in golds and task + '-heads' not in golds: # not a neat location for this?
                 if task_type == 'dependency':
                     golds[task + '-heads'] = None
                     golds[task + '-rels'] = None

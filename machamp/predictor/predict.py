@@ -192,7 +192,6 @@ def write_pred(out_file, batch, device, dev_dataset, model, dataset_config, raw_
     enc_batch = prep_batch(batch, device, dev_dataset, raw_text)
     out_dict = model.get_output_labels(enc_batch['token_ids'], enc_batch['golds'], enc_batch['seg_ids'],
                                         enc_batch['eval_mask'], enc_batch['offsets'], enc_batch['subword_mask'], raw_text)
-
     for i in range(len(batch)):
         sent_dict = {}
         for task in out_dict:

@@ -27,7 +27,6 @@ class F1:
         # doing token and sent level at the same time
         is_token_level = len(golds.shape) == 2#True if (mask != None) else False
         # TODO, it might be nicer to convert them to a similar shape?
-
         for sent_idx in range(len(golds)):
             if is_token_level:
                 for word_idx in range(len(golds[sent_idx])):
@@ -39,6 +38,7 @@ class F1:
                         else:
                             self.fps[pred.item()] += 1
                             self.fns[gold.item()] += 1
+
             else:
                 gold = golds[sent_idx]
                 pred = preds[sent_idx]
@@ -52,7 +52,6 @@ class F1:
         self.tps = []
         self.fps = []
         self.fns = []
-        self.total = 0
 
     def get_f1(self, tp, fp, fn):
         precision = 0.0 if tp + fp == 0 else tp / (tp + fp)
@@ -68,7 +67,7 @@ class F1:
             for label_idx in range(1, len(self.tps)):
                 f1s.append(self.get_f1(self.tps[label_idx], self.fps[label_idx], self.fns[label_idx]))
             if len(f1s) == 0:
-                return 0.0
+                return self.str, 0.0
             return self.str, sum(f1s) / len(f1s)
 
         elif self.type_f1 == 'binary':
