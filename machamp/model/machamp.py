@@ -405,7 +405,8 @@ class MachampModel(torch.nn.Module):
             elif task_type == 'tok':
                 out_dict[task] = {'word_labels': tok_pred}
             elif task_type == 'mlm':
-                out_dict[task] = self.decoders[task].get_output_labels(mlm_preds, golds[task])
+                continue # not sure what to output for MLM task
+                #out_dict[task] = self.decoders[task].get_output_labels(mlm_preds, golds[task])
             else:
                 mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
                 if has_tok:
@@ -443,6 +444,8 @@ class MachampModel(torch.nn.Module):
                 metrics[name] = score
                 # inverse metrics where lower is better
                 if metric_type in [Perplexity, AvgDist]:
+                    if score == 0.0 and metric_type == Perplexity:
+                        continue
                     sum_metrics += 1 / score
                 else:
                     sum_metrics += score

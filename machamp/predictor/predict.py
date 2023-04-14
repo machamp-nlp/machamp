@@ -138,7 +138,7 @@ def to_string(full_data: List[Any],
 
         for task in config['tasks']:
             task_type = config['tasks'][task]['task_type']
-            if task_type == 'tok':
+            if task_type in ['tok', 'mlm']:
                 continue
             num_comments = 0
             for num_comments in range(len(full_data)):

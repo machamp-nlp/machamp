@@ -7,9 +7,8 @@
 > One arm alone can move mountains.
 
 
-This code base is an extension of the
-[AllenNLP](https://github.com/allenai/allennlp) library with a focus on
-multi-task learning. It has support for training on multiple datasets for a
+MaChAmp is a toolkit focused on multi-task learning for natural language
+processing. It has support for training on multiple datasets for a
 variety of standard NLP tasks. For more information we refer to the paper:
 [Massive Choice, Ample Tasks (MACHAMP): A Toolkit for Multi-task Learning in
 NLP](https://arxiv.org/pdf/2005.14672.pdf)
