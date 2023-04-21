@@ -38,19 +38,19 @@ If your data looks like this:
 # text: tell me the weather report for half moon bay
 # intent: weather/find
 # slots: 12:26:weather/noun,31:44:location
-1	tell	weather/find	NoLabel
-2	me	weather/find	NoLabel
-3	the	weather/find	NoLabel
-4	weather	weather/find	B-weather/noun
-5	report	weather/find	I-weather/noun
-6	for	weather/find	NoLabel
-7	half	weather/find	B-location
-8	moon	weather/find	I-location
-9	bay	weather/find	I-location
+1	tell	_	NoLabel
+2	me	_	NoLabel
+3	the	_	NoLabel
+4	weather	_	B-weather/noun
+5	report	_	I-weather/noun
+6	for	_	NoLabel
+7	half	_	B-location
+8	moon	_	I-location
+9	bay	_	I-location
 
 ```
 
-The dataset configuration should be (note that `intent' should match with line 2 of the data file):
+The dataset configuration should be (note that the task name `intent' should match with line 2 of the data file):
 
 ```
 {

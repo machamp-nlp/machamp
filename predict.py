@@ -23,6 +23,7 @@ parser.add_argument("--raw_text", action="store_true", help="Input raw sentences
 parser.add_argument("--topn", default=None, type=int, help='Output the top-n labels and their probability.')
 parser.add_argument("--conn", default='=', type=str, help="With --topn, string inserted between each label and its probability.")
 parser.add_argument("--sep", default='|', type=str, help="With --topn, string inserted between label-probability pairs.")
+parser.add_argument("--threshold", default=None, type=float, help="The threshold to be used for multiseq and multiclas, note that the same metric will be applied to all tasks.")
 args = parser.parse_args()
 
 logger.info('cmd: ' + ' '.join(sys.argv) + '\n')
@@ -51,5 +52,5 @@ for dataIdx in range(0, len(args.file_paths), 2):
     input_path = args.file_paths[dataIdx]
     output_path = args.file_paths[dataIdx + 1]
     logger.info('predicting on ' + input_path + ', saving on ' + output_path)
-    predict_with_paths(model, input_path, output_path, args.dataset, args.batch_size, args.raw_text, device, args.conn, args.sep)
+    predict_with_paths(model, input_path, output_path, args.dataset, args.batch_size, args.raw_text, device, args.conn, args.sep, args.threshold)
 

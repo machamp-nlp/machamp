@@ -22,16 +22,19 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
         self.hidden_to_label = torch.nn.Linear(input_dim, nlabels)
         self.hidden_to_label.to(device)
-        self.loss_function = torch.nn.CrossEntropyLoss(ignore_index=0)
+        self.loss_function = torch.nn.CrossEntropyLoss(ignore_index=-100)
         self.topn = topn
 
-    def forward(self, mlm_out, mask, gold=None):
+    def forward(self, mlm_out, task_subword_mask, gold=None):
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):
             # 0 is the padding/unk label, so skip it for the metric
             maxes = torch.add(torch.argmax(logits[:, :, 1:], 2), 1)
-            self.metric.score(maxes, gold, mask, self.vocabulary.inverse_namespaces[self.task])
+            self.metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task])
+            if self.additional_metrics:
+                for additional_metric in self.additional_metrics:
+                    additional_metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task])
             flat_length = gold.shape[0] * gold.shape[1]
             loss = self.loss_weight * self.loss_function(logits.view(flat_length, -1), gold.view(flat_length))
             out_dict['loss'] = loss

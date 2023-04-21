@@ -45,7 +45,7 @@ def seqs2data(tabular_file: str, skip_first_line: bool = False):
         the comments in the beginning of the instance.
     """
     sent = []
-    for line in open(tabular_file, mode="r", encoding="utf-8", errors='ignore'):
+    for line in open(tabular_file, mode="r", encoding="utf-8"):
         if skip_first_line:
             skip_first_line = False
             continue
@@ -205,7 +205,7 @@ def read_sequence(
         for token in sent:
             if len(token) <= word_col_idx:
                 logger.error("Sentence (" + str(sent_counter) + ") does not have input words in column " + str(
-                    word_col_idx) + ':\n ' + ' '.join(['\n'.join(x) for x in sent]))
+                    word_col_idx) + ':\n ' + ' '.join(['\n'.join(x) for x in sent]) + '\t' + data_path)
                 exit(1)
 
         if has_tok_task:
@@ -256,12 +256,12 @@ def read_sequence(
                     if len(word_data) <= task_idx:
                         logger.error("Sentence (" + str(
                             sent_counter) + ") does not have annotation for task " + task + ' column ' + str(
-                            task_idx) + ' is missing:\n' + ' '.join(['\n'.join(x) for x in sent]))
+                            task_idx) + ' is missing:\n' + ' '.join(['\n'.join(x) for x in sent]) + '\t' + data_path)
                         exit(1)
                     if len(word_data[task_idx]) == 0:
                         logger.error("Sentence (" + str(
                             sent_counter) + ") does not have annotation for task " + task + ' column ' + str(
-                            task_idx) + ' is empty\n' + ' '.join(['\n'.join(x) for x in sent]))
+                            task_idx) + ' is empty\n' + ' '.join(['\n'.join(x) for x in sent]) + '\t' + data_path)
                         exit(1)
 
                 # adapt labels for string2string
@@ -287,30 +287,29 @@ def read_sequence(
 
             elif task_type == 'dependency':
                 heads = []
-                for word_data in sent:
-                    if not word_data[task_idx].isdigit():
-                        logger.error(
+                try:
+                    for wordIdx, word in enumerate(sent):
+                        if word[task_idx] == '_':
+                            head = 0 if wordIdx == 0 else 1
+                        else:
+                            head = int(word[task_idx])
+                        heads.append(head)
+                except ValueError:
+                    logger.error(
                             "Your dependency file " + data_path + " seems to contain invalid structures sentence " +
                                             str(sent_counter) + " contains a non-integer head: " + word_data[
                                             task_idx] + "\nIf you directly used UD data, this could be due to " +
                                             "multiword tokens, which we currently do not support, you can clean your " +
                                             "conllu file by using scripts/misc/cleanconl.py")
-                        exit(1)
-                try:
-                    heads = [int(token_info[task_idx]) for token_info in sent]
-                except ValueError:
-                    logger.error(
-                        'Head of dependency task in sentence ' + str(sent_counter) + ' is not an integer.\n' + ' '.join(
-                            ['\n'.join(x) for x in sent]))
                     exit(1)
                 golds[task + '-heads'] = torch.tensor(heads, dtype=torch.long)
 
-                if len(word_data) <= task_idx + 1:
+                if len(sent[0]) <= task_idx + 1:
                     logger.error("Sentence (" + str(
                         sent_counter) + ") does not have annotation for task " + task + ' column ' + str(
                         task_idx + 1) + ' is missing:\n' + ' '.join(['\n'.join(x) for x in sent]))
                     exit(1)
-                elif len(word_data[task_idx + 1]) == 0:
+                elif len(sent[0][task_idx + 1]) == 0:
                     logger.error("Sentence (" + str(
                         sent_counter) + ") does not have annotation for task " + task + ' column ' + str(
                         task_idx + 1) + ' is empty\n' + ' '.join(['\n'.join(x) for x in sent]))
@@ -388,6 +387,9 @@ def read_sequence(
         if max_words != -1 and word_counter > max_words and is_train:
             break
 
+        #if len(offsets) > 1000:
+        #    print(' skipping instance of len>1000 ' + data_path)
+        #    continue
         data.append(
             MachampInstance(full_data, token_ids, torch.zeros((len(token_ids)), dtype=torch.long), golds, dataset,
                             offsets, no_unk_subwords))
@@ -404,5 +406,5 @@ def read_sequence(
     logger.info('Words:      {:,}'.format(word_counter))
     logger.info('Subwords:   {:,}'.format(subword_counter))
     logger.info('Unks:       {:,}'.format(unk_counter))
-    logger.info('Pre-splits: {:,}'.format(len(vocabulary.pre_splits)) + '\n')
+    logger.info('Pre-splits: {:,}'.format(len(vocabulary.pre_splits)))
     return data

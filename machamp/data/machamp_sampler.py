@@ -1,10 +1,15 @@
+import logging
 import math
 import random
+
 from typing import Iterator, List, Tuple
 
 from torch.utils.data import Sampler
 
 from machamp.data.machamp_dataset import MachampDataset
+
+logger = logging.getLogger(__name__)
+
 
 
 class MachampBatchSampler(Sampler):
@@ -14,7 +19,9 @@ class MachampBatchSampler(Sampler):
                  max_words: int,
                  shuffle: bool,
                  smoothing_factor: float,
-                 sort_by_size: bool):
+                 sort_by_size: bool, 
+                 diverse: bool,
+                 is_training: bool): 
         """
         Sampler build on MachampDatasets. Main functionality is to do 
         dataset smoothing.
@@ -36,42 +43,149 @@ class MachampBatchSampler(Sampler):
             and 1.0 in the original sizes.
         sort_by_size: bool
             Whether to sort by size. This can make training more efficient.
+        diverse: bool
+            Whether to have diverse batching, which means multiple 
+            tasks/datasets can be included in a single batch.
+        is_training: bool
+            Saves whether we are trianing, so that we know whether to skip
+            extremely long instances or not.
         """
         super().__init__(data_source)
 
         self.data_source = data_source
         self.batch_size = batch_size
         self.max_words = max_words
-        self.batches = {}
         self.shuffle = shuffle
         self.smoothing_factor = smoothing_factor
         self.sort_by_size = sort_by_size
+        self.diverse = diverse 
+        self.is_training = is_training
 
+        self.dataset_sizes = {}
+        dataset_orig_sizes = [(dataset, len(self.data_source.data[dataset])) for dataset in sorted(self.data_source.data)]
+        total_size = sum([datasetSize[1] for datasetSize in dataset_orig_sizes])
+        total_new_prob = 0.0
+        for dataset, size in dataset_orig_sizes:
+            pi = size / total_size
+            total_new_prob += math.pow(pi, self.smoothing_factor)
+
+        for dataset, size in dataset_orig_sizes:
+            pi = size / total_size
+            prob = (1 / pi) * (math.pow(pi, self.smoothing_factor) / total_new_prob)
+            self.dataset_sizes[dataset] = int(size * prob)
+
+        # we do not use lazy batching anymore, as it is hard to get __length__ for that
+        # A batch consists of a list of tuples that hold the dataset and the instance index
+        self.batches = []
+        self.first_filled = True
+        self.fill_batches() # TODO now called once too often?!
+
+    def fill_batches(self):
+        self.batches = []
+        if self.diverse:
+            self.prep_batches_diverse()
+        else:
+            self.prep_batches()
+        
+
+    def prep_batches(self):
+        dataset_batches = {}
+        # This will have as keys the dataset, and as values lists of batches
         for dataset in self.data_source.data:
             dataset_data = self.data_source.data[dataset]
-            if sort_by_size:
+            if self.sort_by_size:
                 dataset_data.sort(key=lambda x: x.__len__())
 
-            self.batches[dataset] = [[]]
+            dataset_batches[dataset] = [[]]
             inst_idx = 0
             num_words_batch = 0
-            while inst_idx < len(dataset_data):
-                num_words_batch += len(self.data_source.data[dataset][inst_idx])
-                if len(self.batches[dataset][-1]) > 0 and (len(self.batches[dataset][-1]) >= batch_size or num_words_batch > max_words):
-                    self.batches[dataset].append([])
-                    num_words_batch = 0
-                self.batches[dataset][-1].append((dataset, inst_idx))
-                inst_idx += 1
-            if self.shuffle:
-                random.shuffle(self.batches[dataset])
+            indices = list(range(len(dataset_data)))
+            if self.shuffle and not self.sort_by_size:
+                random.shuffle(indices)
+            for inst_idx in indices:
+                if self.is_training and len(self.data_source.data[dataset][inst_idx]) > self.batch_size * self.max_words:
+                    logger.info('skipping instance with size > batch_size*max_words: ' + 
+                    str(len(self.data_source.data[dataset][inst_idx])) + '(' + dataset + ')')
+                    inst_idx += 1
+                    continue
 
+                inst_length = len(self.data_source.data[dataset][inst_idx])
+                if len(dataset_batches[dataset][-1]) >= self.batch_size or num_words_batch + inst_length > self.max_words:
+                    dataset_batches[dataset].append([])
+                    num_words_batch = 0
+                num_words_batch += inst_length
+                dataset_batches[dataset][-1].append((dataset, inst_idx))
+                inst_idx += 1
+
+        # Don't do sampling, this happens for dev sets, but also for train
+        # it could be confusing to have metrics/losses over different sets 
+        # each epoch.
+        if self.smoothing_factor == 1.0:
+            for dataset in dataset_batches:
+                for batch_idx in range(len(dataset_batches[dataset])):
+                    self.batches.append(dataset_batches[dataset][batch_idx])
+            # this is odd while training if shuffle is off, it gets first dataset1 then 2 then 3
+            if self.shuffle:
+                random.shuffle(self.batches)
+
+        else:
+            # we do not check for self.shuffle, as with smoothing we always shuffle
+            for dataset in dataset_batches:
+                random.shuffle(dataset_batches[dataset])
+            total_size = sum(self.dataset_sizes.values())
+            # We call this before the main loop with k=total size for efficiency reasons
+            num_batches = sum([len(dataset_batches[dataset]) for dataset in dataset_batches])
+            batches_from_datasets = random.choices(list(self.dataset_sizes.keys()), self.dataset_sizes.values(), k=num_batches)
+            cur_batch = []
+            len_cur_batch = 0
+            # We remember the index of the instance we are at for each dataset, 
+            # and we loop through them. This avoids too many redundant samples
+            dataset_indices = {dataset: 0 for dataset in self.dataset_sizes}
+            for cur_dataset in batches_from_datasets:
+                next_batch = dataset_indices[cur_dataset]
+                dataset_indices[cur_dataset]+=1
+                # reset if end of dataset is reached
+                if next_batch +1 >= len(dataset_batches[cur_dataset]):
+                    dataset_indices[cur_dataset] = 0
+    
+                self.batches.append(dataset_batches[cur_dataset][next_batch])
+
+
+    def prep_batches_diverse(self):
+        total_size = sum(self.dataset_sizes.values())
+        # We call this before the main loop with k=total size for efficiency reasons
+        instances_from_datasets = random.choices(list(self.dataset_sizes.keys()), self.dataset_sizes.values(), k=total_size)
+        cur_batch = []
+        len_cur_batch = 0
+        # We remember the index of the instance we are at for each dataset, 
+        # and we loop through them. This avoids too many redundant samples
+        dataset_indices = {dataset: 0 for dataset in self.dataset_sizes}
+        for cur_dataset in instances_from_datasets:
+            next_inst = dataset_indices[cur_dataset]
+            # reset if end of dataset is reached
+            if next_inst >= len(self.data_source.data[cur_dataset]):
+                next_inst = 0
+                dataset_indices[cur_dataset] = 0
+
+            next_inst_len = len(self.data_source.data[cur_dataset][next_inst])
+
+            # check if cur_batch has space:
+            if len_cur_batch + next_inst_len > self.max_words or len(cur_batch) >= self.batch_size:    
+                self.batches.append(cur_batch)
+                cur_batch = []
+                len_cur_batch = 0
+                    
+            dataset_indices[cur_dataset] += 1
+
+            len_cur_batch += next_inst_len
+            cur_batch.append((cur_dataset, next_inst))
+
+        if cur_batch != []:
+            self.batches.append(cur_batch)
+        
     def __iter__(self) -> Iterator[List[Tuple[str, int]]]:
         """
         Iterate over the batches that are stored in self.batches.
-        It keeps a list of indices, with a batch index for each 
-        dataset, and calculates the new_sizes based on smoothing.
-        Note that this might skip the last (couple of) batch(es) 
-        of a dataset in an epoch... (even when smoothing == 1.0)
 
         Returns
         -------
@@ -80,39 +194,12 @@ class MachampBatchSampler(Sampler):
             batch size, and each tuple consists of the dataset
             name and the index of the batch.
         """
-        dataset_sizes = [(dataset, len(self.batches[dataset])) for dataset in self.batches]
-        new_sizes = []
-        total_size = sum([datasetSize[1] for datasetSize in dataset_sizes])
-        total_new_prob = 0.0
-        for dataset, size in dataset_sizes:
-            pi = size / total_size
-            total_new_prob += math.pow(pi, self.smoothing_factor)
-
-        for dataset, size in dataset_sizes:
-            pi = size / total_size
-            prob = (1 / pi) * (math.pow(pi, self.smoothing_factor) / total_new_prob)
-            new_sizes.append(int(size * prob))
-
-        # Keep an index of which batch has already been used for each dataset
-        dataset_batch_idxs = [0] * len(self.batches)
-        for i in range(total_size):
-            batch_id = random.randrange(sum(new_sizes))
-            # batch_id is a random batch idx from 0 to the length of all batches
-            counter = 0
-            # counter is used to keep track of which dataset we need to be in
-            # for example: dataset1.newsize=100, dataset2.newsize=900, if counter
-            # < 100 we have to get a batch from dataset1
-            for dataset, size in zip([x[0] for x in dataset_sizes], new_sizes):
-                new_counter = counter + size
-                if counter <= batch_id < new_counter:
-                    dataset_idx = [x[0] == dataset for x in dataset_sizes].index(True)
-                    yield self.batches[dataset][dataset_batch_idxs[dataset_idx]]
-                    dataset_batch_idxs[dataset_idx] += 1
-                    # if we handled all items in this dataset, restart
-                    if dataset_batch_idxs[dataset_idx] >= len(self.batches[dataset]):
-                        dataset_batch_idxs[dataset_idx] = 0
-                    break
-                counter = new_counter
+        if self.first_filled:
+            self.first_filled = False
+        else:
+            self.fill_batches()
+        for batch in self.batches:
+            yield batch
 
     def __len__(self) -> int:
         """
@@ -124,4 +211,5 @@ class MachampBatchSampler(Sampler):
         num_batches
             The number of batches in all datasets.
         """
-        return sum([len(self.batches[x]) for x in self.batches])
+        return len(self.batches)
+

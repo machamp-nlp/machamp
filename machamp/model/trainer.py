@@ -27,8 +27,8 @@ def evaluate(dev_dataloader, model, train_dataset):
     for dev_batch_idx, batch in enumerate(tqdm(dev_dataloader, file=sys.stdout)):
         batch = myutils.prep_batch(batch, model.device, train_dataset)
         _, _, _, _, _, loss_dict = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'],
-                                                 batch['eval_mask'],
-                                                 batch['offsets'], batch['subword_mask'])
+                                                    batch['offsets'], batch['subword_mask'], 
+                                                    batch['task_masks'], batch['word_mask'])
         for task in loss_dict:
             if task not in total_dev_losses:
                 total_dev_losses[task] = 0.0
@@ -121,9 +121,9 @@ def train(
     batch_size = parameters_config['batching']['batch_size']
     train_dataset = MachampDataset(parameters_config['transformer_model'], dataset_configs, is_train=True,
                                    max_input_length=parameters_config['encoder']['max_input_length'])
-    train_sampler = MachampBatchSampler(train_dataset, batch_size, parameters_config['batching']['max_tokens'], True,
+    train_sampler = MachampBatchSampler(train_dataset, batch_size, parameters_config['batching']['max_tokens'], parameters_config['batching']['shuffle'],
                                         parameters_config['batching']['sampling_smoothing'],
-                                        parameters_config['batching']['sort_by_size'])
+                                        parameters_config['batching']['sort_by_size'], parameters_config['batching']['diverse'], True)
     train_dataloader = DataLoader(train_dataset, batch_sampler=train_sampler, collate_fn=lambda x: x)
 
     # Note that the vocabulary is only saved for debugging purposes, there is also a copy in the model.pt
@@ -132,8 +132,8 @@ def train(
     dev_dataset = MachampDataset(parameters_config['transformer_model'], dataset_configs, is_train=False,
                                  vocabulary=train_dataset.vocabulary,
                                  max_input_length=parameters_config['encoder']['max_input_length'])
-    dev_sampler = MachampBatchSampler(dev_dataset, batch_size, parameters_config['batching']['max_tokens'], True, 1.0,
-                                      parameters_config['batching']['sort_by_size'])
+    dev_sampler = MachampBatchSampler(dev_dataset, batch_size, parameters_config['batching']['max_tokens'], False, 1.0,
+                                      parameters_config['batching']['sort_by_size'], False, True)
     dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
 
     if resume:
@@ -142,7 +142,8 @@ def train(
     else:
         model = MachampModel(train_dataset.vocabulary, train_dataset.tasks, train_dataset.task_types,
                              parameters_config['transformer_model'], device, dataset_configs, train_dataset.tokenizer,
-                             **parameters_config['encoder'], retrain=retrain)
+                             **parameters_config['encoder'], retrain=retrain, 
+                             reset_transformer_model=parameters_config['reset_transformer_model'])
 
     # This  makes the use of regexes not so usefull anymore, but we need to
     # extract the decoder attributes from the model (for MLM), and I wasnt sure how
@@ -164,7 +165,9 @@ def train(
     parameter_groups = [[first_group, {}], [second_group, {}]]
     parameter_groups = myutils.make_parameter_groups(model.named_parameters(), parameter_groups)
 
+    # TODO should switch some day, because its deprecated, but it performs better...
     optimizer = transformers.AdamW(parameter_groups, **parameters_config['training']['optimizer'])
+    #optimizer = torch.optim.AdamW(parameter_groups, **parameters_config['training']['optimizer'])
     scheduler = SlantedTriangular(optimizer, parameters_config['training']['num_epochs'], len(train_dataloader),
                                   **parameters_config['training']['learning_rate_scheduler'])
     callback = Callback(serialization_dir, parameters_config['training']['num_epochs'],
@@ -199,11 +202,17 @@ def train(
             optimizer.zero_grad()
             # we create the batches again every epoch to save 
             # gpu ram, it is quite fast anyways
-            batch = myutils.prep_batch(batch, device, train_dataset)
 
+            # Why does this happen?
+            if len(batch) == 0:
+                continue
+            batch = myutils.prep_batch(batch, device, train_dataset)
+            #if batch['token_ids'].shape[0] * batch['token_ids'].shape[1] > 50000:
+            #    print("skipping huge batch to avoid memory crash, size=" + str(batch['token_ids'].shape))
+            #    continue
             loss, _, _, _, _, loss_dict = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'],
-                                                        batch['eval_mask'],
-                                                        batch['offsets'], batch['subword_mask'])
+                                                        batch['offsets'], batch['subword_mask'], 
+                                                        batch['task_masks'], batch['word_mask'])
             for task in loss_dict:
                 if task not in total_train_losses:
                     total_train_losses[task] = 0.0
@@ -215,6 +224,7 @@ def train(
         train_metrics = model.get_metrics()
         avg_train_losses = {x: total_train_losses[x] / (train_batch_idx + 1) for x in total_train_losses}
         avg_train_losses['sum'] = sum(avg_train_losses.values())
+
         callback.add_train_results(epoch, avg_train_losses, train_metrics)
 
         if len(dev_dataset) > 0:
@@ -258,6 +268,7 @@ def train(
 
     # Run a final prediction with the best model
     if len(dev_dataset) > 0:
+        # Shouldnt print this for mlm actually..
         logger.info('Predicting on dev set' + 's' * (len(dev_dataloader.dataset.datasets) > 1))
         # save same memory:
         del model
@@ -266,9 +277,11 @@ def train(
         del optimizer
         model = torch.load(os.path.join(serialization_dir, 'model.pt'), map_location=device)
         for dataset_name in dataset_configs:
-            if 'dev_data_path' in dataset_configs[dataset_name]:
+            model.reset_metrics()
+            task_types = [dataset_configs[dataset_name]['tasks'][task]['task_type'] for task in dataset_configs[dataset_name]['tasks']]
+            if 'dev_data_path' in dataset_configs[dataset_name] and 'mlm' not in task_types:
                 in_path = dataset_configs[dataset_name]['dev_data_path']
                 out_path = os.path.join(serialization_dir, dataset_name + '.out')
-                predict_with_paths(model, in_path, out_path, dataset_name, batch_size, False, device) 
+                predict_with_paths(model, in_path, out_path, dataset_name, batch_size, False, device)
 
     return os.path.join(serialization_dir, 'model.pt')

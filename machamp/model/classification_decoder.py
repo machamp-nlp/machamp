@@ -12,7 +12,7 @@ class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
         nlabels = len(self.vocabulary.get_vocab(task))
         self.hidden_to_label = torch.nn.Linear(input_dim, nlabels)
         self.hidden_to_label.to(device)
-        self.loss_function = torch.nn.CrossEntropyLoss(reduction='sum')
+        self.loss_function = torch.nn.CrossEntropyLoss(reduction='sum', ignore_index=-100)
         self.topn = topn
 
     def forward(self, mlm_out, mask, gold=None):
@@ -20,7 +20,10 @@ class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
         out_dict = {'logits': logits}
         if type(gold) != type(None):
             maxes = torch.add(torch.argmax(logits[:, 1:], 1), 1)
-            self.metric.score(maxes, gold, mask, None)
+            self.metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task])
+            if self.additional_metrics:
+                for additional_metric in self.additional_metrics:
+                    additional_metric.score(maxes, gold, None, self.vocabulary.inverse_namespaces[self.task])
             out_dict['loss'] = self.loss_weight * self.loss_function(logits, gold)
         return out_dict
 

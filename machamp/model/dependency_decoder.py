@@ -138,9 +138,8 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
     def forward(
             self,  # type: ignore
             embedded_text: torch.LongTensor,
-            mask: torch.LongTensor = None,
-            gold_head_indices: torch.LongTensor = None,
-            gold_head_tags: torch.LongTensor = None,
+            mask: torch.LongTensor,
+            golds = None
     ) -> Dict[str, torch.Tensor]:
         """
         # Parameters
@@ -187,6 +186,12 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         mask : `torch.Tensor`
             A mask denoting the padded elements in the batch.
         """
+        gold_head_tags = None
+        gold_head_indices = None
+        if golds != None:
+            gold_head_tags=golds['rels']
+            gold_head_indices=golds['heads']# TODO, why are they opposite?
+
         predicted_heads, predicted_head_tags, _, topn_heads_indices, topn_heads_values, topn_labels_indices, \
         topn_labels_values, arc_nll, tag_nll = self._parse(embedded_text, mask, gold_head_tags, gold_head_indices)
 
@@ -195,19 +200,25 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
                         topn_labels_indices=topn_labels_indices, topn_labels_values=topn_labels_values,
                         arc_nll=arc_nll, tag_nll=tag_nll)
 
-        if type(gold_head_indices) != type(None):
-            self.metric.score(predicted_heads, predicted_head_tags, gold_head_indices, gold_head_tags, mask)
+        if type(gold_head_tags) != type(None):
+            self.metric.score(predicted_heads, predicted_head_tags, gold_head_indices, gold_head_tags)
+            if self.additional_metrics:
+                # for additional_metric in self.additional_metrics:
+                #     additional_metric.score(maxes, gold, mask, self.vocabulary.inverse_namespaces[self.task])
+                logger.error('Error, additional_metrics for dependency task type is not supported yet')
             loss = (arc_nll + tag_nll) * self.loss_weight
             out_dict['loss'] = loss
         return out_dict
 
-    def get_output_labels(self, mlm_out, mask, gold_heads=None, gold_rels=None):
+    def get_output_labels(self, mlm_out, mask, golds):
         head_tag_labels = []
         head_indices = []
         tag_probs = []
         indice_probs = []
+
         lengths = mask.sum(-1)
-        forward_dict = self.forward(mlm_out, mask, gold_heads, gold_rels)
+        
+        forward_dict = self.forward(mlm_out, mask, golds)
         heads = forward_dict['predicted_heads']
         head_tags = forward_dict['predicted_head_tags']
         topn_heads_indices = forward_dict['topn_heads_indices']
@@ -363,6 +374,10 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         tag_nll : `torch.Tensor`, required.
             The negative log likelihood from the arc tag loss.
         """
+        # map mask to special token, to avoid out of bounds
+        head_indices[head_indices==-100] = 0
+        head_tags[head_tags==-100] = 0
+
         batch_size, sequence_length, _ = attended_arcs.size()
         # shape (batch_size, 1)
         range_vector = get_range_vector(batch_size, attended_arcs.get_device()).unsqueeze(1)
@@ -615,7 +630,7 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         # https://docs.scipy.org/doc/numpy-1.13.0/reference/arrays.indexing.html#advanced-indexing
         # In effect, we are selecting the indices corresponding to the heads of each word from the
         # sequence length dimension for each element in the batch.
-
+        
         # shape (batch_size, sequence_length, tag_representation_dim)
         selected_head_tag_representations = head_tag_representation[range_vector, head_indices]
         selected_head_tag_representations = selected_head_tag_representations.contiguous()

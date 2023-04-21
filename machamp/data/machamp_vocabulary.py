@@ -20,7 +20,7 @@ class MachampVocabulary:
         self.namespaces = {}
         self.inverse_namespaces = {}
         self.hasUnk = {}
-        self.UNK_ID = 0
+        self.UNK_ID = -100
         self.UNK = '@@unkORpad@@'
         # This is perhaps not the neatest location, but it is put here for convenience, 
         # as it is used in many places, and the vocabulary is availabl in all of them
@@ -39,7 +39,7 @@ class MachampVocabulary:
         """
         vocab = {}
         inverse_vocab = []
-        with open(vocab_path, "r", encoding="utf-8", errors='ignore') as reader:
+        with open(vocab_path, "r", encoding="utf-8") as reader:
             tokens = reader.readlines()
         for index, token in enumerate(tokens):
             token = token.rstrip("\n")

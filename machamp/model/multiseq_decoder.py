@@ -35,6 +35,7 @@ class MachampMultiseqDecoder(MachampDecoder, torch.nn.Module):
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):
+            gold[gold==-100] = 0
             # There is no ignore_index nor a mask option, so we use the mask as weights (multiply by 1 or 0)
             # Hence, we have to reshape the mask to match the labels as well.
             loss = self.loss_function.forward(logits[:, :, 1:], gold.to(torch.float32)[:, :, 1:])
@@ -45,6 +46,10 @@ class MachampMultiseqDecoder(MachampDecoder, torch.nn.Module):
 
             preds = torch.sigmoid(logits) > self.threshold
             self.metric.score(preds[:, :, 1:], gold.eq(torch.tensor(1.0, device='cuda:0'))[:, :, 1:], mask,
+                              self.vocabulary.inverse_namespaces[self.task])
+            if self.additional_metrics:
+                for additional_metric in self.additional_metrics:
+                    additional_metric.score(preds[:, :, 1:], gold.eq(torch.tensor(1.0, device='cuda:0'))[:, :, 1:], mask,
                               self.vocabulary.inverse_namespaces[self.task])
             out_dict['loss'] = loss
         return out_dict

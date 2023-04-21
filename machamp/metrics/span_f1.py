@@ -24,13 +24,17 @@ class SpanF1:
         self.fps = 0
         self.fns = 0
         self.str = 'span_f1'
+        self.metric_scores = {}
 
-    def score(self, preds, golds, mask, vocabulary_list):
-        golds = golds * mask
-        preds = preds * mask
+    def score(self, preds, golds, vocabulary_list):
+        golds[golds == -100] = 0
         for sent_idx in range(len(golds)):
-            gold_labels_str = [vocabulary_list[token] for token in golds[sent_idx] if token != 0]
-            pred_labels_str = [vocabulary_list[token] for token in preds[sent_idx] if token != 0]
+            if 0 in golds[sent_idx]:
+                length = (golds[sent_idx]==0).nonzero(as_tuple=False)[0].item()
+            else:
+                length = len(golds[sent_idx])
+            gold_labels_str = [vocabulary_list[token] for token in golds[sent_idx][:length]]
+            pred_labels_str = [vocabulary_list[token] for token in preds[sent_idx][:length]]
 
             spans_gold = to_spans(gold_labels_str)
             spans_pred = to_spans(pred_labels_str)
@@ -44,8 +48,22 @@ class SpanF1:
         self.fps = 0
         self.fns = 0
 
+    def get_precision(self, tp, fp):
+        return 0.0 if tp + fp == 0 else tp / (tp + fp)
+
+    def get_recall(self, tp, fn):
+        return 0.0 if tp + fn == 0 else tp / (tp + fn)
+
+    def get_f1(self, precision, recall):
+        return 0.0 if precision + recall == 0 else 2 * (precision * recall) / (precision + recall)
+
     def get_score(self):
-        precision = 0.0 if self.tps + self.fps == 0 else self.tps / (self.tps + self.fps)
-        recall = 0.0 if self.tps + self.fns == 0 else self.tps / (self.tps + self.fns)
-        f1 = 0.0 if precision + recall == 0 else 2 * (precision * recall) / (precision + recall)
-        return self.str, f1
+        precision = self.get_precision(self.tps, self.fps)
+        recall = self.get_recall(self.tps, self.fns)
+        f1_score = self.get_f1(precision, recall)
+
+        self.metric_scores["precision"] = precision
+        self.metric_scores["recall"] = recall
+        self.metric_scores[self.str] = f1_score
+        self.metric_scores["sum"] = self.str
+        return self.metric_scores

@@ -1,3 +1,4 @@
+import datetime
 import logging
 from typing import Dict, Tuple, List
 
@@ -35,7 +36,7 @@ class MachampDataset(Dataset):
         emb_name: str
             The name of the language model, so that we can get the correct tokenizer, 
             which is used in the task-specific dataset_readers
-        datasets: Dict[str,List[MachampInstance]]
+        datasets: Dict
             This is the configuration dictionary which contains all dataset
             configurations for the model.
         is_raw: bool = False
@@ -65,7 +66,7 @@ class MachampDataset(Dataset):
                     if datasets[dataset]['tasks'][task]['task_type'] != self.task_to_tasktype(task):
                         logger.error(
                             'Error task with same name, but different type found. Please rename and note that tasks '
-                            'with the same name share the same decoder head')
+                            'with the same name share the same decoder head: ' + task)
                         exit(1)
                 else:
                     self.tasks.append(task)
@@ -132,9 +133,14 @@ class MachampDataset(Dataset):
 
             max_sents = -1 if 'max_sents' not in self.datasets[dataset] else self.datasets[dataset]['max_sents']
             max_words = -1 if 'max_words' not in self.datasets[dataset] else self.datasets[dataset]['max_words']
+
+            logger.info("Reading " + dataset + '...')
+            start_time = datetime.datetime.now()
             for instance in read_function(dataset, self.datasets[dataset], self.tokenizer, self.vocabulary, path,
                                           is_train, max_sents, max_words, max_input_length):
                 self.data[dataset].append(instance)
+            seconds = str(datetime.datetime.now() - start_time).split('.')[0]
+            logger.info("Done reading " + dataset + "({:.1f}s)".format((datetime.datetime.now() - start_time).seconds) + '\n')
 
     def task_to_tasktype(self, task: str):
         """
@@ -160,13 +166,14 @@ class MachampDataset(Dataset):
 
     def __len__(self):
         """
-        The length is defined as the combined number of batches
-        over all datasets.
+        The length is defined as the combined number of instances
+        over all datasets. (note that the batching is handled in 
+        MachampSampler)
 
         Returns
         -------
         length: int
-            the sum of the number of batches in all datasets
+            the sum of the number of instances in all datasets
         """
         return sum([len(self.data[x]) for x in self.data])
 

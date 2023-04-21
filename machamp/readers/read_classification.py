@@ -29,7 +29,7 @@ def lines2data(input_file: str, skip_first_line: bool = False):
     full_data: List[str]
         A list with the columns read in the file. 
     """
-    for line in open(input_file, mode='r', encoding='utf-8', errors='ignore'):
+    for line in open(input_file, mode='r', encoding='utf-8'):
         if skip_first_line:
             skip_first_line = False
             continue
@@ -184,5 +184,5 @@ def read_classification(
     logger.info('Stats ' + dataset + ' (' + data_path + '):')
     logger.info('Lines:    {:,}'.format(sent_counter + 1))
     logger.info('Subwords: {:,}'.format(subword_counter))
-    logger.info('Unks:     {:,}'.format(unk_counter) + '\n')
+    logger.info('Unks:     {:,}'.format(unk_counter))
     return data

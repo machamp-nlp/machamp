@@ -2,7 +2,7 @@ import os
 import _jsonnet
 import json
 
-UDversion = '2.9'
+UDversion = '2.11'
 seeds = ['1']
 def getTrainDevTest(path):
     train = ''
@@ -39,6 +39,15 @@ def getModel(name):
             if os.path.isfile(modelPath):
                 return modelPath
     return ''
+
+
+def makeParams(defaultPath, mlm):
+    config = load_json(defaultPath)
+    config['transformer_model'] = mlm
+    tgt_path = 'configs/params.' + mlm.replace('/', '_') + '.json'
+    if not os.path.isfile(tgt_path):
+        json.dump(config, open(tgt_path, 'w'), indent=4)
+    return tgt_path
 
 def load_json(path: str):
     """

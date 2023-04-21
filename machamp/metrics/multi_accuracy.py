@@ -5,9 +5,10 @@ class MultiAccuracy:
     def __init__(self):
         self.cor = 0
         self.total = 0
-        self.str = 'multi_acc.'
+        self.str = 'multi_acc'
+        self.metric_scores = {}
 
-    def score(self, preds, golds, mask, vocabulary):
+    def score(self, preds, golds, mask=None, vocabulary=None):
         # Maybe this be done more efficient by using torch functions?
         if len(preds.shape) == 3:
             for sent_idx in range(len(mask)):
@@ -28,5 +29,8 @@ class MultiAccuracy:
 
     def get_score(self):
         if self.total == 0:
-            return self.str, 0.0
-        return self.str, self.cor / self.total
+            self.metric_scores[self.str] = 0.0
+        else:
+            self.metric_scores[self.str] = self.cor / self.total
+        self.metric_scores["sum"] = self.str
+        return self.metric_scores

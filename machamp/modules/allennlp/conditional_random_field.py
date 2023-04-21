@@ -253,8 +253,7 @@ class ConditionalRandomField(torch.nn.Module):
             # In valid positions (mask == True) we want to take the logsumexp over the current_tag dimension
             # of `inner`. Otherwise (mask == False) we want to retain the previous alpha.
             alpha = util.logsumexp(inner, 1) * mask[i].view(batch_size, 1) + alpha * (
-                ~mask[i]
-            ).view(batch_size, 1)
+                ~mask[i]).view(batch_size, 1)
 
         # Every sequence needs to end with a transition to the stop_tag.
         if self.include_start_end_transitions:
@@ -302,6 +301,7 @@ class ConditionalRandomField(torch.nn.Module):
         # Transition from last state to "stop" state. To start with, we need to find the last tag
         # for each instance.
         last_tag_index = mask.sum(0).long() - 1
+
         last_tags = tags.gather(0, last_tag_index.view(1, batch_size)).squeeze(0)
 
         # Compute score of transitioning to `stop_tag` from each "last tag".
@@ -325,6 +325,11 @@ class ConditionalRandomField(torch.nn.Module):
         """
         Computes the log likelihood.
         """
+        # Normally it uses index 1, but if input only has length 1 this throws errors. So:
+        sent_mask = mask[:,0] == 1
+        inputs = inputs[sent_mask]
+        tags = tags[sent_mask]
+        mask = mask[sent_mask]
 
         if mask is None:
             mask = torch.ones(*tags.size(), dtype=torch.bool, device=inputs.device)
@@ -336,6 +341,19 @@ class ConditionalRandomField(torch.nn.Module):
         log_numerator = self._joint_likelihood(inputs, tags, mask)
 
         return torch.sum(log_numerator - log_denominator)
+
+        #if mask is None:
+        #    mask = torch.ones(*tags.size(), dtype=torch.bool, device=inputs.device)
+        #else:
+        #    # The code below fails in weird ways if this isn't a bool tensor, so we make sure.
+        #    mask = mask.to(torch.bool)
+
+        #log_denominator = self._input_likelihood(inputs, mask)
+        #log_numerator = self._joint_likelihood(inputs, tags, mask)
+
+        #return torch.sum(log_numerator - log_denominator)
+
+
 
     def viterbi_tags(
             self, logits: torch.Tensor, mask: torch.BoolTensor = None, top_k: int = None

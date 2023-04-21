@@ -24,12 +24,16 @@ class MachampMulticlasDecoder(MachampDecoder, torch.nn.Module):
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):
+            gold[gold == -100] = 0
             out_dict['loss'] = self.loss_weight * self.loss_function(logits[:,
                                                                      1:], gold.to(torch.float32)[:,
                                                                           1:])
             
             preds = torch.sigmoid(logits) > self.threshold
-            self.metric.score(preds[:,1:], gold.eq(torch.tensor(1.0, device=self.device))[:, 1:], mask, None)
+            self.metric.score(preds[:,1:], gold.eq(torch.tensor(1.0, device=self.device))[:, 1:], None)
+            if self.additional_metrics:
+                for additional_metric in self.additional_metrics:
+                    additional_metric.score(preds[:,1:], gold.eq(torch.tensor(1.0, device=self.device))[:, 1:], None)
         return out_dict
 
     def get_output_labels(self, mlm_out, mask, gold=None):

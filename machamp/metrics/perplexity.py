@@ -6,6 +6,7 @@ class Perplexity:
         self.sum = 0
         self.number = 0
         self.str = 'perplexity'
+        self.metric_scores = {}
 
     def score(self, loss):
         self.sum += loss
@@ -17,5 +18,7 @@ class Perplexity:
 
     def get_score(self):
         if self.sum == 0:
-            return self.str, 0.0
-        return self.str, math.exp(self.sum / self.number)
+            self.metric_scores[self.str] = 0.0
+        self.metric_scores[self.str] = math.exp(self.sum / self.number)
+        self.metric_scores["sum"] = self.str
+        return self.metric_scores

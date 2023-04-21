@@ -49,6 +49,9 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
 
         predicted_tags = cast(List[List[int]], [x[0] for x in best_paths])
         out_dict = {'logits': logits}
+        # map mask to special token, to avoid out of bounds
+        gold[gold==-100] = 0
+
         if type(gold) != type(None):
             log_likelihood = self.crf_layer.forward(logits, gold, mask)
 
@@ -59,7 +62,10 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
                 for j, tag_id in enumerate(instance_tags):
                     class_probabilities[i, j, tag_id] = 1
             maxes = torch.add(torch.argmax(class_probabilities[:, :, 1:], 2), 1)
-            self.metric.score(maxes, gold, mask, self.vocabulary.inverse_namespaces[self.task])
+            self.metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task])
+            if self.additional_metrics:
+                for additional_metric in self.additional_metrics:
+                    additional_metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task])
             out_dict['loss'] = -log_likelihood * self.loss_weight
         return out_dict
 

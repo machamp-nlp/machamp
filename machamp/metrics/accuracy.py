@@ -5,16 +5,20 @@ class Accuracy:
     def __init__(self):
         self.cor = 0
         self.total = 0
-        self.str = 'acc.'
+        self.str = 'accuracy'
+        self.metric_scores = {}
 
-    def score(self, preds, golds, mask, vocabulary):
-        corrects = preds.eq(golds)
-        if len(preds.shape) == 2:
-            corrects *= mask
-            self.total += torch.sum(mask).item()
-        else:
-            self.total += len(golds)
-        self.cor += torch.sum(corrects).item()
+    def score(self, preds, golds, vocabulary):
+        preds = torch.flatten(preds)
+        golds = torch.flatten(golds)
+
+        contents = torch.nonzero(golds != -100)
+        preds = preds[contents]
+        golds = golds[contents]
+
+        self.total += len(contents)
+        self.cor += sum(preds==golds).item()
+        
 
     def reset(self):
         self.cor = 0
@@ -22,5 +26,8 @@ class Accuracy:
 
     def get_score(self):
         if self.total == 0:
-            return self.str, 0.0
-        return self.str, self.cor / self.total
+            self.metric_scores[self.str] = 0.0
+        else:
+            self.metric_scores[self.str] = self.cor / self.total
+        self.metric_scores["sum"] = self.str
+        return self.metric_scores

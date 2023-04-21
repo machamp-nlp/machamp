@@ -107,7 +107,7 @@ def prep_batch(
         token_ids)
         'subword_mask': The masking for the language model, shape=(batch_size, max_sent_len_subwords) filled with 1s
         and 0s.
-        'eval_mask': The masking for the evaluation. Is the length of the annotation.
+        'task_masks': multiseq, multiclas and seq_bio need a word-level mask. This is for evaluation purposes mainly.
     """
     batch_size = len(batch)
     max_subword_len = max([len(instance) for instance in batch])
@@ -115,71 +115,84 @@ def prep_batch(
     batch_seg_ids = torch.zeros((batch_size, max_subword_len), dtype=torch.long, device=device)
     golds = {}
     batch_offsets = None
-    batch_eval_mask = None
+    batch_word_mask = None
 
-    # Assuming here that batches are homogeneous, only checking
-    # the first element.
+    # Check if any of the task is token level, because we need to save the offsets and a 
+    # separate mask
+    all_tasks = set()
     has_word_level = assume_word_level
-    for task in batch[0].golds:
-        task_type = dataset.task_to_tasktype(task)
-        if task_type in ['seq', 'multiseq', 'seq_bio', 'tok', 'dependency', 'string2string', 'mlm']:
-            has_word_level = True
-
+    for instance in batch:
+        for task in instance.golds:
+            all_tasks.add(task)
+            task_type = dataset.task_to_tasktype(task)
+            if task_type in ['seq', 'multiseq', 'seq_bio', 'tok', 'dependency', 'string2string', 'mlm']:
+                has_word_level = True
     if has_word_level:
-        max_token_len = max([len(instance.offsets) for instance in batch])
+        max_token_len = max([len(instance.offsets) for instance in batch if type(instance.offsets) != type(None)])
         batch_offsets = torch.full((batch_size, max_token_len), -1, dtype=torch.long, device=device)
-        batch_eval_mask = torch.zeros((batch_size, max_token_len), dtype=torch.bool, device=device)
-    batch_subword_mask = torch.zeros((batch_size, max_subword_len), dtype=torch.bool, device=device)
+        batch_word_mask = torch.zeros((batch_size, max_token_len), dtype=torch.bool, device=device)
 
-    for task in batch[0].golds:
+    batch_subword_mask = torch.zeros((batch_size, max_subword_len), dtype=torch.bool, device=device)
+    task_masks = {}
+    for task in all_tasks:
         task_type = dataset.task_to_tasktype(task)
-        is_word_level = task_type in ['seq', 'multiseq', 'seq_bio', 'tok', 'dependency', 'string2string', 'mlm']
 
         if task_type == 'tok':
-            golds[task] = torch.zeros((batch_size, max_subword_len - 2), dtype=torch.long, device=device)
+            golds[task] = torch.full((batch_size, max_subword_len - 2), -100, dtype=torch.long, device=device)
         elif task_type == 'regression':
-            golds[task] = torch.zeros(batch_size, dtype=torch.float, device=device)
-        elif is_word_level:
-            if len(batch[0].golds[task].shape) == 1:
-                golds[task] = torch.zeros((batch_size, max_token_len), dtype=torch.long, device=device)
-            else:  # multiple annotations per token
-                num_labels = len(dataset.vocabulary.get_vocab(task))
-                golds[task] = torch.zeros((batch_size, max_token_len, num_labels), dtype=torch.long, device=device)
+            golds[task] = torch.full((batch_size,), -100, dtype=torch.float, device=device)
+        elif task_type == 'multiseq':
+            num_labels = len(dataset.vocabulary.get_vocab(task))
+            golds[task] = torch.full((batch_size, max_token_len, num_labels), -100, dtype=torch.long, device=device)
         elif task_type == 'multiclas':
             num_labels = len(dataset.vocabulary.get_vocab(task))
-            golds[task] = torch.zeros(batch_size, num_labels, dtype=torch.long, device=device)
+            golds[task] = torch.full((batch_size, num_labels), -100, dtype=torch.long, device=device)
+        elif task_type == 'classification':
+            golds[task] = torch.full((batch_size,), -100, dtype=torch.long, device=device)
+        else: # token level task
+            golds[task] = torch.full((batch_size, max_token_len), -100, dtype=torch.long, device=device)
+        if task_type == 'dependency':
+            if task.endswith('-rels'):
+                task_masks[task[:-5]] = torch.zeros((batch_size), dtype=torch.bool, device=device)
         else:
-            golds[task] = torch.zeros(batch_size, dtype=torch.long, device=device)
+            task_masks[task] = torch.zeros((batch_size), dtype=torch.bool, device=device)
 
     for instanceIdx, instance in enumerate(batch):
         batch_tokens[instanceIdx][0:len(instance.token_ids)] = instance.token_ids
         batch_seg_ids[instanceIdx][0:len(instance.seg_ids)] = instance.seg_ids
         for task in instance.golds:
             task_type = dataset.task_to_tasktype(task)
-            is_word_level = task_type in ['seq', 'multiseq', 'seq_bio', 'tok', 'dependency', 'string2string', 'mlm']
 
-            if is_word_level:
-                if len(batch[0].golds[task].shape) == 1:
-                    golds[task][instanceIdx][0:len(instance.golds[task])] = instance.golds[task]
-                else:
-                    for token_idx, token_labels in enumerate(instance.golds[task]):
-                        for token_label in token_labels:
+            if task_type == 'multiseq':
+                for token_idx, token_labels in enumerate(instance.golds[task]):
+                    for token_label in token_labels:
+                        if token_label != -100:
                             golds[task][instanceIdx][token_idx][token_label] = 1
             elif task_type == 'multiclas':
                 for sent_label in instance.golds[task]:
-                    golds[task][instanceIdx][sent_label] = 1
-            else:
+                    if sent_label != -100:
+                        golds[task][instanceIdx][sent_label] = 1
+            elif task_type in ['regression', 'classification']:
                 golds[task][instanceIdx] = instance.golds[task]
+            else: # token level task
+                golds[task][instanceIdx][0:len(instance.golds[task])] = instance.golds[task]
+            
+            if task_type == 'dependency':
+                if task.endswith('-rels'):
+                    task_masks[task[:-5]][instanceIdx] = True
+            else:
+                task_masks[task][instanceIdx] = True
 
-        if has_word_level and type(batch[0].offsets) != type(None):
+        if has_word_level and type(instance.offsets) != type(None):
             batch_offsets[instanceIdx][:len(instance.offsets)] = instance.offsets
-            batch_eval_mask[instanceIdx][:len(instance.offsets)] = 1
+            batch_word_mask[instanceIdx][:len(instance.offsets)] = 1
         batch_subword_mask[instanceIdx][:len(instance.token_ids)] = 1
+
     return {'token_ids': batch_tokens, 'seg_ids': batch_seg_ids, 'golds': golds, 'offsets': batch_offsets,
-            'eval_mask': batch_eval_mask, 'subword_mask': batch_subword_mask}
+            'subword_mask': batch_subword_mask, 'task_masks': task_masks, 'word_mask': batch_word_mask}
 
 
-def report_metrics(metrics: Dict[str, float]):
+def report_metrics(metrics):
     """
     Reports evaluation metrics.
 
@@ -195,10 +208,15 @@ def report_metrics(metrics: Dict[str, float]):
     """
     info = {}
     for metric in metrics:
-        if type(metrics[metric]) == float:
+        if metric == 'sum':
             info[metric] = '{:.4f}'.format(metrics[metric])
+            continue
+        optim_metric = metrics[metric]['optimization_metrics']
+        value = metrics[metric][optim_metric][optim_metric]
+        if type(value) == float:
+            info[metric + '_' + optim_metric] = '{:.4f}'.format(value)
         else:
-            info[metric] = metrics[metric]
+            info[metric + '_' + optim_metric] = value
     longest_key = max([len(key) for key in info]) + 1
     for key, value in info.items():
         logger.info(key + ' ' * (longest_key - len(key)) + ': ' + str(value))

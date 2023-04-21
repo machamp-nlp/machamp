@@ -53,7 +53,7 @@
     "shuffle": true,
     "batch_size": 32,
     "sort_by_size": true,
-    "diverse": false,
+    "diverse": true,
     "sampling_smoothing": 1.0 // 1.0 == original size, 0.0==all equal
   },
   "training": {

@@ -32,7 +32,27 @@ tagging for example:
             "upos": {
                 "task_type": "seq",
                 "column_idx": 3,
-                "metric": "micro-f1"
+                "metric": "f1_micro"
+            }
+        }
+    }
+}
+```
+
+Note: sometimes it is desirable to have multiple metrics logged, for instance if you want to optimize for text classification using macro-f1 but also know the micro-f1 and accuracy scores. To do so, just add a (per-task) `additional_metrics` key with either a list of metric names (list of strings) or just a metric name (string):
+
+```
+{
+    "UD": {
+        "train_data_path": "data/ewt.train",
+        "dev_data_path": "data/ewt.dev",
+        "word_idx": 1,
+        "tasks": {
+            "upos": {
+                "task_type": "seq",
+                "column_idx": 3,
+                "metric": "f1_micro",
+                "additional_metrics": ["f1_micro", "accuracy"] // or "additional_metrics": "f1_micro"
             }
         }
     }

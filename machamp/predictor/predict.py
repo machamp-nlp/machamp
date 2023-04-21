@@ -28,7 +28,6 @@ def top_n_to_label(labels: List[Any], probs: List[float], conn='=', sep='|'):
     probs: List[float]
         A list of probabilities, which should have the same length as labels.
     conn: str
-        "max_sents": 100,
         String inserted between each label and its probability.
     sep: str
         String intervening between label-probability pairs.
@@ -96,6 +95,8 @@ def to_string(full_data: List[Any],
     if only_sent:
         for task in config['tasks']:
             task_idx = config['tasks'][task]['column_idx']
+            while task_idx >= len(full_data):
+                full_data.append('_')
             if 'probs' in preds[task]:
                 full_data[task_idx] = top_n_to_label(preds[task]['sent_labels'], preds[task]['probs'])
             else:
@@ -191,7 +192,8 @@ def to_string(full_data: List[Any],
 def write_pred(out_file, batch, device, dev_dataset, model, dataset_config, raw_text=False, conn = '=', sep = '|'):
     enc_batch = prep_batch(batch, device, dev_dataset, raw_text)
     out_dict = model.get_output_labels(enc_batch['token_ids'], enc_batch['golds'], enc_batch['seg_ids'],
-                                        enc_batch['eval_mask'], enc_batch['offsets'], enc_batch['subword_mask'], raw_text)
+                                        enc_batch['offsets'], enc_batch['subword_mask'], enc_batch['task_masks'], enc_batch['word_mask'], raw_text)
+    
     for i in range(len(batch)):
         sent_dict = {}
         for task in out_dict:
@@ -202,41 +204,21 @@ def write_pred(out_file, batch, device, dev_dataset, model, dataset_config, raw_
                             model.vocabulary, enc_batch['token_ids'][i], )
         out_file.write(output + '\n')
 
-# this gets a dataloader and output folder, then it writes for multiple datasets at once
-def predict_with_dataloaders(model, dev_dataloader, serialization_dir, dataset_configs, sep_token_id, batch_size, device, vocabulary):
+def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_text, device, conn = '=', sep = '|', multi_threshold=None):
     model.eval()
     model.reset_metrics()
-    out_files = {}
-    eval_files = {}
-    for batchIdx, batch in enumerate(dev_dataloader):
-        dataset = batch[0].dataset
-        if dataset not in out_files:
-            out_files[dataset] = open(os.path.join(serialization_dir, dataset + '.out'), 'w')
-            eval_files[dataset] = os.path.join(serialization_dir, dataset + '.out.eval')
-
-        out_file = out_files[dataset]
-        write_pred(out_file, batch, device, dev_dataloader.dataset, model, dataset_configs[dataset])
-    [out_files[out_file].close() for out_file in out_files]
-    metrics = model.get_metrics()
-    report_metrics(metrics)
-    # For now print all metrics in .eval, as it is non-trivial to link the metrics to datasets (they can overlap)
-    for dataset in eval_files:
-        json.dump(metrics, open(eval_files[dataset], 'w'), indent=4)
-
-# This gets paths as input
-def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_text, device, conn='=', sep='|'):
-    model.eval()
-    model.reset_metrics()
+    if multi_threshold != None:
+        model.set_multi_threshold(multi_threshold)
     if dataset == None:
         if len(model.dataset_configs) > 1 and not raw_text:
             logger.error(
-                'Error, please indicate the dataset with --dataset, so that MaChAmp knows how to read the data')
+                'Error, please indicate the dataset with --dataset, so that MaChAmp knows how to read the data.\nOptions: ' + str([dataset for dataset in model.dataset_configs]))
             exit(1)
         dataset = list(model.dataset_configs.keys())[0]
     data_config = {dataset: model.dataset_configs[dataset]}
     data_config[dataset]['dev_data_path'] = input_path
     dev_dataset = MachampDataset(model.mlm.name_or_path, data_config, is_train=False, vocabulary=model.vocabulary, is_raw=raw_text)
-    dev_sampler = MachampBatchSampler(dev_dataset, batch_size, 1024, False, 1.0, False)  # 1024 hardcoded
+    dev_sampler = MachampBatchSampler(dev_dataset, batch_size, 1024, False, 1.0, False, False, False)  # 1024 hardcoded
     dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
 
     out_file = open(output_path, 'w')

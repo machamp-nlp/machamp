@@ -62,7 +62,7 @@ def read_raw(
         logger.error("can't train with --raw_text, if you want to do language modeling, see the task type mlm")
         exit(1)
 
-    for line in open(data_path, encoding="utf-8", errors='ignore'):
+    for line in open(data_path):
         line = line.strip()
 
         tokens = line.split(' ')
@@ -89,13 +89,12 @@ def read_raw(
         golds = {}
         full_data = []
         for token in tokens:
-            full_data.append([str(len(full_data)+1), token] + ['_'] * 8)
+            full_data.append([str(len(full_data)+1), token] + ['_'] * 8) # TODO hardcoded, doesnt work for non-UD (including classification)
         
         data.append(MachampInstance(full_data, token_ids, torch.zeros((len(token_ids)), dtype=torch.long), golds, dataset,
                                     offsets))
-
     logger.info('Stats ' + dataset + ' (' + data_path + '):')
     logger.info('Lines:    {:,}'.format(sent_counter))
     logger.info('Subwords: {:,}'.format(subword_counter))
-    logger.info('Unks:     {:,}'.format(unk_counter) + '\n')
+    logger.info('Unks:     {:,}'.format(unk_counter))
     return data

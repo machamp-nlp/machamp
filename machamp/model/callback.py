@@ -99,28 +99,67 @@ class Callback:
         for key, value in info.items():
             logger.info(key + ' ' * (longest_key - len(key)) + ': ' + str(value))
         logger.info('')
-
         # extract all results
         table = [['', 'train_loss', 'dev_loss', 'train_scores', 'dev_scores']]
         for epoch_name, epoch in zip(['Best (' + str(best_epoch + 1) + ')', 'Epoch ' + str(cur_epoch + 1)],
                                      [best_epoch, cur_epoch]):
             table.append([epoch_name, '', '', '', ''])
-            for item in sorted(self.train_scores[0]):
-                prefix = '' if epoch != 0 else 'best_'
-                if item == 'sum':
+            for task_name in sorted(self.train_scores[0]):
+                prefix = 'best_' if epoch_name.startswith('Best') else ''
+                if task_name == 'sum':
                     continue
                 else:
-                    task_name = item[:item.rfind('-')]
-                    info[prefix + 'train_' + item] = self.train_scores[epoch][item]
+                    main_metric = self.train_scores[epoch][task_name]['optimization_metrics']
+                    if 'sum' in self.train_scores[epoch][task_name][main_metric]:
+                        sum_metric = self.train_scores[epoch][task_name][main_metric]['sum']
+                    else:
+                        if len(self.train_scores[epoch][task_name][main_metric]) != 1:
+                            logger.error("Not sure which metric to pick")
+                            exit(1)
+                        sum_metric = list(self.train_scores[epoch][task_name][main_metric].keys())[0]
+
+                    task_metrics = list(self.train_scores[epoch][task_name].keys())
+                    task_metrics.remove("optimization_metrics")
+
+                    for task_metric in task_metrics:
+                        task_submetrics = list(self.train_scores[epoch][task_name][task_metric].keys())
+                        if "sum" in task_submetrics:
+                            if task_metric in task_submetrics:
+                                task_submetrics.remove(task_metric)
+                            task_submetrics.remove("sum")
+                        if len(task_submetrics) > 0:
+                            for task_submetric in task_submetrics:
+                                submetric_train_score = self.train_scores[epoch][task_name][task_metric][task_submetric]
+                                info[prefix + 'train_' + task_name + "_" + task_submetric] = submetric_train_score
+                    train_score = self.train_scores[epoch][task_name][main_metric][sum_metric]
+                    info[prefix + 'train_' + task_name + "_" + main_metric] = train_score
                     info[prefix + 'train_' + task_name + '_loss'] = self.train_losses[epoch][task_name]
-                    if len(self.dev_scores) > 0 and item in self.dev_scores[epoch]:
-                        info[prefix + 'dev_' + item] = self.dev_scores[epoch][item]
+
+                    if len(self.dev_scores) > 0 and task_name in self.dev_scores[epoch]:
+                        for task_metric in task_metrics:
+                            task_submetrics = list(self.dev_scores[epoch][task_name][task_metric].keys())
+                            if "sum" in task_submetrics:
+                                if task_metric in task_submetrics:
+                                    task_submetrics.remove(task_metric)
+                                task_submetrics.remove("sum")
+                            if len(task_submetrics) > 0:
+                                for task_submetric in task_submetrics:
+                                    submetric_dev_score = self.dev_scores[epoch][task_name][task_metric][task_submetric]
+                                    info[prefix + 'dev_' + task_name + "_" + task_submetric] = submetric_dev_score
+                                    #table.append([task_name + '_' + task_submetric, "-", 
+                                    #    "-", info[prefix + 'train_' + task_name + "_" + task_submetric], submetric_dev_score])
+
+                        dev_score = self.dev_scores[epoch][task_name][main_metric][sum_metric]
+                        info[prefix + 'dev_' + task_name + "_" + main_metric] = dev_score
+                        if task_name not in self.dev_losses[epoch]:
+                            self.dev_losses[epoch][task_name] = 0.0
                         info[prefix + 'dev_' + task_name + '_loss'] = self.dev_losses[epoch][task_name]
-                        table.append([item, self.train_losses[epoch][task_name], self.dev_losses[epoch][task_name],
-                                      self.train_scores[epoch][item], self.dev_scores[epoch][item]])
+                        table.append([task_name + '_' + sum_metric, self.train_losses[epoch][task_name], 
+                                      self.dev_losses[epoch][task_name], train_score, dev_score])
+            
                     else:
                         table.append(
-                            [item, self.train_losses[epoch][task_name], '-', self.train_scores[epoch][item], '-'])
+                            [task_name + '_' + sum_metric, self.train_losses[epoch][task_name], '-', train_score, '-'])
             if len(self.dev_scores) > 0:
                 table.append(['sum', self.train_losses[epoch]['sum'], self.dev_losses[epoch]['sum'],
                               self.train_scores[epoch]['sum'], self.dev_scores[epoch]['sum']])
@@ -145,6 +184,8 @@ class Callback:
                     row_str += spacing + cell + ' '
             logger.info(row_str)
 
+        # json.dump actually prints the items in the order in which they were added
+        # hence, we create a new dict with our desired order.
         info_ordered = {}
         for item in info:
             if 'dev' not in item and 'train' not in item:
@@ -152,9 +193,22 @@ class Callback:
         for item in info:
             if 'loss' in item and 'train' in item:
                 info_ordered[item] = info[item]
+        if 'sum' in self.train_scores[0]:
+            if 'sum' in self.dev_scores:
+                sums = [epoch['sum'] for epoch in self.dev_scores]
+                best_epoch = sums.index(max(sums))
+            else:
+                best_epoch = len(self.train_scores)-1
+            info_ordered['best_train_sum'] = self.train_scores[best_epoch]['sum']
+            info_ordered['train_sum'] = self.train_scores[-1]['sum']
         for item in info:
             if 'loss' in item and 'dev' in item:
                 info_ordered[item] = info[item]
+        if len(self.dev_scores) > 0 and 'sum' in self.dev_scores[0]:
+            sums = [epoch['sum'] for epoch in self.dev_scores]
+            best_epoch = sums.index(max(sums))
+            info_ordered['best_dev_sum'] = self.dev_scores[best_epoch]['sum']
+            info_ordered['dev_sum'] = self.dev_scores[-1]['sum']
         for item in info:
             if 'train' in item and 'loss' not in item:
                 info_ordered[item] = info[item]
@@ -185,13 +239,26 @@ class Callback:
             outlier = dist > stdev
 
         x = []
+        labels = []
         mins = []
-        for metric in sorted(self.dev_scores[0]):
-            if metric != 'sum':
-                x.append([x[metric] for x in self.dev_scores])
-                if epoch > 4:
-                    mins.append(min(x[-1][1:]))
-
+        for task_name in sorted(self.dev_scores[0]):
+            if task_name == 'sum':
+                continue
+            main_metric = self.dev_scores[0][task_name]['optimization_metrics']
+            if 'sum' in self.train_scores[0][task_name][main_metric]:
+                sum_metric = self.train_scores[0][task_name][main_metric]['sum']
+            else:
+                if len(self.train_scores[0][task_name][main_metric]) != 1:
+                    logger.error("Not sure which metric to pick")
+                    exit(1)
+                sum_metric = list(self.train_scores[0][task_name][main_metric].keys())[0]
+            labels.append(task_name + '_' + sum_metric)
+            x.append([])
+            for epoch in range(len(self.dev_scores)):
+                x[-1].append(self.dev_scores[epoch][task_name][main_metric][sum_metric])
+            if outlier:
+                mins.append(min(x[-1][1:]))
+            
         labels = [label for label in sorted(self.dev_scores[0]) if label != 'sum']
         if outlier:
             plot = plot_to_string(x, title='Dev scores (y) over epochs (x)', legend_labels=labels, lines=True,

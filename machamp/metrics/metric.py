@@ -69,12 +69,8 @@ class Metric:
         """
         Return the scores. 
         """
-        names = []
-        scores = []
-        types = []
+        metrics_container = {}
         for metric in self.metrics:
-            name, score = self.metrics[metric].get_score()
-            names.append(name)
-            scores.append(score)
-            types.append(type(self.metrics[metric]))
-        return names, scores, types
+            metric_scores = self.metrics[metric].get_score()
+            metrics_container[metric] = metric_scores
+        return metrics_container

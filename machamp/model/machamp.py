@@ -39,6 +39,7 @@ class MachampModel(torch.nn.Module):
                  max_input_length: int,
                  retrain: str = '',
                  dropout: float = None,
+                 reset_transformer_model: bool = False
                  ) -> None:
         """
         The core MaChAmp model, which is basically a wrapper around a 
@@ -73,6 +74,8 @@ class MachampModel(torch.nn.Module):
             This should have the path to the exact model.
         dropout: float
             Dropout to be applied after the encoder (language model).
+        reset_transformer_model: bool
+            Resets all parameters of the language model
         """
         super().__init__()
 
@@ -82,10 +85,14 @@ class MachampModel(torch.nn.Module):
         # it could be cleaner code if we always use a normal AutoModel, 
         # and load only the prediction MLM layer in mlm_decoder. However, 
         # that would require adaptation for any future model types.
+        # Or resetting of the prediction layer
         elif 'mlm' in task_types:
             self.mlm = AutoModelForMaskedLM.from_pretrained(mlm)
         else:
             self.mlm = AutoModel.from_pretrained(mlm)
+
+        if reset_transformer_model:
+            self.mlm.apply(self.mlm._init_weights)
 
         if not update_weights_encoder:
             for param in self.mlm.base_model.parameters():
@@ -167,9 +174,10 @@ class MachampModel(torch.nn.Module):
                 input_token_ids: torch.tensor,
                 golds: Dict[str, torch.tensor],
                 seg_ids: torch.tensor = None,
-                eval_mask: torch.tensor = None,
                 offsets: torch.tensor = None,
                 subword_mask: torch.tensor = None,
+                task_masks: Dict[str, torch.tensor] = None,
+                word_mask: Dict[str, torch.tensor] = None,
                 predicting: bool = False):
         """
         Forward pass
@@ -186,12 +194,6 @@ class MachampModel(torch.nn.Module):
             Segment id's, also called token_type_ids in the transformers 
             library. Should have the same dimension as input_token_ids:
             (batch_size, max_sent_len_wordpieces).
-        eval_mask: torch.tensor = None
-            Mask for the tokens/label indices to take into account, 
-            shape=(batch_size, max_sent_len_words) filled with 0s and 1s. 
-            Not relevant for sentence level tasks. Note that the shape is 
-            different from input_token_ids and seg_ids, because we have 
-            masks on the word level, not the subword level.
         offsets: torch.tensor = None
             The indices of the wordpieces to use, these can be the first
             or last wordpiece of each token. shape=(batch_size, 
@@ -199,6 +201,14 @@ class MachampModel(torch.nn.Module):
         subword_mask: torch.tensor = None
             Mask for the subwords to take into account, 
             shape=(batch_size, max_sent_len_subwords) filled with 0s and 1s. 
+        task_masks: Dict[str, torch.tensor]
+            Masks for dependency parsing, crf and multiseq. For other tasks it
+            is not necessary for prediction, but only for scoring/loss, and it 
+            is derived from gold. For multiseq it is impossible to derive from 
+            gold, as 0 labels can be assigned, so we also need it. 
+        word_mask: torch.tensor = None
+            Mask for the tokens to take into account. This is necessary for
+            evaluation. shape = (batch_size, max_sent_len)
         predicting: bool = False
             If predicting, we need to go through all task, otherwise we only
             go through the task present in the gold annotations.
@@ -230,6 +240,7 @@ class MachampModel(torch.nn.Module):
         # Run transformer model on input
         mlm_out, mlm_preds = self.encoder.embed(input_token_ids, seg_ids, dont_split, subword_mask)
 
+        #mlm_out = (#layers, batch_size, words, output hidden dim)
         mlm_out_sent = None
         mlm_out_token = None
         mlm_out_tok = None
@@ -239,16 +250,15 @@ class MachampModel(torch.nn.Module):
             mlm_out_sent = mlm_out[:, :, :1, :].squeeze(2)
             if self.dropout != None:
                 mlm_out_sent = self.dropout(mlm_out_sent)
-
         if type(offsets) != type(None):
-            mlm_out_token = torch.zeros((len(mlm_out), len(offsets), len(offsets[0]), len(mlm_out[0][0][0])),
-                                        device=self.device)
             mlm_out_nospecials = mlm_out
             if self.start_token != None:
                 mlm_out_nospecials = mlm_out_nospecials[:, :, 1:, :]
             if self.end_token != None:
                 mlm_out_nospecials = mlm_out_nospecials[:, :, :-1, :]
 
+            mlm_out_token = torch.zeros((len(mlm_out), len(offsets), len(offsets[0]), mlm_out.shape[-1]),
+                                        device=self.device)
             for sentIdx in range(len(offsets)):
                 mlm_out_token[:, sentIdx] = mlm_out_nospecials[:, sentIdx, offsets[sentIdx]]
             if self.dropout != None:
@@ -270,36 +280,47 @@ class MachampModel(torch.nn.Module):
             for task, task_type in zip(self.tasks, self.task_types):
                 if task not in golds and task + '-rels' not in golds: # task not in current dataset
                     continue 
-                if task_type in ['classification', 'regression', 'multiclas']:
+                if task in task_masks:
+                    task_mask = task_masks[task]
+                if 1 not in task_mask:
+                    continue # task not in current batch somehow
+
+                if task_type == 'mlm':# Not possible to apply scalar, already have predictions..
+                    mlm_out_task = mlm_preds[:, 1:-1, :]
+                elif task_type in ['classification', 'regression', 'multiclas']:
                     mlm_out_task = myutils.apply_scalar(mlm_out_sent, self.layers[task], self.scalars[task])
-                    out_dict = self.decoders[task].forward(mlm_out_task, eval_mask, golds[task])
-                elif task_type == 'dependency':
-                    mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
-                    out_dict = self.decoders[task].forward(mlm_out_task, eval_mask, golds[task + '-heads'],
-                                                               golds[task + '-rels'])
                 elif task_type == 'tok':
                     mlm_out_task = myutils.apply_scalar(mlm_out_tok, self.layers[task], self.scalars[task])
-                    # We use the subword mask here for evaluation, as every subwords should have
-                    # annotation (except the special start/end token).
-                    out_dict = self.decoders[task].forward(mlm_out_task, subword_mask[:, self.num_special_tokens:],
-                                                               golds[task])
-                elif task_type == 'mlm':
-                    # Not sure how to apply scalar here, as prediction is already done..
-                    out_dict = self.decoders[task].forward(mlm_preds[:, 1:-1, :], golds[task], subword_mask)
                 else:
                     mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
-                    out_dict = self.decoders[task].forward(mlm_out_task, eval_mask, golds[task])
+                mlm_out_task = mlm_out_task[task_mask]
+
+                if task_type == 'dependency':
+                    golds_task = {'heads': golds[task + '-heads'][task_mask], 'rels': golds[task + '-rels'][task_mask]}
+                else:
+                    golds_task = golds[task][task_mask]
+
+                task_word_mask = None
+                if task_type == 'tok':
+                    task_word_mask = subword_mask[:, self.num_special_tokens:]
+                elif word_mask != None:
+                    task_word_mask = word_mask[task_mask]
+
+                out_dict = self.decoders[task].forward(mlm_out_task, task_word_mask, golds_task)
+
                 loss += out_dict['loss']
                 loss_dict[task] = out_dict['loss'].item()
+
         return loss, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, loss_dict
 
     def get_output_labels(self,
                           input_token_ids: torch.tensor,
                           golds: Dict[str, torch.tensor],
                           seg_ids: torch.tensor = None,
-                          eval_mask: torch.tensor = None,
                           offsets: torch.tensor = None,
                           subword_mask: torch.tensor = None, 
+                          task_masks: Dict[str, torch.tensor] = None,
+                          word_mask: Dict[str, torch.tensor] = None,
                           raw_text: bool=False):
         """
         Run the forward pass, and convert the output indices to labels where
@@ -317,12 +338,6 @@ class MachampModel(torch.nn.Module):
             Segment id's, also called token_type_ids in the transformers 
             library. Should have the same dimension as input_token_ids:
             (batch_size, max_sent_len_wordpieces).
-        eval_mask: torch.tensor = None
-            Mask for the tokens/label indices to take into account, 
-            shape=(batch_size, max_sent_len_words) filled with 0s and 1s. 
-            Not relevant for sentence level tasks. Note that the shape is 
-            different from input_token_ids and seg_ids, because we have 
-            masks on the word level, not the subword level.
         offsets: torch.tensor = None
             The indices of the wordpieces to use, these can be the first
             or last wordpiece of each token. shape=(batch_size, 
@@ -331,6 +346,11 @@ class MachampModel(torch.nn.Module):
             Mask for the subwords to take into account, 
             shape=(batch_size, max_sent_len_subwords) filled with 1s and 0s. 
             Only relevant for tokenization task type.
+        task_masks: Dict[str, torch.tensor]
+            Masks for dependency parsing, crf and multiseq. For other tasks it
+            is not necessary for prediction, but only for scoring/loss, and it 
+            is derived from gold. For multiseq it is impossible to derive from 
+            gold, as 0 labels can be assigned, so we also need it. 
         raw_text:
             No gold annotation available; means here that we predict for all 
             tasks.
@@ -342,11 +362,12 @@ class MachampModel(torch.nn.Module):
             (lists of) the outputs for this task.
         """
         # Run transformer model on input
-        _, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, _ = self.forward(input_token_ids, {}, seg_ids, 
-                                                                                 eval_mask, offsets, 
-                                                                                 subword_mask, True)
+        _, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, _ = self.forward(input_token_ids, {}, seg_ids,
+                                                                                 offsets, subword_mask, task_masks, 
+                                                                                word_mask, True)
         out_dict = {}
         has_tok = 'tok' in self.task_types
+
         if has_tok:
             tok_task = self.tasks[self.task_types.index('tok')]
             mlm_out_tok_merged = myutils.apply_scalar(mlm_out_tok, self.layers[tok_task], self.scalars[tok_task])
@@ -357,7 +378,6 @@ class MachampModel(torch.nn.Module):
             # This could be done more efficient if a torch tensor was retrieved
             tok_indices = torch.zeros((mlm_out_tok_merged.shape[0], mlm_out_tok_merged.shape[1]), dtype=torch.long,
                                       device=self.device)
-            eval_mask = torch.zeros_like(tok_indices)
 
             for sent_idx in range(len(tok_pred)):
                 word_idx = 0
@@ -373,7 +393,6 @@ class MachampModel(torch.nn.Module):
                 if tok_pred[sent_idx][subword_idx] == 'merge':
                     tok_indices[sent_idx][word_idx] = subword_idx
                     word_idx += 1
-                eval_mask[sent_idx][:word_idx] = 1
 
             mlm_out_token = torch.zeros_like(mlm_out_tok)
             for layer_idx in range(len(mlm_out_tok)):
@@ -383,36 +402,42 @@ class MachampModel(torch.nn.Module):
                     mlm_out_token[layer_idx][sent_idx] = mlm_out_tok[layer_idx][sent_idx][indices]
 
         for task, task_type in zip(self.tasks, self.task_types):
-            if task not in golds and task + '-heads' not in golds: # not a neat location for this?
-                if task_type == 'dependency':
-                    golds[task + '-heads'] = None
-                    golds[task + '-rels'] = None
-                else:
-                    golds[task] = None
-            if not raw_text and task not in golds and task + '-rels' not in golds:
+            # Note that this is almost a copy of forward()
+            if raw_text:
+                task_mask = None
+            elif task not in task_masks or 1 not in task_masks[task]:
                 continue
-            if task_type in ['classification', 'regression', 'multiclas']:
+            else:
+                task_mask = task_masks[task]
+            
+            if task_type == 'mlm':# Not possible to apply scalar, already have predictions..
+                continue# Not sure how to write labels, so no need to get them
+                #mlm_out_task = mlm_preds[:, 1:-1, :]
+            elif task_type in ['classification', 'regression', 'multiclas']:
                 mlm_out_task = myutils.apply_scalar(mlm_out_sent, self.layers[task], self.scalars[task])
-                out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, eval_mask, golds[task])
-            elif self.task_types[self.tasks.index(task)] == 'dependency':
-                mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
-                if has_tok:
-                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, eval_mask)
-                else:
-                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, eval_mask,
-                                                                           golds[task + '-heads'],
-                                                                           golds[task + '-rels'])
             elif task_type == 'tok':
-                out_dict[task] = {'word_labels': tok_pred}
-            elif task_type == 'mlm':
-                continue # not sure what to output for MLM task
-                #out_dict[task] = self.decoders[task].get_output_labels(mlm_preds, golds[task])
+                mlm_out_task = myutils.apply_scalar(mlm_out_tok, self.layers[task], self.scalars[task])
             else:
                 mlm_out_task = myutils.apply_scalar(mlm_out_token, self.layers[task], self.scalars[task])
-                if has_tok:
-                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, eval_mask)
+            if task_mask != None:
+                mlm_out_task = mlm_out_task[task_mask]
+
+            golds_task = None 
+            if task in golds:
+                golds_task = golds[task][task_mask]
+            if task + '-heads' in golds:
+                golds_task = {'heads': golds[task + '-heads'][task_mask], 'rels': golds[task + '-rels'][task_mask]}
+
+            task_word_mask = None
+            if task_type == 'tok':
+                task_word_mask = subword_mask[:, self.num_special_tokens:]
+            elif word_mask != None:
+                if task_mask != None:
+                    task_word_mask = word_mask[task_mask]
                 else:
-                    out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, eval_mask, golds[task])
+                    task_word_mask = word_mask
+            
+            out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, task_word_mask, golds_task)
         return out_dict
 
     def reset_metrics(self):
@@ -430,25 +455,76 @@ class MachampModel(torch.nn.Module):
 
         Returns
         -------
-        metrics: Dict[str, float]
-            Dictionary with as keys the names of the metric (including
-            task name) and as value the score. Includes also a "sum" key, 
-            which obviously is the sum over the other metrics.
+        metrics: Dict[str,Dict[str,Dict[str,float]]]
+            Dictionary with as keys the names of the tasks, and as values
+            a dictionary of associated metrics for each task. The 
+            associated metrics in turn have as keys the main names of the 
+            metrics (e.g., f1_macro), and as values the corresponding 
+            dictionaries with (possibly) multiple metric names and scores 
+            (e.g., precision, recall). Eack task also includes an 
+            "optimization_metrics" key, whose value is the name of the 
+            metric to use for optimization in that particular task - note
+            that in the future it would be possible to define many of them.
+            Includes also a "sum" key, which obviously is the sum over the 
+            other metrics. The structure is the following: 
+            task-name1: {
+                main-metric-nameA: {
+                    metric1-name: metric1-value,
+                    ...,
+                    metricJ-name: metricJ-value
+                },
+                ...,
+                main-metric-nameZ: {
+                    metric1-name: metric1-value,
+                    ...,
+                    metricK-name: metricK-value
+                },
+                "optimization_metrics": main-metricA-name
+            },
+            ...,
+            task-nameN: {
+                ...
+            }
         """
         metrics = {}
-        sum_metrics = 0
+        sum_metrics = 0.0
         for decoder in self.decoders:
-            names, scores, types = self.decoders[decoder].get_metrics()
-            for name, score, metric_type in zip(names, scores, types):
-                name = decoder + '-' + name
-                metrics[name] = score
-                # inverse metrics where lower is better
-                if metric_type in [Perplexity, AvgDist]:
-                    if score == 0.0 and metric_type == Perplexity:
-                        continue
-                    sum_metrics += 1 / score
-                else:
-                    sum_metrics += score
+            metrics[decoder] = {}
+            metrics_info = self.decoders[decoder].get_metrics()
+            added_to_sum = False
+            for main_metric_name, values in metrics_info.items():
+                if "sum" in values:
+                    metrics[decoder]["optimization_metrics"] = main_metric_name
+                metrics[decoder][main_metric_name] = {}
+                for metric_key, metric_score in values.items():
+                    metrics[decoder][main_metric_name][metric_key] = metric_score
+                    if "sum" in values:
+                        if metric_key == main_metric_name:
+                            if main_metric_name in ["perplexity", "avg_dist"]:
+                                if main_metric_name == 'perplexity' and metric_score ==0.0:
+                                    continue
+                                sum_metrics += 1 / metric_score
+                            else:
+                                sum_metrics += metric_score
+                            added_to_sum = True
+            if added_to_sum == False:
+                logger.warning(decoder + " has no metric added to the sum")
 
         metrics['sum'] = sum_metrics
         return metrics
+
+    def set_multi_threshold(self, threshold: float):
+        """
+        Sets the threshold for all multiseq and multiclas tasks.
+        This can be used to predict multiple times with differing
+        values to tune the threshold.
+
+        Parameters
+        ----------
+        threshold: float
+            The new value to use as minimum threshold
+        """
+        for decoder in self.decoders:
+            if type(self.decoders[decoder]) in [MachampMulticlasDecoder, MachampMultiseqDecoder]:
+                self.decoders[decoder].threshold = threshold
+

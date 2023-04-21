@@ -14,5 +14,5 @@ Assuming this text is saved in `battle.txt`, the command would be:
 python3 predict.py logs/ewt/<DATE>/model.tar.gz battle.txt battle.pred.conllu --raw_text
 ```
 
-Note that this is not extensively tested for all task combinations, and for now is its also safer to use it with --dataset. 
+Note that this is only works for sequence labeling tasks at the moment, and for now is its also safer to use it with --dataset. If you use other task types we suggest to just add underlines (`_`) as labels.
 

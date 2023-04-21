@@ -197,7 +197,7 @@ class MachampEncoder:
                 lengths = []
                 for sent_idx in range(batch_size):
                     if find_end_token in input_token_ids[sent_idx]:
-                        lengths.append((torch.nonzero(input_token_ids[sent_idx] == find_end_token)[0]).item() + 1)
+                        lengths.append((torch.nonzero(input_token_ids[sent_idx] == find_end_token, as_tuple=False)[0]).item() + 1)
                     else:
                         lengths.append(len(input_token_ids[sent_idx]))
 

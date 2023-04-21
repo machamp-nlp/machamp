@@ -13,7 +13,7 @@ def getInfo(modelName):
     return json.load(open(scorePath))
 
 def getScore(modelName, metric, multiply):
-    return getInfo(modelName)[metric] * (100 if multiply else 1)
+    return getInfo(modelName)['best_' + metric] * (100 if multiply else 1)
 
 def getTimeRam(modelName):
     info = getInfo(modelName)
@@ -55,39 +55,81 @@ def checkTimeRam(name, goal_minutes, goal_gb):
         print(green + str(real_minutes) + 'mins < ' + str(goal_minutes) + 'mins' + black)
     else:
         print(red + str(real_minutes) + 'mins > ' + str(goal_minutes) + 'mins' + black)
-    
+    print()    
 
-# TODO check time/gpu -ram? 
 # EWT
-checkScore('test.ewt', 'dev_dependency-las', 89)
-checkScore('test.ewt', 'dev_feats-acc.', 96)
-checkScore('test.ewt', 'dev_upos-acc.', 96)
-checkScore('test.ewt', 'dev_lemma-acc.', 97)
+checkScore('test.ewt', 'dev_dependency_las', 89)
+checkScore('test.ewt', 'dev_feats_accuracy', 96)
+checkScore('test.ewt', 'dev_upos_accuracy', 96)
+checkScore('test.ewt', 'dev_lemma_accuracy', 97)
 checkTimeRam('test.ewt', 45, 5.5)
 
 # NLU
-checkScore('test.nlu', 'dev_intent-acc.', 99)
-checkScore('test.nlu', 'dev_slots-acc.', 97)
+checkScore('test.nlu', 'dev_intent_accuracy', 99)
+checkScore('test.nlu', 'dev_slots_accuracy', 97)
 checkTimeRam('test.ewt', 45, 5)
 
 # QNLI
-checkScore('test.qnli', 'dev_qnli-acc.', 88)
-checkTimeRam('test.qnli', 90, 4.5)
+checkScore('test.qnli', 'dev_qnli_accuracy', 88)
+checkTimeRam('test.qnli', 100, 4.5)
 
 # MLM
-checkScore('test.mlm', 'dev_masking-perplexity', 20, True)
-checkTimeRam('test.mlm', 20, 8)
+checkScore('test.mlm', 'dev_masking_perplexity', 2, True)
+checkTimeRam('test.mlm', 60, 8)
 
 # multiseq
-checkScore('test.multiseq', 'dev_feats-multi_acc.', 96)
+checkScore('test.multiseq', 'dev_feats_multi_acc', 96)
 checkTimeRam('test.multiseq', 30, 6)
 
 # crf
-checkScore('test.ner', 'dev_ner-span_f1', 82)
+checkScore('test.ner', 'dev_ner_span_f1', 82)
 checkTimeRam('test.ner', 25, 5)
 
 # regression
-checkScore('test.sts', 'dev_sts-b-avg_dist.', 1.5, True)
+checkScore('test.sts', 'dev_sts-b_avg_dist', 1.5, True)
 checkTimeRam('test.sts', 10, 4)
 
+# multitask
+checkScore('test.multitask', 'dev_dependency_las', 89)
+checkScore('test.multitask', 'dev_feats_accuracy', 96)
+checkScore('test.multitask', 'dev_upos_accuracy', 96)
+checkScore('test.multitask', 'dev_lemma_accuracy', 97)
+checkScore('test.multitask', 'dev_qnli_accuracy', 88)
+checkTimeRam('test.multitask', 145, 5.5)
+
+checkScore('test.multitask-sequential.0', 'dev_dependency_las', 89)
+checkScore('test.multitask-sequential.0', 'dev_feats_accuracy', 96)
+checkScore('test.multitask-sequential.0', 'dev_upos_accuracy', 96)
+checkScore('test.multitask-sequential.0', 'dev_lemma_accuracy', 97)
+checkTimeRam('test.multitask-sequential.0', 45, 5.5)
+checkScore('test.multitask-sequential.1', 'dev_qnli_accuracy', 88)
+checkTimeRam('test.multitask-sequential.1', 100, 5.5)
+
+checkScore('test.multitask-div0', 'dev_dependency_las', 88)
+checkScore('test.multitask-div0', 'dev_feats_accuracy', 96)
+checkScore('test.multitask-div0', 'dev_upos_accuracy', 96)
+checkScore('test.multitask-div0', 'dev_lemma_accuracy', 97)
+checkScore('test.multitask-div0', 'dev_qnli_accuracy', 89)
+checkTimeRam('test.multitask-div0', 500, 9)
+
+checkScore('test.multitask-div1', 'dev_dependency_las', 88)
+checkScore('test.multitask-div1', 'dev_feats_accuracy', 96)
+checkScore('test.multitask-div1', 'dev_upos_accuracy', 96)
+checkScore('test.multitask-div1', 'dev_lemma_accuracy', 97)
+checkScore('test.multitask-div1', 'dev_qnli_accuracy', 90)
+checkTimeRam('test.multitask-div1', 275, 7)
+
+checkScore('test.multitask-nodiv0', 'dev_dependency_las', 87)
+checkScore('test.multitask-nodiv0', 'dev_feats_accuracy', 96)
+checkScore('test.multitask-nodiv0', 'dev_upos_accuracy', 96)
+checkScore('test.multitask-nodiv0', 'dev_lemma_accuracy', 97)
+checkScore('test.multitask-nodiv0', 'dev_qnli_accuracy', 89)
+checkTimeRam('test.multitask-nodiv0', 275, 5.5)
+
+checkScore('test.multitask-nodiv1', 'dev_dependency_las', 86)
+checkScore('test.multitask-nodiv1', 'dev_feats_accuracy', 96)
+checkScore('test.multitask-nodiv1', 'dev_upos_accuracy', 95)
+checkScore('test.multitask-nodiv1', 'dev_lemma_accuracy', 95)
+checkScore('test.multitask-nodiv1', 'dev_qnli_accuracy', 89)
+checkTimeRam('test.multitask-nodiv1', 175, 5.5)
 
