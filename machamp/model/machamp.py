@@ -489,8 +489,10 @@ class MachampModel(torch.nn.Module):
         metrics = {}
         sum_metrics = 0.0
         for decoder in self.decoders:
-            metrics[decoder] = {}
             metrics_info = self.decoders[decoder].get_metrics()
+            if metrics_info == {}:
+                continue
+            metrics[decoder] = {}
             added_to_sum = False
             for main_metric_name, values in metrics_info.items():
                 if "sum" in values:

@@ -7,6 +7,7 @@ from machamp.metrics.las import LAS
 from machamp.metrics.multi_accuracy import MultiAccuracy
 from machamp.metrics.perplexity import Perplexity
 from machamp.metrics.span_f1 import SpanF1
+from machamp.metrics.pearson import Pearson
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,8 @@ class Metric:
             self.metrics[metric_name] = F1('macro')
         elif metric_name == 'span_f1':
             self.metrics[metric_name] = SpanF1()
+        elif metric_name == 'pearson':
+            self.metrics[metric_name] = Pearson()
         else:
             logger.error("metric " + metric_name + ' is not defined in MaChAmp.')
             exit(1)
@@ -71,6 +74,7 @@ class Metric:
         """
         metrics_container = {}
         for metric in self.metrics:
-            metric_scores = self.metrics[metric].get_score()
-            metrics_container[metric] = metric_scores
+            if self.metrics[metric].is_active():
+                metric_scores = self.metrics[metric].get_score()
+                metrics_container[metric] = metric_scores
         return metrics_container

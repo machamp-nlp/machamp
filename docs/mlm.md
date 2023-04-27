@@ -19,7 +19,9 @@ the highest sum of all metrics and most metrics have a range 0-1, we invert the 
 easily be edited in the bottom of `machamp/models/machamp_model.py`, and we welcome suggestions on how to do this more
 correct/principled.
 
-Furthermore, it should be noted that we saw in some of our experiments, that performance on the development set only
-increased after the first epoch. This led to the model always picking a very early model. Hence, we got much better
-performance by not defining a development set for MLM, and thus not using perplexity to pick the best model.
+**This task type has a special handling of the data**, it uses only a portion of the data each epoch. Because MLM is
+more prone to overfitting and data is cheap, we divide the dataset by the number of epochs, and thus ensure that we 
+see each instance only once. If you do not have enough data with this strategy we recommend that you just multiply it
+before training.
+
 

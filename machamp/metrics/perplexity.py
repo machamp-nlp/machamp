@@ -22,3 +22,7 @@ class Perplexity:
         self.metric_scores[self.str] = math.exp(self.sum / self.number)
         self.metric_scores["sum"] = self.str
         return self.metric_scores
+
+    def is_active(self):
+        return self.number != 0
+

@@ -16,6 +16,7 @@ MaChAmp supports a variety of metrics for task types. Specifically:
 * **labeled attachment score** (`las`): for the task type [dependency](dependency.md);
 * **perplexity** (`perplexity`): for the task type [mlm](mlm.md);
 * **average distance** (`avg_dist`): for the task type [regression](mlm.md)
+* **pearson** (`pearson`): for the task type [regression](mlm.md)
 * **multilabel accurcay** (`multi_acc`): for the task types [multi_seq](multiseq.md) and [multi_clas](multiclas.md)
 
 You can set/check the default metrics used for each task in the parameters configuration file (

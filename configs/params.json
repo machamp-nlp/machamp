@@ -1,7 +1,7 @@
 {
   "transformer_model": "bert-base-multilingual-cased",
-  "reset_transformer_model": false,
   //"transformer_model": "xlm-roberta-large",
+  "reset_transformer_model": false,
   "random_seed": 8446,
   "default_dec_dataset_embeds_dim": 12,
   "encoder": {

@@ -67,3 +67,7 @@ class SpanF1:
         self.metric_scores[self.str] = f1_score
         self.metric_scores["sum"] = self.str
         return self.metric_scores
+
+    def is_active(self):
+        return self.tps + self.fps + self.fns  != 0
+

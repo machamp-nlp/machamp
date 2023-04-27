@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 from machamp.utils.lemma_edit import apply_lemma_rule
 from machamp.utils.myutils import prep_batch, report_metrics
-from machamp.data.machamp_dataset import MachampDataset
+from machamp.data.machamp_dataset_collection import MachampDatasetCollection
 from machamp.data.machamp_sampler import MachampBatchSampler
 from machamp.data.machamp_vocabulary import MachampVocabulary
 
@@ -217,7 +217,7 @@ def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_
         dataset = list(model.dataset_configs.keys())[0]
     data_config = {dataset: model.dataset_configs[dataset]}
     data_config[dataset]['dev_data_path'] = input_path
-    dev_dataset = MachampDataset(model.mlm.name_or_path, data_config, is_train=False, vocabulary=model.vocabulary, is_raw=raw_text)
+    dev_dataset = MachampDatasetCollection(model.mlm.name_or_path, data_config, is_train=False, vocabulary=model.vocabulary, is_raw=raw_text)
     dev_sampler = MachampBatchSampler(dev_dataset, batch_size, 1024, False, 1.0, False, False, False)  # 1024 hardcoded
     dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
 

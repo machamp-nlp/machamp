@@ -98,9 +98,8 @@ def read_classification(
     has_seg_ids = 'token_type_ids' in test_tok and 1 in test_tok['token_type_ids']
     if 'skip_first_line' not in config:
         config['skip_first_line'] = False
-    sent_counter = 0
     for sent_counter, data_instance in enumerate(lines2data(data_path, config['skip_first_line'])):
-        if max_sents != -1 and sent_counter > max_sents:
+        if max_sents != -1 and sent_counter >= max_sents:
             break
         # We use the following format 
         # input: <CLS> sent1 <SEP> sent2 <SEP> sent3 ...
@@ -182,7 +181,7 @@ def read_classification(
             subword_counter) + ' subwords.')
 
     logger.info('Stats ' + dataset + ' (' + data_path + '):')
-    logger.info('Lines:    {:,}'.format(sent_counter + 1))
+    logger.info('Lines:    {:,}'.format(sent_counter))
     logger.info('Subwords: {:,}'.format(subword_counter))
     logger.info('Unks:     {:,}'.format(unk_counter))
     return data

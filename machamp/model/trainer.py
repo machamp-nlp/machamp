@@ -14,7 +14,7 @@ from tqdm import tqdm
 from machamp.utils import myutils
 from machamp.model.machamp import MachampModel
 from machamp.model.callback import Callback
-from machamp.data.machamp_dataset import MachampDataset
+from machamp.data.machamp_dataset_collection import MachampDatasetCollection
 from machamp.utils import image
 from machamp.data.machamp_sampler import MachampBatchSampler
 from machamp.modules.allennlp.slanted_triangular import SlantedTriangular
@@ -104,11 +104,13 @@ def train(
 
     # We create the logger here, because now we have a directory to also write it to
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
-                        level=logging.INFO, handlers=[logging.FileHandler(os.path.join(serialization_dir, 'log.txt')),
-                                                      logging.StreamHandler(sys.stdout)])
+                        level=logging.INFO, handlers=[logging.FileHandler(os.path.join(serialization_dir, 'log.txt')),logging.StreamHandler(sys.stdout)])
+    
+    stderr_logger = logging.getLogger('STDERR')
+    sl = myutils.StreamToLogger(stderr_logger, logging.ERROR)
+    sys.stderr = sl
+
     logger = logging.getLogger(__name__)
-    # sys.stdout = myutils.StreamToLogger(logger,logging.INFO)
-    # sys.stderr = myutils.StreamToLogger(logger,logging.ERROR)
 
     if cmd != '':
         logger.info('cmd: ' + cmd)
@@ -119,8 +121,8 @@ def train(
     torch.manual_seed(parameters_config['random_seed'])
 
     batch_size = parameters_config['batching']['batch_size']
-    train_dataset = MachampDataset(parameters_config['transformer_model'], dataset_configs, is_train=True,
-                                   max_input_length=parameters_config['encoder']['max_input_length'])
+    train_dataset = MachampDatasetCollection(parameters_config['transformer_model'], dataset_configs, is_train=True,
+                                   max_input_length=parameters_config['encoder']['max_input_length'] , num_epochs=parameters_config['training']['num_epochs'])
     train_sampler = MachampBatchSampler(train_dataset, batch_size, parameters_config['batching']['max_tokens'], parameters_config['batching']['shuffle'],
                                         parameters_config['batching']['sampling_smoothing'],
                                         parameters_config['batching']['sort_by_size'], parameters_config['batching']['diverse'], True)
@@ -129,7 +131,7 @@ def train(
     # Note that the vocabulary is only saved for debugging purposes, there is also a copy in the model.pt
     train_dataset.vocabulary.save_vocabs(os.path.join(serialization_dir, 'vocabularies'))
 
-    dev_dataset = MachampDataset(parameters_config['transformer_model'], dataset_configs, is_train=False,
+    dev_dataset = MachampDatasetCollection(parameters_config['transformer_model'], dataset_configs, is_train=False,
                                  vocabulary=train_dataset.vocabulary,
                                  max_input_length=parameters_config['encoder']['max_input_length'])
     dev_sampler = MachampBatchSampler(dev_dataset, batch_size, parameters_config['batching']['max_tokens'], False, 1.0,
@@ -217,6 +219,10 @@ def train(
                 if task not in total_train_losses:
                     total_train_losses[task] = 0.0
                 total_train_losses[task] += loss_dict[task]
+            # Average loss turned out to be slightly worse with our hyperparameters
+            # One could also weight them to get this effect.
+            #loss = loss/len(loss_dict)
+
             loss.backward()
             scheduler.step_batch()
             optimizer.step()
@@ -226,7 +232,6 @@ def train(
         avg_train_losses['sum'] = sum(avg_train_losses.values())
 
         callback.add_train_results(epoch, avg_train_losses, train_metrics)
-
         if len(dev_dataset) > 0:
             logger.info('Epoch ' + str(epoch) + ': evaluating on dev')
             model.eval()

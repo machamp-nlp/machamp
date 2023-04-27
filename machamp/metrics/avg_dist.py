@@ -20,3 +20,7 @@ class AvgDist:
             self.metric_scores[self.str] = sum(self.dists) / len(self.dists)
         self.metric_scores["sum"] = self.str
         return self.metric_scores
+
+    def is_active(self):
+        return self.dists != []
+

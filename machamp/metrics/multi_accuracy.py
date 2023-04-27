@@ -34,3 +34,7 @@ class MultiAccuracy:
             self.metric_scores[self.str] = self.cor / self.total
         self.metric_scores["sum"] = self.str
         return self.metric_scores
+
+    def is_active(self):
+        return self.total != 0
+
