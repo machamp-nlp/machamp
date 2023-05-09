@@ -246,7 +246,6 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
                     sent_indices.append([str(x.item()) for x in topn_heads[word_idx]])
                     sent_indice_probs.append([x.item() for x in topn_head_probs[word_idx]])
                     sent_label_probs.append([x.item() for x in topn_label_probs[word_idx]])
-                print(sent_indices)
                 head_tag_labels.append(sent_labels)
                 head_indices.append(sent_indices)
                 indice_probs.append(sent_indice_probs)
