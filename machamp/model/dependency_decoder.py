@@ -195,7 +195,7 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         predicted_heads, predicted_head_tags, _, topn_heads_indices, topn_heads_values, topn_labels_indices, \
         topn_labels_values, arc_nll, tag_nll = self._parse(embedded_text, mask, gold_head_tags, gold_head_indices)
 
-        if type(topn_heads_indices) != None:
+        if topn_heads_indices != None:
             topn_heads_indices = topn_heads_indices[:,1:,:]
             topn_heads_values = topn_heads_values[:,1:,:]
             topn_labels_indices = topn_labels_indices[:,1:,:]
