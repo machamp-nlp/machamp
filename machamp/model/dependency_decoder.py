@@ -195,6 +195,11 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         predicted_heads, predicted_head_tags, _, topn_heads_indices, topn_heads_values, topn_labels_indices, \
         topn_labels_values, arc_nll, tag_nll = self._parse(embedded_text, mask, gold_head_tags, gold_head_indices)
 
+        topn_heads_indices = topn_heads_indices[:,1:,:]
+        topn_heads_values = topn_heads_values[:,1:,:]
+        topn_labels_indices = topn_labels_indices[:,1:,:]
+        topn_labels_values = topn_labels_values[:,1:,:]
+
         out_dict = dict(predicted_heads=predicted_heads, predicted_head_tags=predicted_head_tags,
                         topn_heads_indices=topn_heads_indices, topn_heads_values=topn_heads_values,
                         topn_labels_indices=topn_labels_indices, topn_labels_values=topn_labels_values,
@@ -241,6 +246,7 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
                     sent_indices.append([str(x.item()) for x in topn_heads[word_idx]])
                     sent_indice_probs.append([x.item() for x in topn_head_probs[word_idx]])
                     sent_label_probs.append([x.item() for x in topn_label_probs[word_idx]])
+                print(sent_indices)
                 head_tag_labels.append(sent_labels)
                 head_indices.append(sent_indices)
                 indice_probs.append(sent_indice_probs)
