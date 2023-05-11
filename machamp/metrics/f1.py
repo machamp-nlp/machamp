@@ -119,3 +119,6 @@ class F1:
             self.metric_scores[self.str] = 0.0
             self.metric_scores["sum"] = self.str
         return self.metric_scores
+
+    def is_active(self):
+        return len(self.tps) + len(self.fps) + len(self.fns) != 0
