@@ -176,9 +176,9 @@ model-archive, input data, and an output path:
 python3 predict.py logs/ewt/<DATE>/model.pt data/twitter/dev.norm predictions/ewt.twitter.out --device 0
 ```
 
-If training is done on multiple datasets, you have to define which dataset-tasks you want to predict (the model also
-assumes the same data format as this training data, see [--raw_text](docs/predict_raw.md) for information on how to
-predict on raw data)
+If training is done on multiple datasets, you have to define which dataset-tasks you want to predict.
+
+The model also assumes that **the test data follows the same data format as the training data**, i.e., if you are predicting on new data with no known labels, ensure that the relevant column(s) for prediction are present in the test data file (we suggest you to just fill those with a placeholder "`_`" (see also [--raw_text](docs/predict_raw.md) for additional information on how to predict on raw data).
 
 ```
 python3 predict.py logs/ewt/<DATE>/model.pt data/twitter/dev.norm predictions/ewt.twitter.out --dataset UD-EWT --device 0
