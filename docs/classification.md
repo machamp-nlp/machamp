@@ -37,7 +37,6 @@ If your data looks like this:
 ```
 # text: tell me the weather report for half moon bay
 # intent: weather/find
-# slots: 12:26:weather/noun,31:44:location
 1	tell	_	NoLabel
 2	me	_	NoLabel
 3	the	_	NoLabel
