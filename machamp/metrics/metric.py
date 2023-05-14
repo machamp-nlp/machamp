@@ -4,6 +4,7 @@ from machamp.metrics.accuracy import Accuracy
 from machamp.metrics.avg_dist import AvgDist
 from machamp.metrics.f1 import F1
 from machamp.metrics.las import LAS
+from machamp.metrics.las import UAS
 from machamp.metrics.multi_accuracy import MultiAccuracy
 from machamp.metrics.perplexity import Perplexity
 from machamp.metrics.span_f1 import SpanF1
