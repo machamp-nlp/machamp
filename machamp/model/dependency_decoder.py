@@ -209,9 +209,9 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         if type(gold_head_tags) != type(None):
             self.metric.score(predicted_heads, predicted_head_tags, gold_head_indices, gold_head_tags)
             if self.additional_metrics:
-                # for additional_metric in self.additional_metrics:
-                #     additional_metric.score(maxes, gold, mask, self.vocabulary.inverse_namespaces[self.task])
-                logger.error('Error, additional_metrics for dependency task type is not supported yet')
+                for additional_metric in self.additional_metrics:
+                    additional_metric.score(predicted_heads, predicted_head_tags, gold_head_indices, gold_head_tags)
+                # logger.error('Error, additional_metrics for dependency task type is not supported yet')
             loss = (arc_nll + tag_nll) * self.loss_weight
             out_dict['loss'] = loss
         return out_dict

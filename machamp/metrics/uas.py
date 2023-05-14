@@ -1,11 +1,11 @@
 import torch
 
 
-class LAS:
+class UAS:
     def __init__(self):
         self.cor = 0
         self.total = 0
-        self.str = 'las'
+        self.str = 'uas'
         self.metric_scores = {}
 
     def score(self, pred_heads, pred_rels, gold_heads, gold_rels):
@@ -14,8 +14,8 @@ class LAS:
         cor_heads = gold_heads.eq(pred_heads)
     
         mask = gold_rels != -100
-        self.cor += torch.sum(cor_heads * mask).item()
-        self.total += torch.sum(mask).item()
+        self.cor += torch.sum(cor_heads * mask.flatten()).item()
+        self.total += torch.sum(mask.flatten()).item()
 
     def reset(self):
         self.cor = 0

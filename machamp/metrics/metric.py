@@ -4,7 +4,7 @@ from machamp.metrics.accuracy import Accuracy
 from machamp.metrics.avg_dist import AvgDist
 from machamp.metrics.f1 import F1
 from machamp.metrics.las import LAS
-from machamp.metrics.las import UAS
+from machamp.metrics.uas import UAS
 from machamp.metrics.multi_accuracy import MultiAccuracy
 from machamp.metrics.perplexity import Perplexity
 from machamp.metrics.span_f1 import SpanF1
@@ -32,6 +32,8 @@ class Metric:
             self.metrics[metric_name] = MultiAccuracy()
         elif metric_name == 'las':
             self.metrics[metric_name] = LAS()
+        elif metric_name == "uas":
+            self.metrics[metric_name] = UAS()
         elif metric_name == 'avg_dist':
             self.metrics[metric_name] = AvgDist()
         elif metric_name == 'perplexity':
