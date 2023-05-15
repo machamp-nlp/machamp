@@ -65,7 +65,7 @@
       "discriminative_fine_tuning": true,
       "gradual_unfreezing": true
     },
-    "num_epochs": 5,
+    "num_epochs": 20,
     "optimizer": {
       //"type": "adamw",
       "betas": [
