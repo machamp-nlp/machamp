@@ -1,6 +1,7 @@
 {
   "transformer_model": "bert-base-multilingual-cased",
   //"transformer_model": "xlm-roberta-large",
+  // "UBC-NLP/IndT5",
   "reset_transformer_model": false,
   "random_seed": 8446,
   "default_dec_dataset_embeds_dim": 12,
@@ -65,7 +66,7 @@
       "discriminative_fine_tuning": true,
       "gradual_unfreezing": true
     },
-    "num_epochs": 20,
+    "num_epochs": 100,
     "optimizer": {
       //"type": "adamw",
       "betas": [

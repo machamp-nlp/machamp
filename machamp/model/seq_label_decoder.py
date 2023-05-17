@@ -20,13 +20,15 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
 
         nlabels = len(self.vocabulary.get_vocab(task))
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
+        self.dropout = torch.nn.Dropout(p=0.5)
+        self.dropout.to(device)
         self.hidden_to_label = torch.nn.Linear(input_dim, nlabels)
         self.hidden_to_label.to(device)
         self.loss_function = torch.nn.CrossEntropyLoss(ignore_index=-100)
         self.topn = topn
 
     def forward(self, mlm_out, task_subword_mask, gold=None):
-        logits = self.hidden_to_label(mlm_out)
+        logits = self.hidden_to_label(self.dropout(mlm_out))
         out_dict = {'logits': logits}
         if type(gold) != type(None):
             # 0 is the padding/unk label, so skip it for the metric

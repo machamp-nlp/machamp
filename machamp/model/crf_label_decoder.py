@@ -19,10 +19,11 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
             device: str,
             loss_weight: float = 1.0,
             metric: str = 'accuracy',
+            dropout: float = 0.0,
             topn: int = 1,
             **kwargs
     ) -> None:
-        super().__init__(task, vocabulary, loss_weight, metric, device, **kwargs)
+        super().__init__(task, vocabulary, loss_weight, metric, dropout=dropout, device, **kwargs)
 
         nlabels = len(self.vocabulary.get_vocab(task))
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
@@ -44,7 +45,7 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
         self.topn = topn
 
     def forward(self, mlm_out, mask, gold=None):
-        logits = self.hidden_to_label(mlm_out)
+        logits = self.hidden_to_label(self.dropout(mlm_out))
         best_paths = self.crf_layer.viterbi_tags(logits, mask)
 
         predicted_tags = cast(List[List[int]], [x[0] for x in best_paths])
