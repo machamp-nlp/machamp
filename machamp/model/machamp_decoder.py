@@ -14,7 +14,10 @@ class MachampDecoder(torch.nn.Module):
         self.vocabulary = vocabulary
         self.metric = Metric(metric)
         self.loss_weight = loss_weight
-        self.dropout = torch.nn.Dropout(dropout)
+
+        self.decoder_dropout = torch.nn.Dropout(dropout)
+        self.decoder_dropout.to(device)
+        
         self.device = device
         # layers_to_use is unused, just here because it is defined on the task
         # level, but it is implemented in MachampModel

@@ -21,7 +21,7 @@ class MachampMulticlasDecoder(MachampDecoder, torch.nn.Module):
         self.threshold = threshold
 
     def forward(self, mlm_out, mask, gold=None):
-        logits = self.hidden_to_label(mlm_out)
+        logits = self.hidden_to_label(self.decoder_dropout(mlm_out))
         out_dict = {'logits': logits}
         if type(gold) != type(None):
             gold[gold == -100] = 0
