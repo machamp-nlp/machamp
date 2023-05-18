@@ -45,7 +45,11 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
         self.topn = topn
 
     def forward(self, mlm_out, mask, gold=None):
-        logits = self.hidden_to_label(self.decoder_dropout(mlm_out))
+        mlm_out = (
+            self.decoder_dropout(mlm_out) 
+            if self.decoder_dropout.p > 0 else mlm_out
+        )
+        logits = self.hidden_to_label(mlm_out)
         best_paths = self.crf_layer.viterbi_tags(logits, mask)
 
         predicted_tags = cast(List[List[int]], [x[0] for x in best_paths])
