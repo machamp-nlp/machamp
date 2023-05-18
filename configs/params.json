@@ -1,5 +1,5 @@
 {
-  "transformer_model": "bert-base-multilingual-cased",
+  "transformer_model":"bert-base-multilingual-cased",
   //"transformer_model": "xlm-roberta-large",
   // "UBC-NLP/IndT5",
   "reset_transformer_model": false,

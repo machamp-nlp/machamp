@@ -166,7 +166,7 @@ class MachampModel(torch.nn.Module):
                 logger.error('Error, task_type ' + task_type + ' not implemented')
                 exit(1)
 
-            decoder = decoder_type(task, self.vocabulary, self.mlm_out_size, device,
+            decoder = decoder_type(task, self.vocabulary, self.mlm_out_size, device, dropout=0.5,
                                    **self.dataset_configs[dataset]['tasks'][task])
             self.decoders[task] = decoder
 

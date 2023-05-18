@@ -17,7 +17,7 @@ class MachampDecoder(torch.nn.Module):
 
         self.decoder_dropout = torch.nn.Dropout(dropout)
         self.decoder_dropout.to(device)
-        
+        import pdb;pdb.set_trace() 
         self.device = device
         # layers_to_use is unused, just here because it is defined on the task
         # level, but it is implemented in MachampModel
