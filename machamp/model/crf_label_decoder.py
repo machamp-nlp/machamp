@@ -19,11 +19,11 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
             device: str,
             loss_weight: float = 1.0,
             metric: str = 'accuracy',
-            dropout: float = 0.0,
+            decoder_dropout: float = 0.0,
             topn: int = 1,
             **kwargs
     ) -> None:
-        super().__init__(task, vocabulary, loss_weight, metric, dropout, device, **kwargs)
+        super().__init__(task, vocabulary, loss_weight, metric, decoder_dropout, device, **kwargs)
 
         nlabels = len(self.vocabulary.get_vocab(task))
         self.input_dim = input_dim  # + dec_dataset_embeds_dim

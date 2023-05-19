@@ -5,9 +5,9 @@ from machamp.model.machamp_decoder import MachampDecoder
 
 
 class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
-    def __init__(self, task, vocabulary, input_dim, device, loss_weight: float = 1.0, dropout: float = 0.0, topn: int = 1,
+    def __init__(self, task, vocabulary, input_dim, device, loss_weight: float = 1.0, decoder_dropout: float = 0.0, topn: int = 1,
                  metric: str = 'accuracy', **kwargs):
-        super().__init__(task, vocabulary, loss_weight, metric, dropout, device, **kwargs)
+        super().__init__(task, vocabulary, loss_weight, metric, decoder_dropout, device, **kwargs)
 
         nlabels = len(self.vocabulary.get_vocab(task))
         self.hidden_to_label = torch.nn.Linear(input_dim, nlabels)

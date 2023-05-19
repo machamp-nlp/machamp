@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 class MachampMulticlasDecoder(MachampDecoder, torch.nn.Module):
     def __init__(self, task, vocabulary, input_dim, device, loss_weight: float = 1.0, topn: int = 1,
-                 metric: str = 'accuracy', threshold: float = .7, **kwargs):
-        super().__init__(task, vocabulary, loss_weight, metric, device,
+                 metric: str = 'accuracy', decoder_dropout: float = 0.0, threshold: float = .7, **kwargs):
+        super().__init__(task, vocabulary, loss_weight, metric, decoder_dropout, device,
                          **kwargs)
 
         nlabels = len(self.vocabulary.get_vocab(task))
