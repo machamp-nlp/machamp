@@ -138,12 +138,22 @@ def train(
                                       parameters_config['batching']['sort_by_size'], False, True)
     dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)
 
+    decoder_params = {dec_name: parameters_config["decoders"][dec_name] 
+                      for dec_name in parameters_config["decoders"]}
+    
+    # For now, it seems like the only thing we want from decoder-specific params 
+    # to pass to model init is the decoder dropout?
+    decoder_dropouts = {dn: dd.get("dropout", 0.0) 
+                        for dn, dd in decoder_params.items()}
+    if decoder_dropouts.get("mlm", 0.0) > 0.0:
+        raise ValueError("Explicit dropout not supported in the mlm decoder.")
+    
     if resume:
         model_path = os.path.join(serialization_dir, 'model_' + str(epoch) + '.pt')
         model = torch.load(model_path)
     else:
         model = MachampModel(train_dataset.vocabulary, train_dataset.tasks, train_dataset.task_types,
-                             parameters_config['transformer_model'], device, dataset_configs, train_dataset.tokenizer,
+                             parameters_config['transformer_model'], device, decoder_dropouts, dataset_configs, train_dataset.tokenizer,
                              **parameters_config['encoder'], retrain=retrain, 
                              reset_transformer_model=parameters_config['reset_transformer_model'])
 

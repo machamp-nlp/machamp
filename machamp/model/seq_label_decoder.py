@@ -11,13 +11,13 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
             vocabulary,
             input_dim: int,
             device: str, 
-            dropout: float = 0.0,
+            decoder_dropout: float = 0.0,
             loss_weight: float = 1.0,
             metric: str = 'accuracy',
             topn: int = 1,
             **kwargs
     ) -> None:
-        super().__init__(task, vocabulary, loss_weight, metric, dropout, device, **kwargs)
+        super().__init__(task, vocabulary, loss_weight, metric, decoder_dropout, device, **kwargs)
 
         nlabels = len(self.vocabulary.get_vocab(task))
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
@@ -27,7 +27,11 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
         self.topn = topn
 
     def forward(self, mlm_out, task_subword_mask, gold=None):
-        logits = self.hidden_to_label(self.decoder_dropout(mlm_out))
+        mlm_out = (
+            self.decoder_dropout(mlm_out) 
+            if self.decoder_dropout.p > 0 else mlm_out
+        )
+        logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):
             # 0 is the padding/unk label, so skip it for the metric

@@ -5,9 +5,9 @@ from machamp.model.machamp_decoder import MachampDecoder
 
 
 class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
-    def __init__(self, task, vocabulary, input_dim, device, loss_weight: float = 1.0, dropout: float = 0.0, topn: int = 1,
+    def __init__(self, task, vocabulary, input_dim, device, loss_weight: float = 1.0, decoder_dropout: float = 0.0, topn: int = 1,
                  metric: str = 'accuracy', **kwargs):
-        super().__init__(task, vocabulary, loss_weight, metric, dropout, device, **kwargs)
+        super().__init__(task, vocabulary, loss_weight, metric, decoder_dropout, device, **kwargs)
 
         nlabels = len(self.vocabulary.get_vocab(task))
         self.hidden_to_label = torch.nn.Linear(input_dim, nlabels)
@@ -16,7 +16,11 @@ class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
         self.topn = topn
 
     def forward(self, mlm_out, mask, gold=None):
-        logits = self.hidden_to_label(self.decoder_dropout(mlm_out))
+        mlm_out = (
+            self.decoder_dropout(mlm_out) 
+            if self.decoder_dropout.p > 0 else mlm_out
+        )
+        logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):
             maxes = torch.add(torch.argmax(logits[:, 1:], 1), 1)

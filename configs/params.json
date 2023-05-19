@@ -41,7 +41,8 @@
     "seq": {
     },
     "seq_bio": {
-      "metric": "span_f1"
+      "metric": "span_f1",
+      "dropout":0.5
     },
     "string2string": {
     },
