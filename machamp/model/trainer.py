@@ -153,7 +153,8 @@ def train(
         model = torch.load(model_path)
     else:
         model = MachampModel(train_dataset.vocabulary, train_dataset.tasks, train_dataset.task_types,
-                             parameters_config['transformer_model'], device, decoder_dropouts, dataset_configs, train_dataset.tokenizer,
+                             parameters_config['transformer_model'], device, decoder_dropouts, 
+                             dataset_configs, train_dataset.tokenizer, 
                              **parameters_config['encoder'], retrain=retrain, 
                              reset_transformer_model=parameters_config['reset_transformer_model'])
 
