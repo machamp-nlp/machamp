@@ -218,6 +218,8 @@ Other things:
 * [Results](docs/results.md)
 * [Adding a new task-type](docs/new_task_type.md)
 * [Extract a model after finetuning](docs/extract_model.md)
+* [Use in CoLab](https://colab.research.google.com/drive/1zkowQPeiQMgKnEmKITjccTRvtfdpGfEH?usp=sharing)
+
 
 ## Known issues
 
