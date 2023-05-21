@@ -105,12 +105,13 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
             device: str,
             loss_weight: float = 1.0,
             metric: str = 'las',
+            decoder_dropout: float = 0.0,
             topn: int = 1,
             tag_representation_dim: int = 256,
             arc_representation_dim: int = 768,
             **kwargs
     ) -> None:
-        super().__init__(task, vocabulary, loss_weight, metric, device, **kwargs)
+        super().__init__(task, vocabulary, loss_weight, metric, decoder_dropout, device, **kwargs)
 
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
         arc_representation_dim = arc_representation_dim  # + dec_dataset_embeds_dim
@@ -279,6 +280,9 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         head_sentinel = self._head_sentinel.expand(batch_size, 1, encoding_dim)
         # Concatenate the head sentinel onto the sentence representation.
         encoded_text = torch.cat([head_sentinel, encoded_text], 1)
+        if self.decoder_dropout.p > 0.0:
+            encoded_text = self.decoder_dropout(encoded_text)
+            
         mask = torch.cat([mask.new_ones(batch_size, 1), mask], 1)
         if mask.dtype != torch.bool:
             mask = mask > 0

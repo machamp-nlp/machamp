@@ -27,10 +27,9 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
         self.topn = topn
 
     def forward(self, mlm_out, task_subword_mask, gold=None):
-        mlm_out = (
-            self.decoder_dropout(mlm_out) 
-            if self.decoder_dropout.p > 0 else mlm_out
-        )
+        if self.decoder_dropout.p > 0.0:
+            mlm_out =  self.decoder_dropout(mlm_out) 
+            
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):

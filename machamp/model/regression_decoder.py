@@ -17,10 +17,9 @@ class MachampRegressionDecoder(MachampDecoder, torch.nn.Module):
         if self.topn != 1:
             logger.warning('topn is not implemented for the regression task type, as it is unclear what it should do')
         
-        mlm_out = (
-            self.decoder_dropout(mlm_out) 
-            if self.decoder_dropout.p > 0 else mlm_out
-        )
+        if self.decoder_dropout.p > 0.0:
+            mlm_out =  self.decoder_dropout(mlm_out) 
+            
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):
