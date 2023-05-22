@@ -7,16 +7,13 @@ from machamp.metrics.metric import Metric
 
 
 class MachampDecoder(torch.nn.Module):
-    def __init__(self, task, vocabulary, loss_weight: float = 1.0, metric: str = 'avg_dist', decoder_dropout: float = 0.0,  device: str = 'cpu', **kwargs):
+    def __init__(self, task, vocabulary, loss_weight: float = 1.0, metric: str = 'avg_dist',  device: str = 'cpu', **kwargs):
         super().__init__()
 
         self.task = task
         self.vocabulary = vocabulary
         self.metric = Metric(metric)
         self.loss_weight = loss_weight
-
-        self.decoder_dropout = torch.nn.Dropout(decoder_dropout)
-        self.decoder_dropout.to(device)
         self.device = device
         # layers_to_use is unused, just here because it is defined on the task
         # level, but it is implemented in MachampModel

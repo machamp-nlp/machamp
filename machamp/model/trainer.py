@@ -146,7 +146,8 @@ def train(
     decoder_dropouts = {dn: dd.get("dropout", 0.0) 
                         for dn, dd in decoder_params.items()}
     if decoder_dropouts.get("mlm", 0.0) > 0.0:
-        raise ValueError("Explicit dropout not supported in the mlm decoder.")
+        raise logger.error("Error, explicit dropout not supported in the mlm decoder.")
+        exit(1)
     
     if resume:
         model_path = os.path.join(serialization_dir, 'model_' + str(epoch) + '.pt')
