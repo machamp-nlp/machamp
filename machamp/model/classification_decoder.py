@@ -7,13 +7,16 @@ from machamp.model.machamp_decoder import MachampDecoder
 class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
     def __init__(self, task, vocabulary, input_dim, device, loss_weight: float = 1.0, decoder_dropout: float = 0.0, topn: int = 1,
                  metric: str = 'accuracy', **kwargs):
-        super().__init__(task, vocabulary, loss_weight, metric, decoder_dropout, device, **kwargs)
+        super().__init__(task, vocabulary, loss_weight, metric, device, **kwargs)
 
         nlabels = len(self.vocabulary.get_vocab(task))
         self.hidden_to_label = torch.nn.Linear(input_dim, nlabels)
         self.hidden_to_label.to(device)
         self.loss_function = torch.nn.CrossEntropyLoss(reduction='sum', ignore_index=-100)
         self.topn = topn
+
+        self.decoder_dropout = torch.nn.Dropout(decoder_dropout)
+        self.decoder_dropout.to(device)
 
     def forward(self, mlm_out, mask, gold=None):
         if self.decoder_dropout.p > 0.0:

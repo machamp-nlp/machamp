@@ -20,7 +20,7 @@ class MachampMultiseqDecoder(MachampDecoder, torch.nn.Module):
             threshold: float = .7,
             **kwargs
     ) -> None:
-        super().__init__(task, vocabulary, loss_weight, metric, decoder_dropout, device, **kwargs)
+        super().__init__(task, vocabulary, loss_weight, metric, device, **kwargs)
 
         nlabels = len(self.vocabulary.get_vocab(task))
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
@@ -33,10 +33,13 @@ class MachampMultiseqDecoder(MachampDecoder, torch.nn.Module):
         self.topn = topn
         self.device = device
 
+        self.decoder_dropout = torch.nn.Dropout(decoder_dropout)
+        self.decoder_dropout.to(device)
+
     def forward(self, mlm_out, mask, gold=None):
         if self.decoder_dropout.p > 0.0:
             mlm_out =  self.decoder_dropout(mlm_out) 
-            
+
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):
