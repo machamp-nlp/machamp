@@ -167,7 +167,12 @@ class MachampModel(torch.nn.Module):
                 logger.error('Error, task_type ' + task_type + ' not implemented')
                 exit(1)
 
-            task_decoder_dropout = decoder_dropouts[task]
+            task_decoder_dropout = decoder_dropouts[task_type]
+            if task_type == "mlm" and task_decoder_dropout > 0.0:
+                raise ValueError(
+                    "Explicit decoder dropout not supported with mlm task."
+                ) # TODO: raise error or just warn and ignore dropout?
+            
             decoder = decoder_type(task, self.vocabulary, self.mlm_out_size, 
                                    device, decoder_dropout=task_decoder_dropout,
                                    **self.dataset_configs[dataset]['tasks'][task])
