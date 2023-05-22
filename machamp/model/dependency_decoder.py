@@ -111,7 +111,7 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
             arc_representation_dim: int = 768,
             **kwargs
     ) -> None:
-        super().__init__(task, vocabulary, loss_weight, metric, decoder_dropout, device, **kwargs)
+        super().__init__(task, vocabulary, loss_weight, metric, device, **kwargs)
 
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
         arc_representation_dim = arc_representation_dim  # + dec_dataset_embeds_dim
@@ -135,6 +135,9 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         ).to(self.device)
 
         self._head_sentinel = torch.nn.Parameter(torch.randn([1, 1, self.input_dim], device=self.device))
+        
+        self.decoder_dropout = torch.nn.Dropout(decoder_dropout)
+        self.decoder_dropout.to(device)
 
     def forward(
             self,  # type: ignore
@@ -282,7 +285,7 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
         encoded_text = torch.cat([head_sentinel, encoded_text], 1)
         if self.decoder_dropout.p > 0.0:
             encoded_text = self.decoder_dropout(encoded_text)
-            
+
         mask = torch.cat([mask.new_ones(batch_size, 1), mask], 1)
         if mask.dtype != torch.bool:
             mask = mask > 0
