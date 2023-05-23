@@ -23,7 +23,7 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
             topn: int = 1,
             **kwargs
     ) -> None:
-        super().__init__(task, vocabulary, loss_weight, metric, device **kwargs)
+        super().__init__(task, vocabulary, loss_weight, metric, device, **kwargs)
 
         nlabels = len(self.vocabulary.get_vocab(task))
         self.input_dim = input_dim  # + dec_dataset_embeds_dim

@@ -22,27 +22,29 @@
     "dependency": {
       "arc_representation_dim": 768,
       "tag_representation_dim": 256,
-      "metric": "las"
+      "metric": "las",
+      //"dropout": 0.5
     },
     "mlm": {
       "metric": "perplexity"
     },
     "multiclas": {
       "metric": "multi_acc",
-      "threshold": 0.7
+      "threshold": 0.7,
+      //"dropout": 0.5
     },
     "multiseq": {
       "metric": "multi_acc",
-      "threshold": 0.7
+      //"threshold": 0.7
     },
     "regression": {
       "metric": "avg_dist"
     },
     "seq": {
+      //"dropout": 0.5
     },
     "seq_bio": {
-      "metric": "span_f1",
-      "dropout":0.5
+      "metric": "span_f1"
     },
     "string2string": {
     },
@@ -67,7 +69,7 @@
       "discriminative_fine_tuning": true,
       "gradual_unfreezing": true
     },
-    "num_epochs": 100,
+    "num_epochs": 50,
     "optimizer": {
       //"type": "adamw",
       "betas": [
