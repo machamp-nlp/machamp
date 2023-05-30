@@ -67,10 +67,10 @@ Every dataset needs at least a name (UD-EWT), a `train_data_path`,
 column the input words can be found.
 
 Every task requires a unique name, a `task_type` and a `column_idx`. The
-`task_type` should be one of `seq`, `string2string`, `dependency`, `multi_seq`,
-`seq_bio`, `classification`, these are explained in more detail below. The
-`column_idx` indicates the column from which the labels of the task should be
-read.
+`task_type` should be one of `seq`, `string2string`, `seq_bio`, `multiseq`,
+`multiclas`, `dependency`, `classification`, `mlm`, `regression`; these are
+explained in more detail below. The `column_idx` indicates the column from
+which the labels of the task should be read.
 
 ```
 python3 train.py --dataset_configs configs/ewt.json --device 0

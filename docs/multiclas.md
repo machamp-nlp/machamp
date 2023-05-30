@@ -1,4 +1,4 @@
-### multiclass task-type
+### multiclas task-type
 
 [back to main README](../README.md)
 
