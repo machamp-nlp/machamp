@@ -15,8 +15,6 @@ class MachampDecoder(torch.nn.Module):
         self.metric = Metric(metric)
         self.loss_weight = loss_weight
         self.device = device
-        # layers_to_use is unused, just here because it is defined on the task
-        # level, but it is implemented in MachampModel
 
         if "additional_metrics" in kwargs:
             if type(kwargs["additional_metrics"]) == str:

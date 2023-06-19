@@ -35,7 +35,6 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
             nlabels, constraints
         )
 
-        self.loss_function = torch.nn.CrossEntropyLoss(ignore_index=0)
         if topn != 1:
             logger.info(
                 "Top-n for crf is not supported for now, as it is unclear how to get the probabilities. We disabled "
