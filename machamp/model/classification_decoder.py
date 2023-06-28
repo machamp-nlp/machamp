@@ -9,8 +9,8 @@ class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
                  metric: str = 'accuracy', **kwargs):
         super().__init__(task, vocabulary, loss_weight, metric, device, **kwargs)
 
-        nlabels = len(self.vocabulary.get_vocab(task))
-        self.hidden_to_label = torch.nn.Linear(input_dim, nlabels)
+        self.nlabels = len(self.vocabulary.get_vocab(task))
+        self.hidden_to_label = torch.nn.Linear(input_dim, self.nlabels)
         self.hidden_to_label.to(device)
         self.loss_function = torch.nn.CrossEntropyLoss(reduction='sum', ignore_index=-100)
         self.topn = topn
@@ -37,7 +37,8 @@ class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
             probs = []
             class_probs = F.softmax(logits, -1)
             for sent_scores in class_probs:
-                topk = torch.topk(sent_scores[1:], self.topn)
+                topn = min(self.nlabels, self.topn)
+                topk = torch.topk(sent_scores[1:], topn)
                 labels.append([self.vocabulary.id2token(label_id + 1, self.task) for label_id in topk.indices])
                 probs.append([score.item() for score in topk.values])
             return {'sent_labels': labels, 'probs': probs}

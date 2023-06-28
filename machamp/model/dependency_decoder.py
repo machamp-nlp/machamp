@@ -481,7 +481,8 @@ class MachampDepDecoder(MachampDecoder, torch.nn.Module):
             topn = min(probs.shape[2], self.topn)
             topk_heads = torch.topk(probs, topn, dim=2)
             head_tag_logits = head_tag_logits[:, :, 1:]
-            topk_labels = torch.topk(F.softmax(head_tag_logits, -1), self.topn, dim=2)
+            topn = min(self.topn, head_tag_logits.shape[-1])
+            topk_labels = torch.topk(F.softmax(head_tag_logits, -1), topn, dim=2)
             topk_labels_indices = torch.add(topk_labels.indices, 1)
             return heads, head_tags, topk_heads.indices, topk_heads.values, topk_labels_indices, topk_labels.values
         else:
