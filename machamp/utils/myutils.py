@@ -108,16 +108,19 @@ def prep_batch(
         'subword_mask': The masking for the language model, shape=(batch_size, max_sent_len_subwords) filled with 1s
         and 0s.
         'task_masks': multiseq, multiclas and seq_bio need a word-level mask. This is for evaluation purposes mainly.
+        'dataset_ids': Dataset ID's for the dataset embeddings (enabled with: dataset_embed_idx).
     """
     batch_size = len(batch)
     max_subword_len = max([len(instance) for instance in batch])
-    batch_tokens = torch.full((batch_size, max_subword_len), 0, dtype=torch.long, device=device)
+    batch_subwords = torch.full((batch_size, max_subword_len), 0, dtype=torch.long, device=device)
+    batch_dataset_ids = torch.full((batch_size, max_subword_len), 0, dtype=torch.long, device=device)
+    found_dataset_id = False
     batch_seg_ids = torch.zeros((batch_size, max_subword_len), dtype=torch.long, device=device)
     golds = {}
     batch_offsets = None
     batch_word_mask = None
 
-    # Check if any of the task is token level, because we need to save the offsets and a 
+    # Check if any of the task is token level, because then we need to save the offsets and a 
     # separate mask
     all_tasks = set()
     has_word_level = assume_word_level
@@ -158,7 +161,10 @@ def prep_batch(
             task_masks[task] = torch.zeros((batch_size), dtype=torch.bool, device=device)
 
     for instanceIdx, instance in enumerate(batch):
-        batch_tokens[instanceIdx][0:len(instance.token_ids)] = instance.token_ids
+        batch_subwords[instanceIdx][0:len(instance.token_ids)] = instance.token_ids
+        if instance.dataset_ids not in [[], None]:
+            found_dataset_id = True
+            batch_dataset_ids[instanceIdx][0:len(instance.token_ids)] = instance.dataset_ids
         batch_seg_ids[instanceIdx][0:len(instance.seg_ids)] = instance.seg_ids
         for task in instance.golds:
             task_type = dataset.task_to_tasktype(task)
@@ -188,8 +194,11 @@ def prep_batch(
             batch_word_mask[instanceIdx][:len(instance.offsets)] = 1
         batch_subword_mask[instanceIdx][:len(instance.token_ids)] = 1
 
-    return {'token_ids': batch_tokens, 'seg_ids': batch_seg_ids, 'golds': golds, 'offsets': batch_offsets,
-            'subword_mask': batch_subword_mask, 'task_masks': task_masks, 'word_mask': batch_word_mask}
+    if not found_dataset_id:
+            batch_dataset_ids = None
+
+    return {'token_ids': batch_subwords, 'seg_ids': batch_seg_ids, 'golds': golds, 'offsets': batch_offsets,
+            'subword_mask': batch_subword_mask, 'task_masks': task_masks, 'word_mask': batch_word_mask, 'dataset_ids': batch_dataset_ids}
 
 
 def report_metrics(metrics):

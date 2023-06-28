@@ -207,7 +207,7 @@ Other things:
 
 * [Reproducibility](docs/reproducibility.md)
 * [Change bert embeddings](docs/change_embeds.md)
-* [Dataset embeddings](docs/dataset_embeds.md): Not available in MaChAmp 0.4 yet
+* [Dataset embeddings](docs/dataset_embeds.md)
 * [Predict on raw data](docs/predict_raw.md)
 * [Change evaluation metric](docs/metrics.md)
 * [Hyperparameters](docs/hyper.md)
