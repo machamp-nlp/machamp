@@ -151,7 +151,7 @@ def train(
     # extract the decoder attributes from the model (for MLM), and I wasnt sure how
     # to do it more elegantly
     first_group = []
-    second_group = ['^decoders.*', "scalars.*", 'dataset_embedder.*']
+    second_group = ['^decoders.*', "scalars.*", "dataset_embedder.*"]
     pred_head_names = ["pred_layer", "cls", "lm_head", "generator_lm_head", "predictions", "mlm", "vocab_projector"]
     for attribute in model.named_parameters():
         if attribute[0].startswith('mlm'):
@@ -177,7 +177,6 @@ def train(
 
     if resume:
         checkpoint = torch.load(train_state_path, map_location=device)
-        # model = torch.load(model_path, map_location=device)
         callback = checkpoint['callback']
         callback.serialization_dir = serialization_dir
 

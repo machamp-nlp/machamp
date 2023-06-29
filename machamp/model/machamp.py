@@ -25,7 +25,6 @@ from machamp.model.encoder import MachampEncoder
 from machamp.modules.allennlp.scalar_mix import ScalarMix
 from machamp.utils import myutils
 
-
 class MachampModel(torch.nn.Module):
     def __init__(self,
                  vocabulary: MachampVocabulary,
@@ -180,13 +179,15 @@ class MachampModel(torch.nn.Module):
                 size = self.mlm.encoder.config.hidden_size
             elif hasattr(self.mlm.config, 'hidden_size'):
                 size = self.mlm.config.hidden_size
+
             if size == -1:
                 logger.error('Not sure how to read the input size of the language model' +
                             ', but this is crucial for the dataset embeddings')
                 exit(1)
-            self.dataset_embedder = torch.nn.Embedding(
-                                                len(vocabulary.get_vocab("dataset_embeds")),
-                                                size)
+            init_weights = torch.empty(len(vocabulary.get_vocab("dataset_embeds")), size)
+            init_weights = torch.nn.init.xavier_uniform_(init_weights)
+            self.dataset_embedder = torch.nn.Embedding(len(vocabulary.get_vocab("dataset_embeds")), 
+                                                        size, _weight=init_weights)
 
 
     def forward(self,

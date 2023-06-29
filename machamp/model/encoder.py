@@ -121,13 +121,15 @@ class MachampEncoder:
 
         # if we need dataset embeddings, we get the word embeddings ourselves, and
         # sum the dataset embeddings with them. Then we use these word+dataset embeddings
-        # as input instead of the input_ids.
+        # as input instead of the input_ids. Note that BERT still sums segments and position
+        # embeds in forward(), and I assume other LM's as well (if they need them).
         if dataset_ids not in [None, []]:
             dataset_embeds = dataset_embedder(dataset_ids)
             if hasattr(self.mlm, 'embeddings'):
                 word_embeds = self.mlm.embeddings.word_embeddings(input_token_ids)
             else:
                 word_embeds = self.mlm.base_model.embeddings.word_embeddings(input_token_ids)
+
             args['inputs_embeds'] = word_embeds+dataset_embeds
             del args['input_ids']
 

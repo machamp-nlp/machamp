@@ -244,6 +244,7 @@ def read_sequence(
                 dataset_ids_words = [vocabulary.token2id(token[config['dataset_embed_idx']], 'dataset_embeds', is_train)
                                                                      for token in sent]
             dataset_ids_subwords = torch.zeros(len(token_ids), dtype=torch.long)
+
         for word_idx in range(len(offsets)):
             if word_idx == 0:
                 beg = 0
@@ -256,7 +257,7 @@ def read_sequence(
                     if num_special_tokens == 2:
                         dataset_ids_subwords[1+subword_idx] = dataset_ids_words[word_idx]
                     else:
-                        dataset_ids_subwords[subword_idx] = dataset_ids_words[word_idx]
+                        dataset_ids_subwords[1+subword_idx] = dataset_ids_words[word_idx]
 
         col_idxs = {}
         golds = {}
