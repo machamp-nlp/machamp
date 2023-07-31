@@ -50,7 +50,7 @@ def seqs2data(tabular_file: str, skip_first_line: bool = False):
             skip_first_line = False
             continue
         # because people use paste command, which includes empty tabs
-        if len(line) < 2 or line.replace('\t', '') == '':
+        if len(line) < 2 or line.replace('\t', '') in ['' '\n']:
             if len(sent) == 0:
                 continue
             num_cols = len(sent[-1])
