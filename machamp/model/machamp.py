@@ -188,7 +188,8 @@ class MachampModel(torch.nn.Module):
             init_weights = torch.nn.init.xavier_uniform_(init_weights)
             self.dataset_embedder = torch.nn.Embedding(len(vocabulary.get_vocab("dataset_embeds")), 
                                                         size, _weight=init_weights)
-
+        logger.info('Overview of the torch model: ')
+        logger.info(self)
 
     def forward(self,
                 input_token_ids: torch.tensor,
