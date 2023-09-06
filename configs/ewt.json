@@ -7,7 +7,8 @@
     "tasks": {
       "upos": {
         "task_type": "seq",
-        "column_idx": 3
+        "column_idx": 3,
+        "additional_metrics": ["f1_macro"]
       },
       "lemma": {
         "task_type": "string2string",
@@ -20,7 +21,8 @@
       },
       "dependency": {
         "task_type": "dependency",
-        "column_idx": 6
+        "column_idx": 6,
+        "additional_metrics": ["uas"]
       }
     }
   }

@@ -69,7 +69,9 @@ class MachampEncoder:
     def run_mlm(self,
                 input_token_ids: torch.tensor,
                 seg_ids: torch.tensor,
-                subword_mask: torch.tensor):
+                subword_mask: torch.tensor, 
+                dataset_ids: torch.tensor = None,
+                dataset_embedder: torch.nn.Embedding = None):
         """ 
         Runs self.mlm (an AutoModel), and return the last state
         of the encoder. Note that input should already be 
@@ -87,6 +89,11 @@ class MachampEncoder:
         subword_mask: torch.tensor = None
             Mask for the subwords to take into account, 
             shape=(batch_size, max_input_length) filled with 0s and 1s. 
+        dataset_ids: torch.tensor = None
+            Dataset ID's for the dataset embeddings (enabled with: 
+            dataset_embed_idx).
+        dataset_embedding: torch.nn.Embedding
+            The dataset embeddings of size [#datasets, encoder_input_size]
 
         Returns
         -------
@@ -110,6 +117,21 @@ class MachampEncoder:
             else:
                 decoder_input_ids = torch.full((batch_size, 1), decoder_start_token_id, device=input_token_ids.device)
             args['decoder_input_ids'] = decoder_input_ids
+
+
+        # if we need dataset embeddings, we get the word embeddings ourselves, and
+        # sum the dataset embeddings with them. Then we use these word+dataset embeddings
+        # as input instead of the input_ids. Note that BERT still sums segments and position
+        # embeds in forward(), and I assume other LM's as well (if they need them).
+        if dataset_ids not in [None, []]:
+            dataset_embeds = dataset_embedder(dataset_ids)
+            if hasattr(self.mlm, 'embeddings'):
+                word_embeds = self.mlm.embeddings.word_embeddings(input_token_ids)
+            else:
+                word_embeds = self.mlm.base_model.embeddings.word_embeddings(input_token_ids)
+
+            args['inputs_embeds'] = word_embeds+dataset_embeds
+            del args['input_ids']
 
         output = self.mlm.forward(**args)
 
@@ -146,7 +168,9 @@ class MachampEncoder:
               input_token_ids: torch.tensor,
               seg_ids: torch.tensor,
               dont_split: bool,
-              subword_mask: torch.tensor = None):
+              subword_mask: torch.tensor = None,
+              dataset_ids: torch.tensor = None, 
+              dataset_embedder: torch.nn.Embedding = None):
         """
         Embeds the token ID's from input_token_ids. This splits the input
         sentences that are longer than self.max_input_length, and merges
@@ -174,6 +198,11 @@ class MachampEncoder:
         subword_mask: torch.tensor = None
             Mask for the subwords to take into account, 
             shape=(batch_size, max_sent_len_subwords) filled with 0s and 1s. 
+        dataset_ids: torch.tensor = None
+            Dataset ID's for the dataset embeddings (enabled with: 
+            dataset_embed_idx).
+        dataset_embedder: torch.nn.Embedding
+            The dataset embeddings of size [#datasets, encoder_input_size]
 
         Returns
         -------
@@ -182,12 +211,12 @@ class MachampEncoder:
         """
         # input is smaller than max_len, so just embed and return
         if input_token_ids.size(-1) <= self.max_input_length:
-            return self.run_mlm(input_token_ids, seg_ids, subword_mask)
+            return self.run_mlm(input_token_ids, seg_ids, subword_mask, dataset_ids, dataset_embedder)
         else:  # input is too long, handle:
             if dont_split:  # truncate
                 # Shall we add the special last token and lose one subword instead?
                 return self.run_mlm(input_token_ids[:, :self.max_input_length], seg_ids[:, :self.max_input_length],
-                                    subword_mask[:, :self.max_input_length])
+                                    subword_mask[:, :self.max_input_length], dataset_ids[:,:self.max_input_length], dataset_embedder)
             else:  # split, embed, merge
 
                 # Split
@@ -209,13 +238,17 @@ class MachampEncoder:
 
                 new_input_tokens = torch.full((new_batch_size, self.max_input_length), find_end_token,
                                               device=input_token_ids.device, dtype=torch.int64)
+                new_dataset_ids = None
+                if dataset_ids not in [[], None]:
+                    new_dataset_ids = torch.zeros((new_batch_size, self.max_input_length), device=input_token_ids.device, dtype=torch.int64)
                 new_seg_ids = torch.full((new_batch_size, self.max_input_length), 0, device=input_token_ids.device,
                                          dtype=torch.int64)
-                # at version 0.4, this would never happen, all sequence level
+                # since version 0.4, this would never happen, all sequence level
                 # tasks have a subword mask, and all others don't get in here
                 # (they would truncate instead of merge). If we need this `if`
                 # we would also need many more below though
                 # if type(subword_mask) != type(None):
+
                 new_subword_mask = torch.full((new_batch_size, self.max_input_length), 0,
                                               device=input_token_ids.device, dtype=torch.int64)
                 if self.start_token_id != None:
@@ -230,6 +263,8 @@ class MachampEncoder:
                                                                               :lengths[sent_idx]]
                         new_seg_ids[cur_batch_idx][:lengths[sent_idx]] = seg_ids[sent_idx][:lengths[sent_idx]]
                         new_subword_mask[cur_batch_idx][:lengths[sent_idx]] = subword_mask[sent_idx][:lengths[sent_idx]]
+                        if dataset_ids not in [[], None]:
+                            new_dataset_ids[cur_batch_idx][:lengths[sent_idx]] = dataset_ids[sent_idx][:lengths[sent_idx]]
                         cur_batch_idx += 1
                     else:
                         # remove special tokens for simplicity, we will add them in each split manually
@@ -238,6 +273,9 @@ class MachampEncoder:
                         token_ids_sent = input_token_ids[sent_idx][beg_idx:end_idx]
                         seg_ids_sent = seg_ids[sent_idx][beg_idx:end_idx]
                         subword_mask_sent = subword_mask[sent_idx][beg_idx:end_idx]
+                        if dataset_ids not in [[], None]:
+                            dataset_ids_sent = dataset_ids[sent_idx][beg_idx:end_idx]
+
                         for split in range(amount_of_splits[sent_idx]):
                             src_beg = num_subwords_per_batch * split
                             tgt_beg = beg_idx
@@ -252,11 +290,15 @@ class MachampEncoder:
                             new_input_tokens[cur_batch_idx][tgt_beg:tgt_end] = token_ids_sent[src_beg:src_end]
                             new_seg_ids[cur_batch_idx][tgt_beg:tgt_end] = seg_ids_sent[src_beg:src_end]
                             new_subword_mask[cur_batch_idx][tgt_beg:tgt_end] = subword_mask_sent[src_beg:src_end]
+                            if dataset_ids not in [[], None]:
+                                new_dataset_ids[cur_batch_idx][tgt_beg:tgt_end] = dataset_ids_sent[src_beg:src_end]
+
                             if self.start_token_id != None:
                                 # Copy these from first subword to special start token
                                 # Note that the start token in new_input_tokens was already set earlier
                                 new_seg_ids[cur_batch_idx][0] = new_seg_ids[cur_batch_idx][1]
                                 new_subword_mask[cur_batch_idx][0] = new_subword_mask[cur_batch_idx][1]
+
                             if self.end_token_id != None:
                                 # Copy these from last subword to special end token
                                 # Note that the end token in new_input_tokens was already set earlier
@@ -266,7 +308,7 @@ class MachampEncoder:
                             cur_batch_idx += 1
 
                 # Embed:
-                mlm_out_split, mlm_preds = self.run_mlm(new_input_tokens, new_seg_ids, new_subword_mask)
+                mlm_out_split, mlm_preds = self.run_mlm(new_input_tokens, new_seg_ids, new_subword_mask, new_dataset_ids, dataset_embedder)
 
                 # Merge
                 num_layers = len(mlm_out_split)
@@ -297,7 +339,8 @@ class MachampEncoder:
                                                                            src_beg:src_end]
                             splitted_idx += 1
 
-                # Note that mlm_preds is not split. This is an error/bug, but we hardcoded that for the MLM
-                # task splitting shouldn't happen in the reader (its size is always < max_length), so it will 
-                # never occur in practice
+                # Note that mlm_preds (output for MLM task) is not split. This
+                # is an error/bug, but we hardcoded that for the MLM task
+                # splitting shouldn't happen in the reader (its size is always
+                # < max_length), so it will never occur in practice
                 return mlm_out_merged, mlm_preds

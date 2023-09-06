@@ -25,7 +25,6 @@ from machamp.model.encoder import MachampEncoder
 from machamp.modules.allennlp.scalar_mix import ScalarMix
 from machamp.utils import myutils
 
-
 class MachampModel(torch.nn.Module):
     def __init__(self,
                  vocabulary: MachampVocabulary,
@@ -40,7 +39,8 @@ class MachampModel(torch.nn.Module):
                  max_input_length: int,
                  retrain: str = '',
                  dropout: float = None,
-                 reset_transformer_model: bool = False
+                 reset_transformer_model: bool = False,
+                 dataset_embedder: torch.nn.Embedding = None
                  ) -> None:
         """
         The core MaChAmp model, which is basically a wrapper around a 
@@ -179,6 +179,27 @@ class MachampModel(torch.nn.Module):
                 
             self.decoders[task] = decoder
 
+        self.dataset_embedder = dataset_embedder
+        #I am not sure if self.mlm.encoder.config.hidden_size is available for all language
+        # models, perhaps there is a better way to get the input size?
+        if self.dataset_embedder == None and len(vocabulary.get_vocab('dataset_embeds')) > 0:
+            size = -1
+            if hasattr(self.mlm, 'encoder'):
+                size = self.mlm.encoder.config.hidden_size
+            elif hasattr(self.mlm.config, 'hidden_size'):
+                size = self.mlm.config.hidden_size
+
+            if size == -1:
+                logger.error('Not sure how to read the input size of the language model' +
+                            ', but this is crucial for the dataset embeddings')
+                exit(1)
+            init_weights = torch.empty(len(vocabulary.get_vocab("dataset_embeds")), size)
+            init_weights = torch.nn.init.xavier_uniform_(init_weights)
+            self.dataset_embedder = torch.nn.Embedding(len(vocabulary.get_vocab("dataset_embeds")), 
+                                                        size, _weight=init_weights)
+        logger.info('Overview of the torch model: ')
+        logger.info(self)
+
     def forward(self,
                 input_token_ids: torch.tensor,
                 golds: Dict[str, torch.tensor],
@@ -187,6 +208,7 @@ class MachampModel(torch.nn.Module):
                 subword_mask: torch.tensor = None,
                 task_masks: Dict[str, torch.tensor] = None,
                 word_mask: Dict[str, torch.tensor] = None,
+                dataset_ids: torch.tensor = None,
                 predicting: bool = False):
         """
         Forward pass
@@ -221,6 +243,9 @@ class MachampModel(torch.nn.Module):
         predicting: bool = False
             If predicting, we need to go through all task, otherwise we only
             go through the task present in the gold annotations.
+        dataset_ids: torch.tensor = None
+            Dataset ID's for the dataset embeddings (enabled with: 
+            dataset_embed_idx).
 
         Returns
         -------
@@ -247,7 +272,7 @@ class MachampModel(torch.nn.Module):
         dont_split = is_only_mlm or is_only_classification
 
         # Run transformer model on input
-        mlm_out, mlm_preds = self.encoder.embed(input_token_ids, seg_ids, dont_split, subword_mask)
+        mlm_out, mlm_preds = self.encoder.embed(input_token_ids, seg_ids, dont_split, subword_mask, dataset_ids, self.dataset_embedder)
 
         #mlm_out = (#layers, batch_size, words, output hidden dim)
         mlm_out_sent = None
@@ -330,6 +355,7 @@ class MachampModel(torch.nn.Module):
                           subword_mask: torch.tensor = None, 
                           task_masks: Dict[str, torch.tensor] = None,
                           word_mask: Dict[str, torch.tensor] = None,
+                          dataset_ids: torch.tensor = None,
                           raw_text: bool=False):
         """
         Run the forward pass, and convert the output indices to labels where
@@ -360,6 +386,9 @@ class MachampModel(torch.nn.Module):
             is not necessary for prediction, but only for scoring/loss, and it 
             is derived from gold. For multiseq it is impossible to derive from 
             gold, as 0 labels can be assigned, so we also need it. 
+        dataset_ids: torch.tensor = None
+            Dataset ID's for the dataset embeddings (enabled with: 
+            dataset_embed_idx).
         raw_text:
             No gold annotation available; means here that we predict for all 
             tasks.
@@ -373,7 +402,7 @@ class MachampModel(torch.nn.Module):
         # Run transformer model on input
         _, mlm_out_token, mlm_out_sent, mlm_out_tok, mlm_preds, _ = self.forward(input_token_ids, {}, seg_ids,
                                                                                  offsets, subword_mask, task_masks, 
-                                                                                word_mask, True)
+                                                                                word_mask, dataset_ids, True)
         out_dict = {}
         has_tok = 'tok' in self.task_types
 

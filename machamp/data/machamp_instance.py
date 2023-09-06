@@ -11,7 +11,8 @@ class MachampInstance:
                  golds: Dict[Any, torch.tensor],
                  dataset: str,
                  offsets: torch.tensor = None,
-                 no_unk_subwords: List[str] = None):
+                 no_unk_subwords: List[str] = None, 
+                 dataset_ids: List[int] = None):
         """
 
         Parameters
@@ -43,6 +44,7 @@ class MachampInstance:
         self.dataset = dataset
         self.offsets = offsets
         self.no_unk_subwords = no_unk_subwords
+        self.dataset_ids = dataset_ids
 
     def __len__(self) -> int:
         """
