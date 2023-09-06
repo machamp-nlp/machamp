@@ -174,8 +174,8 @@ class MachampModel(torch.nn.Module):
                                        device, **self.dataset_configs[dataset]['tasks'][task])
             else:
                 decoder = decoder_type(task, self.vocabulary, self.mlm_out_size, 
-                                    device, decoder_dropout=task_decoder_dropout,
-                                    **self.dataset_configs[dataset]['tasks'][task])
+                                       device, decoder_dropout=task_decoder_dropout,
+                                       **self.dataset_configs[dataset]['tasks'][task])
                 
             self.decoders[task] = decoder
 
