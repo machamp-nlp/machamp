@@ -215,6 +215,9 @@ class MachampEncoder:
         else:  # input is too long, handle:
             if dont_split:  # truncate
                 # Shall we add the special last token and lose one subword instead?
+                if dataset_ids == None:
+                    return self.run_mlm(input_token_ids[:, :self.max_input_length], seg_ids[:, :self.max_input_length],
+                                    subword_mask[:, :self.max_input_length], dataset_ids, dataset_embedder)
                 return self.run_mlm(input_token_ids[:, :self.max_input_length], seg_ids[:, :self.max_input_length],
                                     subword_mask[:, :self.max_input_length], dataset_ids[:,:self.max_input_length], dataset_embedder)
             else:  # split, embed, merge
