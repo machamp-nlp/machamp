@@ -175,7 +175,7 @@ class MachampModel(torch.nn.Module):
         # models, perhaps there is a better way to get the input size?
         if self.dataset_embedder == None and len(vocabulary.get_vocab('dataset_embeds')) > 0:
             size = -1
-            if hasattr(self.mlm, 'encoder'):
+            if hasattr(self.mlm, 'encoder') and hasattr(self.mlm.encoder, 'config'):
                 size = self.mlm.encoder.config.hidden_size
             elif hasattr(self.mlm.config, 'hidden_size'):
                 size = self.mlm.config.hidden_size
