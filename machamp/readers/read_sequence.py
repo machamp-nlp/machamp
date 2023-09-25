@@ -338,11 +338,14 @@ def read_sequence(
 
             # Read sentence classification task in the comments
             elif task_type == 'classification' and task_idx == -1:
-                start = '# ' + task + ': '
+                start1 = '# ' + task + ': '
+                start2 = '# ' + task + '= '
                 label = ''
                 for line in full_data:
-                    if line[0].startswith(start):
-                        label = line[0][len(start):]
+                    if line[0].startswith(start1):
+                        label = line[0][len(start1):]
+                    elif line[0].startswith(start2):
+                        label = line[0][len(start2):]
                 if label != '':
                     golds[task] = vocabulary.token2id(label, task, is_train)
                 else:
