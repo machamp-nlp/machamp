@@ -91,6 +91,7 @@ def read_classification(
     sent_idxs = config['sent_idxs']
     subword_counter = 0
     unk_counter = 0
+    sent_counter = 0
     test_tok = tokenizer.encode_plus('a', 'b')
     has_start_token = len(tokenizer.prepare_for_model([])['input_ids']) == 2
     has_end_token = len(tokenizer.prepare_for_model([])['input_ids']) >= 1

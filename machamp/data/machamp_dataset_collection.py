@@ -88,7 +88,11 @@ class MachampDatasetCollection(Dataset):
 
         self.datasets = {}
         for dataset in self.dataset_configs:
-            self.datasets[dataset] = MachampDataset(dataset, self.dataset_configs[dataset], self.tokenizer, self.vocabulary, self.is_raw, self.is_train, max_input_length, self.num_epochs)
+            dataset_data = MachampDataset(dataset, self.dataset_configs[dataset], self.tokenizer, self.vocabulary, self.is_raw, self.is_train, max_input_length, self.num_epochs)
+            if len(dataset_data) > 0:
+                self.datasets[dataset] = MachampDataset(dataset, self.dataset_configs[dataset], self.tokenizer, self.vocabulary, self.is_raw, self.is_train, max_input_length, self.num_epochs)
+            else:
+                logger.info("dataset is empty: \n"  + str(self.dataset_configs[dataset]) + '\n' )
 
 
     def task_to_tasktype(self, task: str):
