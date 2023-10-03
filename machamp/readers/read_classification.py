@@ -170,7 +170,7 @@ def read_classification(
                     continue
                 else:
                     logger.error('Annotation for task ' + task + ' is missing in ' + dataset + ':' + str(
-                        sent_counter) + ', collumn ' + str(col_idxs[task]))
+                        sent_counter) + ': ' + data_path)
                     exit(1)
             gold = data_instance[task_idx]
             if task_type == 'regression':
