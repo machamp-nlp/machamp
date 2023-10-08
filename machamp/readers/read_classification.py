@@ -91,6 +91,7 @@ def read_classification(
     sent_idxs = config['sent_idxs']
     subword_counter = 0
     unk_counter = 0
+    sent_counter = 0
     test_tok = tokenizer.encode_plus('a', 'b')
     has_start_token = len(tokenizer.prepare_for_model([])['input_ids']) == 2
     has_end_token = len(tokenizer.prepare_for_model([])['input_ids']) >= 1
@@ -169,7 +170,7 @@ def read_classification(
                     continue
                 else:
                     logger.error('Annotation for task ' + task + ' is missing in ' + dataset + ':' + str(
-                        sent_counter) + ', collumn ' + str(col_idxs[task]))
+                        sent_counter) + ': ' + data_path)
                     exit(1)
             gold = data_instance[task_idx]
             if task_type == 'regression':

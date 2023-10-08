@@ -70,6 +70,7 @@ class MachampBatchSampler(Sampler):
         self.batches = []
 
         # dev samplers can be empty, then we are done here
+        self.first_filled = True
         if total_size == 0:
             return
 
@@ -83,7 +84,6 @@ class MachampBatchSampler(Sampler):
             prob = (1 / pi) * (math.pow(pi, self.smoothing_factor) / total_new_prob)
             self.dataset_sizes[dataset] = int(size * prob)
 
-        self.first_filled = True
         self.fill_batches() 
 
     def fill_batches(self):
