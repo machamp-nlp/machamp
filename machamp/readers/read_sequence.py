@@ -50,7 +50,7 @@ def seqs2data(tabular_file: str, skip_first_line: bool = False):
             skip_first_line = False
             continue
         # because people use paste command, which includes empty tabs
-        if len(line) < 2 or line.replace('\t', '') == '':
+        if len(line) < 2 or line.replace('\t', '') in ['' '\n']:
             if len(sent) == 0:
                 continue
             num_cols = len(sent[-1])
@@ -195,6 +195,11 @@ def read_sequence(
         for task in config['tasks']:
             if config['tasks'][task]['task_type'] == 'tok':
                 do_splits = config['tasks'][task]['pre_split']
+
+    
+    if is_train and 'dataset_embed_idx':
+        vocabulary.create_vocab('dataset_embeds', True)
+
     learn_splits = do_splits and is_train
     for sent, full_data in all_sents:
         # sent is a list of lists, of shape sentenceLength, numColumns
@@ -231,15 +236,28 @@ def read_sequence(
             no_unk_subwords = None
         token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
 
-        # if index = -1, the dataset name is used, and this is handled in the superclass
-        # dec_dataset_embeds = []
-        # if 'dec_dataset_embed_idx' in config and config['dec_dataset_embed_idx'] != -1:
-        #    instance.add_field('dec_dataset_embeds', SequenceLabelField([token[config['dec_dataset_embed_idx']] for
-        #                                           token in sent]), input_field, label_namespace='dec_dataset_embeds')
-        # enc_dataset_embeds = []
-        # if 'enc_dataset_embed_idx' in config and config['enc_dataset_embed_idx'] != -1:
-        #    instance.add_field('enc_dataset_embeds', SequenceLabelField([token[config['enc_dataset_embed_idx']] for
-        #                                           token in sent]), input_field, label_namespace='enc_dataset_embeds')
+        dataset_ids_subwords = []
+        if 'dataset_embed_idx' in config:
+            if config['dataset_embed_idx'] == -1:
+                dataset_ids_words = [vocabulary.token2id(dataset, 'dataset_embeds', is_train) for token in sent]
+            else:
+                dataset_ids_words = [vocabulary.token2id(token[config['dataset_embed_idx']], 'dataset_embeds', is_train)
+                                                                     for token in sent]
+            dataset_ids_subwords = torch.zeros(len(token_ids), dtype=torch.long)
+
+        for word_idx in range(len(offsets)):
+            if word_idx == 0:
+                beg = 0
+            else:
+                beg = offsets[word_idx-1]
+            end = offsets[word_idx]
+            for subword_idx in range(beg, end+1):# end+1 because inclusive
+                # 1+ for the CLS token
+                if 'dataset_embed_idx' in config:
+                    if num_special_tokens == 2:
+                        dataset_ids_subwords[1+subword_idx] = dataset_ids_words[word_idx]
+                    else:
+                        dataset_ids_subwords[1+subword_idx] = dataset_ids_words[word_idx]
 
         col_idxs = {}
         golds = {}
@@ -392,7 +410,7 @@ def read_sequence(
         #    continue
         data.append(
             MachampInstance(full_data, token_ids, torch.zeros((len(token_ids)), dtype=torch.long), golds, dataset,
-                            offsets, no_unk_subwords))
+                            offsets, no_unk_subwords, dataset_ids_subwords))
 
     if is_train and max_sents != -1 and sent_counter < max_sents:
         logger.warning('Maximum sentences was set to ' + str(max_sents) + ', but dataset only contains ' + str(

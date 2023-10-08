@@ -19,9 +19,9 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
     ) -> None:
         super().__init__(task, vocabulary, loss_weight, metric, device, **kwargs)
 
-        nlabels = len(self.vocabulary.get_vocab(task))
+        self.nlabels = len(self.vocabulary.get_vocab(task))
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
-        self.hidden_to_label = torch.nn.Linear(input_dim, nlabels)
+        self.hidden_to_label = torch.nn.Linear(input_dim, self.nlabels)
         self.hidden_to_label.to(device)
         self.loss_function = torch.nn.CrossEntropyLoss(ignore_index=-100)
         self.topn = topn
@@ -68,7 +68,8 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
                 tags.append([])
                 probs.append([])
                 for word_scores in sent_scores:
-                    topk = torch.topk(word_scores[1:], self.topn)
+                    topn = min(self.topn, self.nlabels)
+                    topk = torch.topk(word_scores[1:], topn)
                     tags[-1].append([self.vocabulary.id2token(label_id + 1, self.task) for label_id in topk.indices])
                     probs[-1].append([score.item() for score in topk.values])
             return {'word_labels': tags, 'probs': probs}

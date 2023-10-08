@@ -69,6 +69,9 @@ def read_mlm(
         exit(1)
     task = list(config['tasks'])[0]
 
+    if is_train and 'dataset_embed_idx':
+        vocabulary.create_vocab('dataset_embeds', True)
+
     for line in open(data_path):
         line = line.rstrip('\n')
         if max_sents != -1 and sent_counter >= max_sents and is_train:
@@ -89,20 +92,20 @@ def read_mlm(
             unk_counter += sum(token_ids == tokenizer.unk_token_id)
         subword_counter += len(token_ids) - num_special_tokens
 
-        # if index = -1, the dataset name is used, and this is handled in the superclass
-        # dec_dataset_embeds = []
-        # if 'dec_dataset_embed_idx' in config and config['dec_dataset_embed_idx'] != -1:
-        #    instance.add_field('dec_dataset_embeds', SequenceLabelField([token[config['dec_dataset_embed_idx']] for
-        #                                       token in sent]), input_field, label_namespace='dec_dataset_embeds')
-        # enc_dataset_embeds = []
-        # if 'enc_dataset_embed_idx' in config and config['enc_dataset_embed_idx'] != -1:
-        #    instance.add_field('enc_dataset_embeds', SequenceLabelField([token[config['enc_dataset_embed_idx']]
-        #                                       for token in sent]), input_field, label_namespace='enc_dataset_embeds')
-
         input_text, output_labels = masker.torch_mask_tokens(token_ids.view(1, -1))
         input_text = input_text[0]
         output_labels = output_labels[0]
         output_labels[output_labels == -100] = 0
+        data_ids = []
+        if 'dataset_embed_idx' in config:
+            if config['dataset_embed_idx'] != 0:
+                logger.error('Dataset embeddings from an index is not supported with MLM, use -1 to use the dataset name as label')
+                exit(1)
+            data_ids = [dataset] * len(input_text)-num_special_tokens
+        data_ids_full = torch.zeros(len(input_text), dtype=torch.long)
+        start = 0 if num_special_tokens == 0 else 1
+        data_ids_full[start:start+len(data_ids)]
+
         if num_special_tokens == 2:
             output_labels = output_labels[1:-1]
         elif num_special_tokens == 1:
@@ -111,7 +114,8 @@ def read_mlm(
     
         offsets = torch.arange(0, len(input_text)-num_special_tokens)
         data.append(MachampInstance([line], input_text, torch.zeros((len(token_ids)), dtype=torch.long), golds, dataset,
-                                    offsets))
+                                    offsets, dataset_ids = data_ids_full))
+
     if is_train and max_sents != -1 and sent_counter < max_sents:
         logger.warning('Maximum sentences was set to ' + str(max_sents) + ', but dataset only contains ' + str(
             sent_counter) + ' lines. Note that this could be because empty lines are ignored')

@@ -28,7 +28,7 @@ def evaluate(dev_dataloader, model, train_dataset):
         batch = myutils.prep_batch(batch, model.device, train_dataset)
         _, _, _, _, _, loss_dict = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'],
                                                     batch['offsets'], batch['subword_mask'], 
-                                                    batch['task_masks'], batch['word_mask'])
+                                                    batch['task_masks'], batch['word_mask'], batch['dataset_ids'])
         for task in loss_dict:
             if task not in total_dev_losses:
                 total_dev_losses[task] = 0.0
@@ -163,7 +163,7 @@ def train(
     # extract the decoder attributes from the model (for MLM), and I wasnt sure how
     # to do it more elegantly
     first_group = []
-    second_group = ['^decoders.*', "scalars.*"]
+    second_group = ['^decoders.*', "scalars.*", "dataset_embedder.*"]
     pred_head_names = ["pred_layer", "cls", "lm_head", "generator_lm_head", "predictions", "mlm", "vocab_projector"]
     for attribute in model.named_parameters():
         if attribute[0].startswith('mlm'):
@@ -189,7 +189,6 @@ def train(
 
     if resume:
         checkpoint = torch.load(train_state_path, map_location=device)
-        # model = torch.load(model_path, map_location=device)
         callback = checkpoint['callback']
         callback.serialization_dir = serialization_dir
 
@@ -226,7 +225,7 @@ def train(
             #    continue
             loss, _, _, _, _, loss_dict = model.forward(batch['token_ids'], batch['golds'], batch['seg_ids'],
                                                         batch['offsets'], batch['subword_mask'], 
-                                                        batch['task_masks'], batch['word_mask'])
+                                                        batch['task_masks'], batch['word_mask'], batch['dataset_ids'])
             for task in loss_dict:
                 if task not in total_train_losses:
                     total_train_losses[task] = 0.0

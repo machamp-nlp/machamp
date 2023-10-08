@@ -67,10 +67,10 @@ Every dataset needs at least a name (UD-EWT), a `train_data_path`,
 column the input words can be found.
 
 Every task requires a unique name, a `task_type` and a `column_idx`. The
-`task_type` should be one of `seq`, `string2string`, `dependency`, `multi_seq`,
-`seq_bio`, `classification`, these are explained in more detail below. The
-`column_idx` indicates the column from which the labels of the task should be
-read.
+`task_type` should be one of `seq`, `string2string`, `seq_bio`, `multiseq`,
+`multiclas`, `dependency`, `classification`, `mlm`, `regression`; these are
+explained in more detail below. The `column_idx` indicates the column from
+which the labels of the task should be read.
 
 ```
 python3 train.py --dataset_configs configs/ewt.json --device 0
@@ -207,7 +207,7 @@ Other things:
 
 * [Reproducibility](docs/reproducibility.md)
 * [Change bert embeddings](docs/change_embeds.md)
-* [Dataset embeddings](docs/dataset_embeds.md): Not available in MaChAmp 0.4 yet
+* [Dataset embeddings](docs/dataset_embeds.md)
 * [Predict on raw data](docs/predict_raw.md)
 * [Change evaluation metric](docs/metrics.md)
 * [Hyperparameters](docs/hyper.md)
@@ -218,6 +218,8 @@ Other things:
 * [Results](docs/results.md)
 * [Adding a new task-type](docs/new_task_type.md)
 * [Extract a model after finetuning](docs/extract_model.md)
+* [Use in CoLab](https://colab.research.google.com/drive/1zkowQPeiQMgKnEmKITjccTRvtfdpGfEH?usp=sharing)
+
 
 ## Known issues
 

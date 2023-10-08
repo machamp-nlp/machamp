@@ -14,6 +14,7 @@ MaChAmp supports a variety of metrics for task types. Specifically:
   and [classification](classification.md);
 * **span-based F1 score** (`span_f1`): for the task type [seq_bio](seq_bio.md) and [seq](seq.md);
 * **labeled attachment score** (`las`): for the task type [dependency](dependency.md);
+* **unlabeled attachment score** (`uas`): for the task type [dependency](dependency.md);
 * **perplexity** (`perplexity`): for the task type [mlm](mlm.md);
 * **average distance** (`avg_dist`): for the task type [regression](mlm.md)
 * **pearson** (`pearson`): for the task type [regression](mlm.md)

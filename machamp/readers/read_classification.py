@@ -96,6 +96,10 @@ def read_classification(
     has_end_token = len(tokenizer.prepare_for_model([])['input_ids']) >= 1
     has_unk_token = tokenizer.unk_token != None
     has_seg_ids = 'token_type_ids' in test_tok and 1 in test_tok['token_type_ids']
+
+    if is_train and 'dataset_embed_idx':
+        vocabulary.create_vocab('dataset_embeds', True)
+
     if 'skip_first_line' not in config:
         config['skip_first_line'] = False
     for sent_counter, data_instance in enumerate(lines2data(data_path, config['skip_first_line'])):
@@ -125,19 +129,30 @@ def read_classification(
             if has_seg_ids:
                 seg_ids.extend([counter % 2] * len(encoding))
             full_input.extend(encoding)
-        unk_counter += full_input.count(tokenizer.unk_token_id)
+
         if has_end_token:
             full_input = full_input[:-1]
+
+        if 'dataset_embed_idx' in config:
+            if config['dataset_embed_idx'] == -1:
+                dataset_ids_subwords = [vocabulary.token2id(dataset, 'dataset_embeds', is_train) for token in full_input]
+            else:
+                dataset_ids_subwords = [vocabulary.token2id(data_instance[config['dataset_embed_idx']], 'dataset_embeds', is_train) for token in full_input]
+
+        unk_counter += full_input.count(tokenizer.unk_token_id)
         full_input = tokenizer.prepare_for_model(full_input)['input_ids']
         full_input = torch.tensor(full_input, dtype=torch.long)
         seg_ids = torch.tensor(seg_ids, dtype=torch.long)
 
-        # if 'dec_dataset_embed_idx' in config and config['dec_dataset_embed_idx'] != -1:
-        #    instance.add_field('dec_dataset_embeds', SequenceLabelField([data_instance[config['dec_dataset_embed_idx']]
-        #                                   for _ in full_input]), input_field, label_namespace= 'dec_dataset_embeds')
-        # if 'enc_dataset_embed_idx' in config and config['enc_dataset_embed_idx'] != -1:
-        #    instance.add_field('enc_dataset_embeds', SequenceLabelField([data_instance[config['enc_dataset_embed_idx']]
-        #                                   for _ in full_input]), input_field, label_namespace= 'dec_dataset_embeds')
+        dataset_ids_all = []
+        if 'dataset_embed_idx' in config:
+            dataset_ids_all = torch.zeros(len(full_input), dtype=torch.long)
+            if config['dataset_embed_idx'] == -1:
+                start = 0
+                if has_start_token:
+                    start = 1
+                for subword_idx, data_id in enumerate(dataset_ids_subwords):
+                    dataset_ids_all[subword_idx + start] = data_id
 
         if sent_counter == 0 and is_train:
             for task in config['tasks']:  # sep. loop for efficiency
@@ -172,7 +187,7 @@ def read_classification(
             col_idxs[task] = task_idx
             golds[task] = gold
 
-        data.append(MachampInstance(data_instance, full_input, seg_ids, golds, dataset))
+        data.append(MachampInstance(data_instance, full_input, seg_ids, golds, dataset, dataset_ids=dataset_ids_all))
     if is_train and max_sents != -1 and sent_counter < max_sents:
         logger.warning('Maximum sentences was set to ' + str(max_sents) + ', but dataset only contains ' + str(
             sent_counter) + ' sentences.')
