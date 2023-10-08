@@ -1,7 +1,6 @@
 {
-  "transformer_model":"bert-base-multilingual-cased",
+  "transformer_model": "bert-base-multilingual-cased",
   //"transformer_model": "xlm-roberta-large",
-  // "UBC-NLP/IndT5",
   "reset_transformer_model": false,
   "random_seed": 8446,
   "default_dec_dataset_embeds_dim": 12,
@@ -22,26 +21,23 @@
     "dependency": {
       "arc_representation_dim": 768,
       "tag_representation_dim": 256,
-      "metric": "las",
-      //"dropout": 0.5
+      "metric": "las"
     },
     "mlm": {
       "metric": "perplexity"
     },
     "multiclas": {
       "metric": "multi_acc",
-      "threshold": 0.7,
-      //"dropout": 0.5
+      "threshold": 0.7
     },
     "multiseq": {
       "metric": "multi_acc",
-      //"threshold": 0.7
+      "threshold": 0.7
     },
     "regression": {
       "metric": "avg_dist"
     },
     "seq": {
-      //"dropout": 0.5
     },
     "seq_bio": {
       "metric": "span_f1"
@@ -69,7 +65,7 @@
       "discriminative_fine_tuning": true,
       "gradual_unfreezing": true
     },
-    "num_epochs": 50,
+    "num_epochs": 20,
     "optimizer": {
       //"type": "adamw",
       "betas": [
@@ -83,4 +79,5 @@
     }
   }
 }
+
 
