@@ -339,7 +339,7 @@ def read_sequence(
             # Read sentence classification task in the comments
             elif task_type == 'classification' and task_idx == -1:
                 start1 = '# ' + task + ': '
-                start2 = '# ' + task + '= '
+                start2 = '# ' + task + ' = '
                 label = ''
                 for line in full_data:
                     if line[0].startswith(start1):
