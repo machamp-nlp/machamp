@@ -10,7 +10,8 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
             task: str,
             vocabulary,
             input_dim: int,
-            device: str,
+            device: str, 
+            decoder_dropout: float = 0.0,
             loss_weight: float = 1.0,
             metric: str = 'accuracy',
             topn: int = 1,
@@ -25,7 +26,13 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
         self.loss_function = torch.nn.CrossEntropyLoss(ignore_index=-100)
         self.topn = topn
 
+        self.decoder_dropout = torch.nn.Dropout(decoder_dropout)
+        self.decoder_dropout.to(device)
+
     def forward(self, mlm_out, task_subword_mask, gold=None):
+        if self.decoder_dropout.p > 0.0:
+            mlm_out =  self.decoder_dropout(mlm_out) 
+
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):

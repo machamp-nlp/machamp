@@ -7,7 +7,7 @@ from machamp.metrics.metric import Metric
 
 
 class MachampDecoder(torch.nn.Module):
-    def __init__(self, task, vocabulary, loss_weight: float = 1.0, metric: str = 'avg_dist', device: str = 'cpu', **kwargs):
+    def __init__(self, task, vocabulary, loss_weight: float = 1.0, metric: str = 'avg_dist',  device: str = 'cpu', **kwargs):
         super().__init__()
 
         self.task = task
@@ -15,7 +15,7 @@ class MachampDecoder(torch.nn.Module):
         self.metric = Metric(metric)
         self.loss_weight = loss_weight
         self.device = device
-
+        
         if "additional_metrics" in kwargs:
             if type(kwargs["additional_metrics"]) == str:
                 self.additional_metrics = [Metric(kwargs["additional_metrics"])]
