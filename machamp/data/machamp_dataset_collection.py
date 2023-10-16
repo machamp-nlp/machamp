@@ -59,7 +59,6 @@ class MachampDatasetCollection(Dataset):
             into account, and return everything (for dev/test data). We 
             increase the epoch count every time fill_batches is called.
         """
-
         self.tokenizer = AutoTokenizer.from_pretrained(emb_name, use_fast=False)
         self.dataset_configs = dataset_configs
 
@@ -90,7 +89,7 @@ class MachampDatasetCollection(Dataset):
         for dataset in self.dataset_configs:
             dataset_data = MachampDataset(dataset, self.dataset_configs[dataset], self.tokenizer, self.vocabulary, self.is_raw, self.is_train, max_input_length, self.num_epochs)
             if len(dataset_data) > 0:
-                self.datasets[dataset] = MachampDataset(dataset, self.dataset_configs[dataset], self.tokenizer, self.vocabulary, self.is_raw, self.is_train, max_input_length, self.num_epochs)
+                self.datasets[dataset] = dataset_data
             else:
                 logger.info("dataset is empty: \n"  + str(self.dataset_configs[dataset]) + '\n' )
 
