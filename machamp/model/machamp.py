@@ -32,6 +32,7 @@ class MachampModel(torch.nn.Module):
                  task_types: List[str],
                  mlm: str,
                  device: str,
+                 decoder_dropouts: dict,
                  dataset_configs: Dict,
                  tokenizer: AutoTokenizer,
                  update_weights_encoder: bool,
@@ -166,8 +167,16 @@ class MachampModel(torch.nn.Module):
                 logger.error('Error, task_type ' + task_type + ' not implemented')
                 exit(1)
 
-            decoder = decoder_type(task, self.vocabulary, self.mlm_out_size, device,
-                                   **self.dataset_configs[dataset]['tasks'][task])
+            task_decoder_dropout = decoder_dropouts[task_type]
+            if task_type == "mlm":
+                # No decoder dropout here.
+                decoder = decoder_type(task, self.vocabulary, self.mlm_out_size, 
+                                       device, **self.dataset_configs[dataset]['tasks'][task])
+            else:
+                decoder = decoder_type(task, self.vocabulary, self.mlm_out_size, 
+                                       device, decoder_dropout=task_decoder_dropout,
+                                       **self.dataset_configs[dataset]['tasks'][task])
+                
             self.decoders[task] = decoder
 
         self.dataset_embedder = dataset_embedder

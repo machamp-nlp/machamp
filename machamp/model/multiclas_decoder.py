@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class MachampMulticlasDecoder(MachampDecoder, torch.nn.Module):
     def __init__(self, task, vocabulary, input_dim, device, loss_weight: float = 1.0, topn: int = 1,
-                 metric: str = 'accuracy', threshold: float = .7, **kwargs):
+                 metric: str = 'accuracy', decoder_dropout: float = 0.0, threshold: float = .7, **kwargs):
         super().__init__(task, vocabulary, loss_weight, metric, device,
                          **kwargs)
 
@@ -20,7 +20,13 @@ class MachampMulticlasDecoder(MachampDecoder, torch.nn.Module):
         self.topn = topn
         self.threshold = threshold
 
+        self.decoder_dropout = torch.nn.Dropout(decoder_dropout)
+        self.decoder_dropout.to(device)
+
     def forward(self, mlm_out, mask, gold=None):
+        if self.decoder_dropout.p > 0.0:
+            mlm_out =  self.decoder_dropout(mlm_out) 
+
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):

@@ -30,3 +30,9 @@ saves a lot of GPU ram.
 * `encoder/dropout`
 
 
+### Decoder dropout
+Decoder dropout is defined on the task-type level. It can be set in
+`decoders/[task\_type]`.  Currently, decoder dropout is not supported for
+language modeling, because it uses the native language modeling head from
+Huggingface.  Thanks to Lguyogiro for the implementation.
+

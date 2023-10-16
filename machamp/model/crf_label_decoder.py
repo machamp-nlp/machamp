@@ -19,6 +19,7 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
             device: str,
             loss_weight: float = 1.0,
             metric: str = 'accuracy',
+            decoder_dropout: float = 0.0,
             topn: int = 1,
             **kwargs
     ) -> None:
@@ -28,6 +29,9 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
         self.input_dim = input_dim  # + dec_dataset_embeds_dim
         self.hidden_to_label = torch.nn.Linear(input_dim, nlabels)
         self.hidden_to_label.to(device)
+
+        self.decoder_dropout = torch.nn.Dropout(decoder_dropout)
+        self.decoder_dropout.to(device)
 
         # hardcoded for now
         constraints = allowed_transitions('BIO', vocabulary.inverse_namespaces[task])
@@ -43,6 +47,9 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
         self.topn = topn
 
     def forward(self, mlm_out, mask, gold=None):
+        if self.decoder_dropout.p > 0.0:
+            mlm_out =  self.decoder_dropout(mlm_out) 
+
         logits = self.hidden_to_label(mlm_out)
         best_paths = self.crf_layer.viterbi_tags(logits, mask)
 

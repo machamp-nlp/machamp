@@ -13,6 +13,11 @@ class Accuracy:
         golds = torch.flatten(golds)
 
         contents = torch.nonzero(golds != -100)
+        # Only unks in gold, probably an indicator that 
+        # there are no annotations
+        if len(contents) == 0:
+            self.total += len(golds)
+            return
         preds = preds[contents]
         golds = golds[contents]
 

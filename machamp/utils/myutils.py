@@ -220,12 +220,13 @@ def report_metrics(metrics):
         if metric == 'sum':
             info[metric] = '{:.4f}'.format(metrics[metric])
             continue
-        optim_metric = metrics[metric]['optimization_metrics']
-        value = metrics[metric][optim_metric][optim_metric]
-        if type(value) == float:
-            info[metric + '_' + optim_metric] = '{:.4f}'.format(value)
-        else:
-            info[metric + '_' + optim_metric] = value
+        if 'optimization_metrics' in metrics[metric]:
+            optim_metric = metrics[metric]['optimization_metrics']
+            value = metrics[metric][optim_metric][optim_metric]
+            if type(value) == float:
+                info[metric + '_' + optim_metric] = '{:.4f}'.format(value)
+            else:
+                info[metric + '_' + optim_metric] = value
     longest_key = max([len(key) for key in info]) + 1
     for key, value in info.items():
         logger.info(key + ' ' * (longest_key - len(key)) + ': ' + str(value))
