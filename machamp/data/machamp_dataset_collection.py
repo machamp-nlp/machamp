@@ -87,6 +87,8 @@ class MachampDatasetCollection(Dataset):
 
         self.datasets = {}
         for dataset in self.dataset_configs:
+            if self.is_train == False and 'dev_data_path' not in self.dataset_configs[dataset]:
+                continue
             dataset_data = MachampDataset(dataset, self.dataset_configs[dataset], self.tokenizer, self.vocabulary, self.is_raw, self.is_train, max_input_length, self.num_epochs)
             if len(dataset_data) > 0:
                 self.datasets[dataset] = dataset_data
