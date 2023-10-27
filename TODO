@@ -1,0 +1,28 @@
+Functionality:
+- Metrics might be broken (accuracy is), because of distinction between UNK/PAD
+- freeze or random seems to be broken (if frozen and random performance is still high): guess its freezing
+- pick last subwords embedding for decoder only models for classification ('encoder' in str(model))
+- Memory usage goes up when reaching the final prediction step
+- report average instead of sum?
+- Metrics do not match after saving/loading the model?! (try EWT for 5 steps, and LAS is one off in "correct" counts)
+- When downloading model it is now logged as ERROR - STDERR
+
+Clean later:
+- remove scalars parameters warning
+- Fix wiki.sh?
+- "." can not be part of a task name because of scalars dict, should scalars be in task_decoders?
+- Remove dependency on numpy
+- FutureWarning: This implementation of AdamW is deprecated.  Use the PyTorch implementation torch.optim.AdamW instead
+- Add support for parameter overriding from command line: python3 train.py --dataset_config configs/ewt.json --parameter transformer_model=xlm-roberta-large,batching.sampling_smoothing=0.5
+- output all tasks with predict somehow
+
+functionality later:
+- Tune threshold of multiseq and multiclas automatically
+- label balancing
+- seq2seq task
+- Multi-F1
+- support longer input by classifying multiple cls tokens at once?
+- QUAD-like tasks: https://huggingface.co/docs/transformers/model_doc/roberta#transformers.RobertaForQuestionAnswering
+- support other subword strategies
+- early stopping (less stable with slanted triangular LR)?
+
