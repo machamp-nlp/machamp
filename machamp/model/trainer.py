@@ -114,7 +114,10 @@ def train(
 
     if cmd != '':
         logger.info('cmd: ' + cmd)
-    logger.info('GPU: ' + torch.cuda.get_device_name(device))
+    if 'cuda' in device:
+        logger.info('GPU: ' + torch.cuda.get_device_name(device))
+    else:
+        logger.info('GPU: none, on CPU currently')
     logger.info('Torch version: ' + torch.__version__)
     logger.info('Transformers version: ' + transformers.__version__)
     if os.path.isfile('.git/logs/HEAD'):
