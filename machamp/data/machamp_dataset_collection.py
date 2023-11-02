@@ -59,7 +59,16 @@ class MachampDatasetCollection(Dataset):
             into account, and return everything (for dev/test data). We 
             increase the epoch count every time fill_batches is called.
         """
-        self.tokenizer = AutoTokenizer.from_pretrained(emb_name, use_fast=False)
+        # Note that the fast tokenizers do strange things sometimes:
+        #tokenizer = AutoTokenizer.from_pretrained('bert-base-multilingual-cased')
+        #tokenizer.decode(tokenizer.encode("do not"))
+        #"[CLS] don't [SEP]"
+        # So we prefer the slow ones, I couldn't find a clean way to check 
+        # whether a slow one is available, so its a try except for now
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(emb_name, use_fast=False)
+        except:
+            self.tokenizer = AutoTokenizer.from_pretrained(emb_name)
         self.dataset_configs = dataset_configs
 
         self.is_raw = is_raw
