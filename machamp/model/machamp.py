@@ -409,9 +409,12 @@ class MachampModel(torch.nn.Module):
         if has_tok:
             tok_task = self.tasks[self.task_types.index('tok')]
             mlm_out_tok_merged = myutils.apply_scalar(mlm_out_tok, self.layers[tok_task], self.scalars[tok_task])
-            tok_pred = \
-                self.decoders[tok_task].get_output_labels(mlm_out_tok_merged, subword_mask[:, self.num_special_tokens:],
-                                                          golds[tok_task])['word_labels']
+            if tok_task in golds:
+                tok_pred = \
+                    self.decoders[tok_task].get_output_labels(mlm_out_tok_merged, subword_mask[:, self.num_special_tokens:], golds[tok_task])['word_labels']
+            else:
+                tok_pred = \
+                    self.decoders[tok_task].get_output_labels(mlm_out_tok_merged, subword_mask[:, self.num_special_tokens:])['word_labels']
 
             # This could be done more efficient if a torch tensor was retrieved
             tok_indices = torch.zeros((mlm_out_tok_merged.shape[0], mlm_out_tok_merged.shape[1]), dtype=torch.long,
@@ -432,12 +435,17 @@ class MachampModel(torch.nn.Module):
                     tok_indices[sent_idx][word_idx] = subword_idx
                     word_idx += 1
 
+            # Note that this is too large, it would be better to get 
+            # the maximum size first.
             mlm_out_token = torch.zeros_like(mlm_out_tok)
             for layer_idx in range(len(mlm_out_tok)):
                 for sent_idx in range(len(mlm_out_token[0])):
                     length = mlm_out_token.shape[-1]
                     indices = tok_indices[sent_idx][:length]
                     mlm_out_token[layer_idx][sent_idx] = mlm_out_tok[layer_idx][sent_idx][indices]
+            word_mask_new = torch.zeros(word_mask.shape[0], mlm_out_token.shape[-2], dtype=torch.bool, device=self.device)
+            word_mask_new[:,:word_mask.shape[1]] = word_mask
+            word_mask = word_mask_new
 
         for task, task_type in zip(self.tasks, self.task_types):
             # Note that this is almost a copy of forward()
@@ -474,7 +482,6 @@ class MachampModel(torch.nn.Module):
                     task_word_mask = word_mask[task_mask]
                 else:
                     task_word_mask = word_mask
-            
             out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, task_word_mask, golds_task)
         return out_dict
 

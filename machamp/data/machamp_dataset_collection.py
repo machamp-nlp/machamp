@@ -25,7 +25,6 @@ class MachampDatasetCollection(Dataset):
                  is_train: bool = True,
                  vocabulary: MachampVocabulary = None,
                  max_input_length: int = 512,
-                 raw_text: bool = False, 
                  num_epochs: int = 0):
         """
         A machamp dataset collection can hold multiple datasets. They are saved in

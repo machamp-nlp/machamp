@@ -1,4 +1,5 @@
 Functionality:
+- Tokenization for tokenizers that do not use ## or ▁, for example luke-large (the EN version)
 - Metrics might be broken (accuracy is), because of distinction between UNK/PAD
 - freeze or random seems to be broken (if frozen and random performance is still high): guess its freezing
 - pick last subwords embedding for decoder only models for classification ('encoder' in str(model))

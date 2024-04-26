@@ -3,9 +3,12 @@ from typing import List
 
 import torch
 from transformers import AutoTokenizer
+from transformers.models.bert.tokenization_bert import BasicTokenizer
 
 from machamp.data.machamp_instance import MachampInstance
 from machamp.data.machamp_vocabulary import MachampVocabulary
+from machamp.utils import tok_utils
+from machamp.utils import myutils
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +60,9 @@ def read_raw(
     subword_counter = 0
     has_unk = tokenizer.unk_token != None
     num_special_tokens = len(tokenizer.prepare_for_model([])['input_ids'])
+    type_tokenizer = myutils.identify_tokenizer(tokenizer)
+    script_finder = tok_utils.ScriptFinder()
+    pre_tokenizer = BasicTokenizer(strip_accents=False, do_lower_case=False, tokenize_chinese_chars=True)
 
     if is_train:
         logger.error("can't train with --raw_text, if you want to do language modeling, see the task type mlm")
@@ -65,34 +71,27 @@ def read_raw(
     for line in open(data_path):
         line = line.strip()
 
-        tokens = line.split(' ')
-        token_ids = []
-        offsets = []
-        for token in tokens:
-            subwords = tokenizer.tokenize(token)
-            if len(subwords) == 0:
-                subwords = [tokenizer.unk_token]
-            token_ids.extend(tokenizer.convert_tokens_to_ids(subwords))
-            offsets.append(len(token_ids)-1)
-        token_ids = torch.tensor(tokenizer.prepare_for_model(token_ids)['input_ids'])
-        offsets = torch.tensor(offsets)
+        no_unk_subwords, token_ids, pre_tokked = tok_utils.tok(line, pre_tokenizer, tokenizer, {}, script_finder, False, type_tokenizer)
+
+        offsets = torch.tensor(range(len(token_ids)), dtype=torch.long)
+        token_ids = tokenizer.prepare_for_model(token_ids)['input_ids']
+        token_ids = torch.tensor(token_ids, dtype=torch.long)
     
         # skip empty lines
         if len(token_ids) <= num_special_tokens:
             continue
         sent_counter += 1
-
         if has_unk:
             unk_counter += sum(token_ids == tokenizer.unk_token_id)
         subword_counter += len(token_ids) - num_special_tokens
 
         golds = {}
         full_data = []
-        for token in tokens:
+        for token in token_ids:
             full_data.append([str(len(full_data)+1), token] + ['_'] * 8) # TODO hardcoded, doesnt work for non-UD (including classification)
-        
+
         data.append(MachampInstance(full_data, token_ids, torch.zeros((len(token_ids)), dtype=torch.long), golds, dataset,
-                                    offsets))
+                                    offsets, no_unk_subwords))
     logger.info('Stats ' + dataset + ' (' + data_path + '):')
     logger.info('Lines:    {:,}'.format(sent_counter))
     logger.info('Subwords: {:,}'.format(subword_counter))
