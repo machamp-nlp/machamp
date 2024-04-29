@@ -163,7 +163,10 @@ def insert(form_list, tgt_char_idx, char_to_add):
         counter += len(subword)
 
     if tgt_char_idx == 0:# this was not caught in the for loop above
-        form_list[0] = char_to_add + form_list[0]
+        if len(form_list) == 0:
+            form_list = [char_to_add]
+        else:
+            form_list[0] = char_to_add + form_list[0]
 
     return form_list
 

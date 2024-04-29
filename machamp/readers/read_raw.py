@@ -71,9 +71,12 @@ def read_raw(
     for line in open(data_path):
         line = line.strip()
 
-        no_unk_subwords, token_ids, pre_tokked = tok_utils.tok(line, pre_tokenizer, tokenizer, {}, script_finder, False, type_tokenizer)
+        no_unk_subwords, token_ids, _ = tok_utils.tok(line, pre_tokenizer, tokenizer, {}, script_finder, False, type_tokenizer)
 
         offsets = torch.tensor(range(len(token_ids)), dtype=torch.long)
+        # if running out of mem:
+        #token_ids = token_ids[:2000]
+        #no_unk_subwords = no_unk_subwords[:2000]
         token_ids = tokenizer.prepare_for_model(token_ids)['input_ids']
         token_ids = torch.tensor(token_ids, dtype=torch.long)
     

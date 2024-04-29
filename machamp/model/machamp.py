@@ -440,7 +440,7 @@ class MachampModel(torch.nn.Module):
             mlm_out_token = torch.zeros_like(mlm_out_tok)
             for layer_idx in range(len(mlm_out_tok)):
                 for sent_idx in range(len(mlm_out_token[0])):
-                    length = mlm_out_token.shape[-1]
+                    length = mlm_out_token.shape[-2]
                     indices = tok_indices[sent_idx][:length]
                     mlm_out_token[layer_idx][sent_idx] = mlm_out_tok[layer_idx][sent_idx][indices]
             word_mask_new = torch.zeros(word_mask.shape[0], mlm_out_token.shape[-2], dtype=torch.bool, device=self.device)
