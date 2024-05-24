@@ -17,7 +17,7 @@ class Pearson:
         self.str = 'pearson'
         self.metric_scores = {}
 
-    def score(self, preds, golds, vocabulary):
+    def score(self, preds, golds, vocabulary, mask=None):
         self.x.extend(preds.flatten().tolist())
         self.y.extend(golds.flatten().tolist())
 

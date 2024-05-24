@@ -26,15 +26,10 @@ class SpanF1:
         self.str = 'span_f1'
         self.metric_scores = {}
 
-    def score(self, preds, golds, vocabulary_list):
-        golds[golds == -100] = 0
+    def score(self, preds, golds, vocabulary_list, mask):
         for sent_idx in range(len(golds)):
-            if 0 in golds[sent_idx]:
-                length = (golds[sent_idx]==0).nonzero(as_tuple=False)[0].item()
-            else:
-                length = len(golds[sent_idx])
-            gold_labels_str = [vocabulary_list[token] for token in golds[sent_idx][:length]]
-            pred_labels_str = [vocabulary_list[token] for token in preds[sent_idx][:length]]
+            gold_labels_str = [vocabulary_list[token] for token in golds[sent_idx][mask[sent_idx]]
+            pred_labels_str = [vocabulary_list[token] for token in preds[sent_idx][mask[sent_idx]]]
 
             spans_gold = to_spans(gold_labels_str)
             spans_pred = to_spans(pred_labels_str)

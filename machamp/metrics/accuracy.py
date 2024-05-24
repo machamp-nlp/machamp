@@ -8,20 +8,21 @@ class Accuracy:
         self.str = 'accuracy'
         self.metric_scores = {}
 
-    def score(self, preds, golds, vocabulary):
+    def score(self, preds, golds, vocabulary, mask = None):
         preds = torch.flatten(preds)
         golds = torch.flatten(golds)
 
-        contents = torch.nonzero(golds != -100)
+        if mask != None:
+            mask = torch.flatten(mask)
+            preds = preds[mask]
+            golds = golds[mask]
         # Only unks in gold, probably an indicator that 
         # there are no annotations
-        if len(contents) == 0:
+        if len(torch.nonzero(golds != -100)) == 0:
             self.total += len(golds)
             return
-        preds = preds[contents]
-        golds = golds[contents]
 
-        self.total += len(contents)
+        self.total += len(golds)
         self.cor += sum(preds==golds).item()
         
 

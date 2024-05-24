@@ -53,12 +53,12 @@ class MachampMultiseqDecoder(MachampDecoder, torch.nn.Module):
             loss = self.loss_weight * torch.mean(loss)
 
             preds = torch.sigmoid(logits) > self.threshold
-            self.metric.score(preds[:, :, 1:], gold.eq(torch.tensor(1.0, device=self.device))[:, :, 1:], mask,
-                              self.vocabulary.inverse_namespaces[self.task])
+            self.metric.score(preds[:, :, 1:], gold.eq(torch.tensor(1.0, device=self.device))[:, :, 1:],
+                              self.vocabulary.inverse_namespaces[self.task], mask)
             if self.additional_metrics:
                 for additional_metric in self.additional_metrics:
-                    additional_metric.score(preds[:, :, 1:], gold.eq(torch.tensor(1.0, device=self.device))[:, :, 1:], mask,
-                              self.vocabulary.inverse_namespaces[self.task])
+                    additional_metric.score(preds[:, :, 1:], gold.eq(torch.tensor(1.0, device=self.device))[:, :, 1:], 
+                              self.vocabulary.inverse_namespaces[self.task], mask)
             out_dict['loss'] = loss
         return out_dict
 

@@ -33,15 +33,17 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
         if self.decoder_dropout.p > 0.0:
             mlm_out =  self.decoder_dropout(mlm_out) 
 
+        print(task_subword_mask)
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):
             # 0 is the padding/unk label, so skip it for the metric
             maxes = torch.add(torch.argmax(logits[:, :, 1:], 2), 1)
-            self.metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task])
+            print(gold)
+            self.metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task], task_subword_mask)
             if self.additional_metrics:
                 for additional_metric in self.additional_metrics:
-                    additional_metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task])
+                    additional_metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task], task_subword_mask)
             flat_length = gold.shape[0] * gold.shape[1]
             loss = self.loss_weight * self.loss_function(logits.view(flat_length, -1), gold.view(flat_length))
             out_dict['loss'] = loss

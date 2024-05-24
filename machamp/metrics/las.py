@@ -8,18 +8,27 @@ class LAS:
         self.str = 'las'
         self.metric_scores = {}
 
-    def score(self, pred_heads, pred_rels, gold_heads, gold_rels):
+    def score(self, pred_heads, pred_rels, gold_heads, gold_rels, mask):
         pred_rels = pred_rels.flatten()
         gold_rels = gold_rels.flatten()
-        cor_rels = gold_rels.eq(pred_rels)
 
         pred_heads = pred_heads.flatten()
         gold_heads = gold_heads.flatten()
+
+
+        mask != None:
+            mask = torch.flatten(mask)
+            pred_rels = pred_rels[mask]
+            gold_rels = gold_rels[mask]
+            pred_heads = pred_heads[mask]
+            gold_heads = gold_heads[mask]
+
+
+        cor_rels = gold_rels.eq(pred_rels)
         cor_heads = gold_heads.eq(pred_heads)
     
-        mask = gold_rels != -100
-        self.cor += torch.sum(cor_rels * cor_heads * mask).item()
-        self.total += torch.sum(mask).item()
+        self.cor += torch.sum(cor_rels * cor_heads).item()
+        self.total += len(gold_rels)
 
     def reset(self):
         self.cor = 0

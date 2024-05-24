@@ -197,6 +197,8 @@ def prep_batch(
     if not found_dataset_id:
             batch_dataset_ids = None
 
+    print(batch_offsets)
+    #exit(1)
     return {'token_ids': batch_subwords, 'seg_ids': batch_seg_ids, 'golds': golds, 'offsets': batch_offsets,
             'subword_mask': batch_subword_mask, 'task_masks': task_masks, 'word_mask': batch_word_mask, 'dataset_ids': batch_dataset_ids}
 
