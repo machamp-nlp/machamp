@@ -16,7 +16,7 @@ class LAS:
         gold_heads = gold_heads.flatten()
 
 
-        mask != None:
+        if mask != None:
             mask = torch.flatten(mask)
             pred_rels = pred_rels[mask]
             gold_rels = gold_rels[mask]

@@ -12,7 +12,7 @@ class UAS:
         pred_heads = pred_heads.flatten()
         gold_heads = gold_heads.flatten()
 
-        mask != None:
+        if mask != None:
             mask = torch.flatten(mask)
             pred_heads = pred_heads[mask]
             gold_heads = gold_heads[mask]

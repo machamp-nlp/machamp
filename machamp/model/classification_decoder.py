@@ -22,8 +22,6 @@ class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
         if self.decoder_dropout.p > 0.0:
             mlm_out =  self.decoder_dropout(mlm_out) 
 
-        print(mask)
-        exit(1)
         logits = self.hidden_to_label(mlm_out)
         out_dict = {'logits': logits}
         if type(gold) != type(None):

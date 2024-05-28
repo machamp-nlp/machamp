@@ -28,7 +28,7 @@ class SpanF1:
 
     def score(self, preds, golds, vocabulary_list, mask):
         for sent_idx in range(len(golds)):
-            gold_labels_str = [vocabulary_list[token] for token in golds[sent_idx][mask[sent_idx]]
+            gold_labels_str = [vocabulary_list[token] for token in golds[sent_idx][mask[sent_idx]]]
             pred_labels_str = [vocabulary_list[token] for token in preds[sent_idx][mask[sent_idx]]]
 
             spans_gold = to_spans(gold_labels_str)
