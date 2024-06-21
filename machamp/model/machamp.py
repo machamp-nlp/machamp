@@ -485,6 +485,9 @@ class MachampModel(torch.nn.Module):
             if raw_text and has_tok:
                 golds_task = None
 
+            # move decoder to CPU before prediction
+            self.decoders[task].device = self.device
+
             out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, task_word_mask, golds_task)
         return out_dict
 
