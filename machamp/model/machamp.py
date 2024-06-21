@@ -443,7 +443,7 @@ class MachampModel(torch.nn.Module):
                     length = mlm_out_token.shape[-2]
                     indices = tok_indices[sent_idx][:length]
                     mlm_out_token[layer_idx][sent_idx] = mlm_out_tok[layer_idx][sent_idx][indices]
-            word_mask_new = torch.zeros(word_mask.shape[0], mlm_out_token.shape[-2], dtype=torch.bool, device=self.device)
+            word_mask_new = torch.zeros(word_mask.shape[0], max(mlm_out_token.shape[-2], word_mask.shape[-1]), dtype=torch.bool, device=self.device)
             word_mask_new[:,:word_mask.shape[1]] = word_mask
             word_mask = word_mask_new
 
@@ -482,6 +482,9 @@ class MachampModel(torch.nn.Module):
                     task_word_mask = word_mask[task_mask]
                 else:
                     task_word_mask = word_mask
+            if raw_text and has_tok:
+                golds_task = None
+
             out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, task_word_mask, golds_task)
         return out_dict
 
