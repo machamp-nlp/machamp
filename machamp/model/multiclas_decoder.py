@@ -36,10 +36,10 @@ class MachampMulticlasDecoder(MachampDecoder, torch.nn.Module):
                                                                           1:])
             
             preds = torch.sigmoid(logits) > self.threshold
-            self.metric.score(preds[:,1:], gold.eq(torch.tensor(1.0, device=self.device))[:, 1:], None)
+            self.metric.score(preds[:,1:], gold.eq(torch.tensor(1.0, device=self.device))[:, 1:], None, mask)
             if self.additional_metrics:
                 for additional_metric in self.additional_metrics:
-                    additional_metric.score(preds[:,1:], gold.eq(torch.tensor(1.0, device=self.device))[:, 1:], None)
+                    additional_metric.score(preds[:,1:], gold.eq(torch.tensor(1.0, device=self.device))[:, 1:], None, mask)
         return out_dict
 
     def get_output_labels(self, mlm_out, mask, gold=None):

@@ -539,6 +539,8 @@ def tokenize_and_annotate(
     for line in full_data:
         if line[0].startswith('# text =') and len(line[0]) > 9:
             orig = line[0][8:].strip()
+        if line[0].startswith('# text  =') and len(line[0]) > 9:
+            orig = line[0][9:].strip()
         if line[0].startswith('# text=') and len(line[0]) > 9:
             orig = line[0][8:].strip()
     if orig == '':

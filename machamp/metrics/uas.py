@@ -8,14 +8,19 @@ class UAS:
         self.str = 'uas'
         self.metric_scores = {}
 
-    def score(self, pred_heads, pred_rels, gold_heads, gold_rels):
+    def score(self, pred_heads, pred_rels, gold_heads, gold_rels, mask):
         pred_heads = pred_heads.flatten()
         gold_heads = gold_heads.flatten()
+
+        if mask != None:
+            mask = torch.flatten(mask)
+            pred_heads = pred_heads[mask]
+            gold_heads = gold_heads[mask]
+
         cor_heads = gold_heads.eq(pred_heads)
     
-        mask = gold_rels != -100
-        self.cor += torch.sum(cor_heads * mask.flatten()).item()
-        self.total += torch.sum(mask.flatten()).item()
+        self.cor += torch.sum(cor_heads).item()
+        self.total += len(gold_heads)
 
     def reset(self):
         self.cor = 0

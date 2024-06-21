@@ -68,10 +68,10 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
                 for j, tag_id in enumerate(instance_tags):
                     class_probabilities[i, j, tag_id] = 1
             maxes = torch.add(torch.argmax(class_probabilities[:, :, 1:], 2), 1)
-            self.metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task])
+            self.metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task], mask)
             if self.additional_metrics:
                 for additional_metric in self.additional_metrics:
-                    additional_metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task])
+                    additional_metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task], mask)
             out_dict['loss'] = -log_likelihood * self.loss_weight
         return out_dict
 
