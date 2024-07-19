@@ -42,8 +42,10 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
             if self.additional_metrics:
                 for additional_metric in self.additional_metrics:
                     additional_metric.score(maxes, gold, self.vocabulary.inverse_namespaces[self.task], task_subword_mask)
-            flat_length = gold.shape[0] * gold.shape[1]
-            loss = self.loss_weight * self.loss_function(logits.view(flat_length, -1), gold.view(flat_length))
+
+            gold = torch.squeeze(gold, dim=0)
+            logits = torch.swapaxes(logits, 1, 2)
+            loss = self.loss_weight * self.loss_function(logits, gold)
             out_dict['loss'] = loss
         return out_dict
 
