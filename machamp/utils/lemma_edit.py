@@ -4,26 +4,94 @@ Utilities for processing lemmas
 Adopted from UDPipe Future
 https://github.com/CoNLL-UD-2018/UDPipe-Future
 """
-
+import torch
 
 def min_edit_script(source, target, allow_copy=True):
     """
     Finds the minimum edit script to transform the source to the target
+    ROB: This one has been adapted to use a backtracking matrix, this 
+    makes it a lot more memory efficient. However, it can definitely be 
+    made even more memory efficient by not considering the whole matrix
     """
-    a = [[(len(source) + len(target) + 1, None)] * (len(target) + 1) for _ in range(len(source) + 1)]
+    cols = len(target)+1
+    rows = len(source)+1
+    costs = torch.full([rows, cols], len(source) + len(target) + 1, dtype=torch.int32)
+    actions = torch.zeros([rows, cols], dtype=torch.int32)
+    backtrack = torch.zeros([rows,cols,2], dtype=torch.int32)
+
+    for i in range(0, len(source) + 1):
+        for j in range(0, len(target) + 1):
+            if i == 0 and j == 0:
+                costs[i][j] = 0
+                actions[i][j] = 2 # nothing
+            else:
+                if allow_copy and i and j and source[i - 1] == target[j - 1] and costs[i - 1][j - 1] < costs[i][j]:
+                    costs[i][j] = costs[i - 1][j - 1]
+                    actions[i][j] = 0#"→"
+                    backtrack[i][j][0] = i-1
+                    backtrack[i][j][1] = j-1
+                if i and costs[i - 1][j] < costs[i][j]:
+                    costs[i][j] = costs[i - 1][j] + 1
+                    actions[i][j] = 1#"-"
+                    backtrack[i][j][0] = i-1
+                    backtrack[i][j][1] = j
+                if j and costs[i][j - 1] < costs[i][j]:
+                    costs[i][j] = costs[i][j - 1] + 1
+                    # The 5 is just an offset to separate it from the special tokens used above
+                    actions[i][j] = j-1+5 #"+" + target[j - 1]
+                    backtrack[i][j][0] = i
+                    backtrack[i][j][1] = j-1
+    result = ''
+    index = [len(actions)-1, len(actions[0])-1]
+    while not (index[0] == 0 and index[1] == 0):
+        i, j = index
+        action_idx = actions[i][j].item()
+        if action_idx == 0:
+            result = "→" + result
+        elif action_idx == 1:
+            result = "-" + result
+        else:
+            result = '+' + target[action_idx-5] + result
+        index = backtrack[i][j].tolist()
+    return result
+
+
+
+def min_edit_script_old(source, target, allow_copy=True):
+    """
+    Finds the minimum edit script to transform the source to the target
+    ROB: This one has been adapted to use a backtracking matrix, this 
+    makes it a lot more memory efficient. However, it can definitely be 
+    made even more memory efficient, for example by not considering the whole
+    matrix, or using a more memory efficient data structure (e.g. not 
+    list of list of string, but torch or sparse matrix).
+    """
+    cols = len(target)+1
+    rows = len(source)+1
+    a = [[(len(source) + len(target) + 1, None)] * cols for _ in range(rows)]
+    backtrack = [[(0,0) for i in range(cols)] for j in range(rows)]
+
     for i in range(0, len(source) + 1):
         for j in range(0, len(target) + 1):
             if i == 0 and j == 0:
                 a[i][j] = (0, "")
             else:
                 if allow_copy and i and j and source[i - 1] == target[j - 1] and a[i - 1][j - 1][0] < a[i][j][0]:
-                    a[i][j] = (a[i - 1][j - 1][0], a[i - 1][j - 1][1] + "→")
+                    a[i][j] = (a[i - 1][j - 1][0], "→")
+                    backtrack[i][j] = (i-1, j-1)
                 if i and a[i - 1][j][0] < a[i][j][0]:
-                    a[i][j] = (a[i - 1][j][0] + 1, a[i - 1][j][1] + "-")
+                    a[i][j] = (a[i - 1][j][0] + 1, "-")
+                    backtrack[i][j] = (i-1, j)
                 if j and a[i][j - 1][0] < a[i][j][0]:
-                    a[i][j] = (a[i][j - 1][0] + 1, a[i][j - 1][1] + "+" + target[j - 1])
-    return a[-1][-1][1]
-
+                    a[i][j] = (a[i][j - 1][0] + 1, "+" + target[j - 1])
+                    backtrack[i][j] = (i, j-1)
+    result = ''
+    index = (len(a)-1, len(a[0])-1)
+    while index != (0,0):
+        i, j = index
+        result = a[i][j][1] + result
+        index = backtrack[i][j]
+    return result
 
 def gen_lemma_rule(form, lemma, allow_copy=True):
     """

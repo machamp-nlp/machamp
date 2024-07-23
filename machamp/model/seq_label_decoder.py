@@ -51,7 +51,7 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
             out_dict['loss'] = loss
         return out_dict
 
-    def get_output_labels(self, mlm_out, mask, gold=None):
+    def get_output_labels(self, mlm_out, mask, gold=None, disable_topn=False):
         """
         logits = batch_size*sent_len*num_labels
         argmax converts to a list of batch_size*sent_len, 
@@ -59,7 +59,7 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
         token in position 0 (thats what [:,:,1:] does)
         """
         logits = self.forward(mlm_out, mask, gold)['logits']
-        if self.topn == 1:
+        if self.topn == 1 or disable_topn:
             # 0 is the padding/unk label, so skip it for the metric
             maxes = torch.add(torch.argmax(logits[:, :, 1:], 2), 1)
             return {
@@ -72,7 +72,7 @@ class MachampSeqDecoder(MachampDecoder, torch.nn.Module):
                 tags.append([])
                 probs.append([])
                 for word_scores in sent_scores:
-                    topn = min(self.topn, self.nlabels)
+                    topn = min(self.topn, self.nlabels-1)
                     topk = torch.topk(word_scores[1:], topn)
                     tags[-1].append([self.vocabulary.id2token(label_id + 1, self.task) for label_id in topk.indices])
                     probs[-1].append([score.item() for score in topk.values])

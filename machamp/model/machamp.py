@@ -410,12 +410,12 @@ class MachampModel(torch.nn.Module):
             tok_task = self.tasks[self.task_types.index('tok')]
             mlm_out_tok_merged = myutils.apply_scalar(mlm_out_tok, self.layers[tok_task], self.scalars[tok_task])
             if tok_task in golds:
-                tok_pred = \
-                    self.decoders[tok_task].get_output_labels(mlm_out_tok_merged, subword_mask[:, self.num_special_tokens:], golds[tok_task])['word_labels']
+                tok_out = \
+                    self.decoders[tok_task].get_output_labels(mlm_out_tok_merged, subword_mask[:, self.num_special_tokens:], golds[tok_task], disable_topn=True)
             else:
-                tok_pred = \
-                    self.decoders[tok_task].get_output_labels(mlm_out_tok_merged, subword_mask[:, self.num_special_tokens:])['word_labels']
-
+                tok_out = \
+                    self.decoders[tok_task].get_output_labels(mlm_out_tok_merged, subword_mask[:, self.num_special_tokens:], disable_topn=True)
+            tok_pred = tok_out['word_labels']
             # This could be done more efficient if a torch tensor was retrieved
             tok_indices = torch.zeros((mlm_out_tok_merged.shape[0], mlm_out_tok_merged.shape[1]), dtype=torch.long,
                                       device=self.device)
@@ -474,9 +474,12 @@ class MachampModel(torch.nn.Module):
             if task + '-heads' in golds:
                 golds_task = {'heads': golds[task + '-heads'][task_mask], 'rels': golds[task + '-rels'][task_mask]}
 
+
+
             task_word_mask = None
             if task_type == 'tok':
-                task_word_mask = subword_mask[:, self.num_special_tokens:]
+                out_dict[task] = tok_out
+                continue
             elif word_mask != None:
                 if task_mask != None:
                     task_word_mask = word_mask[task_mask]
@@ -484,10 +487,8 @@ class MachampModel(torch.nn.Module):
                     task_word_mask = word_mask
             if raw_text and has_tok:
                 golds_task = None
-
-            # move decoder to CPU before prediction
+            # move decoder to correct device before prediction
             self.decoders[task].device = self.device
-
             out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, task_word_mask, golds_task)
         return out_dict
 
