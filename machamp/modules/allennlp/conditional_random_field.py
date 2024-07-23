@@ -327,6 +327,8 @@ class ConditionalRandomField(torch.nn.Module):
         """
         # Normally it uses index 1, but if input only has length 1 this throws errors. So:
         sent_mask = mask[:,0] == 1
+        if sent_mask.shape[0] != tags.shape[0] and tags.shape[0] == 1:
+            tags = torch.squeeze(tags, dim=0)
         inputs = inputs[sent_mask]
         tags = tags[sent_mask]
         mask = mask[sent_mask]
