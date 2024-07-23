@@ -192,7 +192,7 @@ def to_string(full_data: List[Any],
 def write_pred(out_file, batch, device, dev_dataset, model, dataset_config, raw_text=False, conn = '=', sep = '|'):
     enc_batch = prep_batch(batch, device, dev_dataset, raw_text)
     out_dict = model.get_output_labels(enc_batch['token_ids'], enc_batch['golds'], enc_batch['seg_ids'],
-                                        enc_batch['offsets'], enc_batch['subword_mask'], enc_batch['task_masks'], enc_batch['word_mask'], enc_batch['dataset_ids'], True)
+                                        enc_batch['offsets'], enc_batch['subword_mask'], enc_batch['task_masks'], enc_batch['word_mask'], enc_batch['dataset_ids'], raw_text)
     
     for i in range(len(batch)):
         sent_dict = {}
@@ -217,7 +217,7 @@ def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_
         dataset = list(model.dataset_configs.keys())[0]
     data_config = {dataset: model.dataset_configs[dataset]}
     data_config[dataset]['dev_data_path'] = input_path
-    data_config[dataset]['max_sent'] = max_sents
+    data_config[dataset]['max_sents'] = max_sents
     dev_dataset = MachampDatasetCollection(model.mlm.name_or_path, data_config, is_train=False, vocabulary=model.vocabulary, is_raw=raw_text)
     dev_sampler = MachampBatchSampler(dev_dataset, batch_size, 1024, False, 1.0, False, False, False)  # 1024 hardcoded
     dev_dataloader = DataLoader(dev_dataset, batch_sampler=dev_sampler, collate_fn=lambda x: x)

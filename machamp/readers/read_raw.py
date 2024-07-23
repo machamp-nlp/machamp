@@ -68,7 +68,9 @@ def read_raw(
         logger.error("can't train with --raw_text, if you want to do language modeling, see the task type mlm")
         exit(1)
 
-    for line in open(data_path, encoding='utf-8', errors='ignore'):
+    for line_idx, line in enumerate(open(data_path, encoding='utf-8', errors='ignore')):
+        if line_idx >= max_sents:
+            break
         line = line.strip()
 
         no_unk_subwords, token_ids, _ = tok_utils.tok(line, pre_tokenizer, tokenizer, {}, script_finder, False, type_tokenizer)

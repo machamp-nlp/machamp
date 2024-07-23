@@ -56,7 +56,8 @@ class MachampCRFDecoder(MachampDecoder, torch.nn.Module):
         predicted_tags = cast(List[List[int]], [x[0] for x in best_paths])
         out_dict = {'logits': logits}
         # map mask to special token, to avoid out of bounds
-        gold[gold==-100] = 0
+        if gold != None:
+            gold[gold==-100] = 0
 
         if type(gold) != type(None):
             log_likelihood = self.crf_layer.forward(logits, gold, mask)

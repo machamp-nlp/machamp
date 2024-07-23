@@ -407,6 +407,7 @@ class MachampModel(torch.nn.Module):
         has_tok = 'tok' in self.task_types
 
         if has_tok:
+            raw_text = True
             tok_task = self.tasks[self.task_types.index('tok')]
             mlm_out_tok_merged = myutils.apply_scalar(mlm_out_tok, self.layers[tok_task], self.scalars[tok_task])
             if tok_task in golds:
@@ -446,7 +447,7 @@ class MachampModel(torch.nn.Module):
             word_mask_new = torch.zeros(word_mask.shape[0], max(mlm_out_token.shape[-2], word_mask.shape[-1]), dtype=torch.bool, device=self.device)
             word_mask_new[:,:word_mask.shape[1]] = word_mask
             word_mask = word_mask_new
-
+        
         for task, task_type in zip(self.tasks, self.task_types):
             # Note that this is almost a copy of forward()
             if raw_text:
@@ -468,12 +469,11 @@ class MachampModel(torch.nn.Module):
             if task_mask != None:
                 mlm_out_task = mlm_out_task[task_mask]
 
-            golds_task = None 
-            if task in golds:
+            golds_task = None
+            if task in golds and task_mask != None:
                 golds_task = golds[task][task_mask]
-            if task + '-heads' in golds:
+            if task + '-heads' in golds and task_mask != None:
                 golds_task = {'heads': golds[task + '-heads'][task_mask], 'rels': golds[task + '-rels'][task_mask]}
-
 
 
             task_word_mask = None
@@ -487,6 +487,7 @@ class MachampModel(torch.nn.Module):
                     task_word_mask = word_mask
             if raw_text and has_tok:
                 golds_task = None
+
             # move decoder to correct device before prediction
             self.decoders[task].device = self.device
             out_dict[task] = self.decoders[task].get_output_labels(mlm_out_task, task_word_mask, golds_task)
