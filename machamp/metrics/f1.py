@@ -15,8 +15,9 @@ class F1:
         self.vocabulary = []
         self.metric_scores = {}
 
-    def score(self, preds, golds, vocabulary):
+    def score(self, preds, golds, vocabulary, mask):
         self.vocabulary = vocabulary
+        # Make sure we have space for counts for all class-labels
         max_label = torch.max(torch.cat((preds, golds)))
         while len(self.tps) <= max_label:
             self.tps.append(0)
@@ -25,6 +26,11 @@ class F1:
 
         preds = torch.flatten(preds)
         golds = torch.flatten(golds)
+        if mask != None:
+            mask = torch.flatten(mask)
+            preds = preds[mask]
+            golds = golds[mask]
+
         for gold, pred in zip(golds, preds):
             if gold != -100:
                 if gold == pred:

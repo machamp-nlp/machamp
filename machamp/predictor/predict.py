@@ -192,7 +192,7 @@ def to_string(full_data: List[Any],
 def write_pred(out_file, batch, device, dev_dataset, model, dataset_config, raw_text=False, conn = '=', sep = '|'):
     enc_batch = prep_batch(batch, device, dev_dataset, raw_text)
     out_dict = model.get_output_labels(enc_batch['token_ids'], enc_batch['golds'], enc_batch['seg_ids'],
-                                        enc_batch['offsets'], enc_batch['subword_mask'], enc_batch['task_masks'], enc_batch['word_mask'], enc_batch['dataset_ids'], raw_text)
+                                        enc_batch['offsets'], enc_batch['subword_mask'], enc_batch['task_masks'], enc_batch['word_mask'], enc_batch['dataset_ids'], True)
     
     for i in range(len(batch)):
         sent_dict = {}
