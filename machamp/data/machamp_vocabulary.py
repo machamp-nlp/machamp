@@ -6,6 +6,9 @@
 # then the file on the disk will be read wrongly (note that MaChAmp doesnt rely on this though)
 
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class MachampVocabulary:
     def __init__(self):
