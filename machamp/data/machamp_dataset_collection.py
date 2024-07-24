@@ -16,7 +16,6 @@ from machamp.readers.read_raw import read_raw
 logger = logging.getLogger(__name__)
 
 
-# This might be neater to have in 2 classes, one DatasetCollection, and one Dataset?
 class MachampDatasetCollection(Dataset):
     def __init__(self,
                  emb_name: str,

@@ -203,7 +203,7 @@ def read_sequence(
     learn_splits = do_splits and is_train
     for sent, full_data in all_sents:
         # sent is a list of lists, of shape sentenceLength, numColumns
-        if max_sents != -1 and sent_counter >= max_sents and is_train:
+        if max_sents not in  [-1, None] and sent_counter >= max_sents and is_train:
             break
         sent_counter += 1
 

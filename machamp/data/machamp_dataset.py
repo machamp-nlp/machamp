@@ -62,6 +62,7 @@ class MachampDataset(Dataset):
             so we do not see the same data twice. 0 means we do not take this
             into account, and return everything (for dev/test data). We 
             increase the epoch count every time fill_batches is called.
+        split_mlm: bool
         """
         self.dataset_config = dataset_config
         self.num_epochs = num_epochs
@@ -70,6 +71,11 @@ class MachampDataset(Dataset):
         self.is_raw = is_raw
         self.data = []
         self.is_mlm = False
+        self.split_mlm = True
+        if 'split_mlm' in dataset_config:
+            self.split_mlm = dataset_config['split_mlm']
+            #Whether we split the MLM data by the number of epochs, so that
+            #all data is seen only once
 
         # for backwards compatibility
         if 'validation_data_path' in self.dataset_config:
@@ -144,7 +150,7 @@ class MachampDataset(Dataset):
         -------
         Number of instances (sentences) in this dataset
         """
-        if self.is_mlm and self.num_epochs != 0:
+        if self.is_mlm and self.split_mlm and self.num_epochs != 0:
             return int(len(self.data)/self.num_epochs)
         else:
             return len(self.data)
@@ -167,7 +173,7 @@ class MachampDataset(Dataset):
         # note that this never shuffles over the epochs, the data is split in
         # 20 parts which are handled sequentially. Shuffling can happen within
         # these parts though (in the sampler)
-        if self.is_mlm and self.num_epochs!= 0:
+        if self.is_mlm and self.split_mlm and self.num_epochs!= 0:
             return self.data[int(len(self.data)/self.num_epochs) * self.cur_epoch + index]
         else:
             return self.data[index]

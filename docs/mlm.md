@@ -22,6 +22,7 @@ correct/principled.
 **This task type has a special handling of the data**, it uses only a portion of the data each epoch. Because MLM is
 more prone to overfitting and data is cheap, we divide the dataset by the number of epochs, and thus ensure that we 
 see each instance only once. If you do not have enough data with this strategy we recommend that you just multiply it
-before training.
+before training. You can disable this by setting `"split_mlm": false,` in the dataset configuration (at the dataset level, 
+not the task level).
 
 

@@ -9,6 +9,7 @@ Functionality:
 - When downloading model it is now logged as ERROR - STDERR
 
 Clean later:
+- Batches should just be a class instead of a dict
 - remove scalars parameters warning
 - Fix wiki.sh?
 - "." can not be part of a task name because of scalars dict, should scalars be in task_decoders?

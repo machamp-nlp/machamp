@@ -69,7 +69,7 @@ def read_raw(
         exit(1)
 
     for line_idx, line in enumerate(open(data_path, encoding='utf-8', errors='ignore')):
-        if line_idx >= max_sents:
+        if max_sents not in [None, -1] and line_idx >= max_sents:
             break
         line = line.strip()
 
