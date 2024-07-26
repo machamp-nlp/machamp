@@ -46,6 +46,8 @@ class MachampMultiseqDecoder(MachampDecoder, torch.nn.Module):
             gold[gold==-100] = 0
             # There is no ignore_index nor a mask option, so we use the mask as weights (multiply by 1 or 0)
             # Hence, we have to reshape the mask to match the labels as well.
+            loss_logits = logits[:,:,1:]
+            gold_logits = gold.to(torch.float32)[:,:,1:]
             loss = self.loss_function.forward(logits[:, :, 1:], gold.to(torch.float32)[:, :, 1:])
             mask = mask[:, :, None]
             mask.expand(-1,-1, loss.shape[-1])

@@ -30,8 +30,6 @@ class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
             if self.additional_metrics:
                 for additional_metric in self.additional_metrics:
                     additional_metric.score(maxes, gold, None, self.vocabulary.inverse_namespaces[self.task])
-            if len(logits.shape) == len(gold.shape):
-                gold = torch.squeeze(gold, dim=0)
             out_dict['loss'] = self.loss_weight * self.loss_function(logits, gold)
         return out_dict
 
