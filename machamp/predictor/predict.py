@@ -204,7 +204,7 @@ def write_pred(out_file, batch, device, dev_dataset, model, dataset_config, raw_
                             model.vocabulary, enc_batch['token_ids'][i], )
         out_file.write(output + '\n')
 
-def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_text, device, conn = '=', sep = '|', multi_threshold=None, max_sents=None):
+def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_text, device, conn = '=', sep = '|', multi_threshold=None, max_sents=-1):
     model.eval()
     model.reset_metrics()
     if multi_threshold != None:
