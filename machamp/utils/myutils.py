@@ -144,6 +144,9 @@ def prep_batch(
             golds[task] = torch.full((batch_size, max_subword_len - 2), -100, dtype=torch.long, device=device)
         elif task_type == 'regression':
             golds[task] = torch.full((batch_size,), -100, dtype=torch.float, device=device)
+        elif task_type == 'probdistr':
+            num_labels = len(batch[0].golds[task])
+            golds[task] = torch.full((batch_size, num_labels), -100, dtype=torch.float, device=device)
         elif task_type == 'multiseq':
             num_labels = len(dataset.vocabulary.get_vocab(task))
             golds[task] = torch.full((batch_size, max_token_len, num_labels), -100, dtype=torch.long, device=device)
@@ -174,6 +177,9 @@ def prep_batch(
                     for token_label in token_labels:
                         if token_label != -100:
                             golds[task][instanceIdx][token_idx][token_label] = 1
+            elif task_type == 'probdistr':
+                for label_idx, label in enumerate(instance.golds[task]):
+                    golds[task][instanceIdx][label_idx] = label 
             elif task_type == 'multiclas':
                 for sent_label in instance.golds[task]:
                     if sent_label != -100:

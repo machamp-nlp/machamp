@@ -1,4 +1,5 @@
 Functionality:
+- tqdm for prediction?
 - Tokenization for tokenizers that do not use ## or ▁, for example luke-large (the EN version)
 - Metrics might be broken (accuracy is), because of distinction between UNK/PAD
 - freeze or random seems to be broken (if frozen and random performance is still high): guess its freezing
@@ -13,7 +14,7 @@ Clean later:
 - remove scalars parameters warning
 - Fix wiki.sh?
 - "." can not be part of a task name because of scalars dict, should scalars be in task_decoders?
-- Remove dependency on numpy
+- Remove dependency on numpy (/jsonnet?)
 - FutureWarning: This implementation of AdamW is deprecated.  Use the PyTorch implementation torch.optim.AdamW instead
 - Add support for parameter overriding from command line: python3 train.py --dataset_config configs/ewt.json --parameter transformer_model=xlm-roberta-large,batching.sampling_smoothing=0.5
 - output all tasks with predict somehow

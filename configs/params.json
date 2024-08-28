@@ -30,6 +30,9 @@
       "metric": "multi_acc",
       "threshold": 0.7
     },
+    "probdistr": {
+      "metric": "avg_dist"
+    },
     "multiseq": {
       "metric": "multi_acc",
       "threshold": 0.7
