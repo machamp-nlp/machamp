@@ -47,7 +47,8 @@ def train(
         resume: str = None,
         retrain: str = None,
         seed: int = None,
-        cmd: str = ''):
+        cmd: str = '',
+        model_dir = None):
     """
     
     Parameters
@@ -71,6 +72,8 @@ def train(
         random package. 
     cmd: str = ''
         The command invoked to start the training
+    model_dir: str = None
+        Directory to save model and logs in, overrides default
     """
     start_time = datetime.datetime.now()
     first_epoch = 1
@@ -89,11 +92,14 @@ def train(
     else:
         parameters_config = myutils.load_json(parameters_config_path)
         dataset_configs = myutils.merge_configs(dataset_config_paths, parameters_config)
-        serialization_dir = 'logs/' + name + '/' + start_time.strftime("%Y.%m.%d_%H.%M.%S") + '/'
-        counter = 2
-        while os.path.isdir(serialization_dir):
-            serialization_dir += '.' + str(counter)
-            counter += 1
+        if model_dir:
+            serialization_dir = model_dir
+        else:
+            serialization_dir = 'logs/' + name + '/' + start_time.strftime("%Y.%m.%d_%H.%M.%S") + '/'
+            counter = 2
+            while os.path.isdir(serialization_dir):
+                serialization_dir += '.' + str(counter)
+                counter += 1
         os.makedirs(serialization_dir)
 
         if seed != None:
