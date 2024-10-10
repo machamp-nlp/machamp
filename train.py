@@ -16,9 +16,12 @@ parser.add_argument("--sequential", action="store_true",
 parser.add_argument("--parameters_config", default="configs/params.json", type=str,
                     help="Configuration file for parameters of the model.")
 parser.add_argument("--device", default=None, type=int, help="CUDA device; set to -1 for CPU.")
-parser.add_argument("--resume", default='', type=str,
-                    help='Finalize training on a model for which training abruptly stopped. Give the path to the log '
-                         'directory of the model.')
+model_dir_group = parser.add_mutually_exclusive_group()
+model_dir_group.add_argument("--resume", default='', type=str,
+                             help='Finalize training on a model for which training abruptly stopped. Give the path to the log '
+                                  'directory of the model.')
+model_dir_group.add_argument("--model_dir", default=None, type=str,
+                             help='Specify a directory to store model and logs in. Overrides the default.')
 parser.add_argument("--retrain", type=str, default='',
                     help="Retrain on an previously train MaChAmp model. Specify the path to model.tar.gz and add a "
                          "dataset_config that specifies the new training.")
@@ -50,7 +53,7 @@ if args.sequential:
                             args.seed, cmd)
     for datasetIdx, dataset in enumerate(args.dataset_configs[1:]):
         modelName = name + '.' + str(datasetIdx + 1)
-        prevDir = trainer.train(modelName, args.parameters_config, [dataset], device, None, prevDir, args.seed, cmd)
+        prevDir = trainer.train(modelName, args.parameters_config, [dataset], device, None, prevDir, args.seed, cmd, args.model_dir)
 
 else:
-    trainer.train(name, args.parameters_config, args.dataset_configs, device, args.resume, args.retrain, args.seed, cmd)
+    trainer.train(name, args.parameters_config, args.dataset_configs, device, args.resume, args.retrain, args.seed, cmd, args.model_dir)
