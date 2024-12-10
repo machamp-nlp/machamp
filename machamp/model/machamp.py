@@ -89,7 +89,7 @@ class MachampModel(torch.nn.Module):
         # that would require adaptation for any future model types.
         # Or resetting of the prediction layer
         elif 'mlm' in task_types:
-            self.mlm = AutoModelForMaskedLM.from_pretrained(mlm)
+            self.mlm = AutoModelForMaskedLM.from_pretrained(mlm, trust_remote_code=False)
         else:
             self.mlm = AutoModel.from_pretrained(mlm)
 

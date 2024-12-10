@@ -1,13 +1,10 @@
-# Note that networkX is only needed to convert UD-files and uniplot 
-# is optional (but highly recommended)
-
 transformers>=4.0.0
 torch>=1.3.0
 jsonnet
 tqdm
+sentencepiece # for some language models
 #uniplot # Recommended for plots each epoch
 #networkx==2.5 # for cleaning UD
-#sentencepiece # for some language models
-# sacremoses # only for XLMTokenizer
-# protobuf==3.20.0 # only for T5
+#sacremoses # only for XLMTokenizer
+#protobuf==3.20.0 # only for T5
 

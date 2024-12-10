@@ -20,7 +20,6 @@ def make_file(name, task, idx, time):
     out_file.write('#SBATCH --gres=gpu\n')
     out_file.write('#SBATCH --mem=30G\n')
     out_file.write('#SBATCH --mail-type=BEGIN,END,FAIL\n')
-    out_file.write('#SBATCH --partition=red\n')
 
     out_file.write('\n')
     out_file.write('module load Python/3.9.6-GCCcore-11.2.0\n\n')
