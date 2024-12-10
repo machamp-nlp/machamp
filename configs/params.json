@@ -1,8 +1,6 @@
 {
   "transformer_model": "bert-base-multilingual-cased",
-  //"transformer_model": "xlm-roberta-large",
   "reset_transformer_model": false,
-  "random_seed": 8446,
   "default_dec_dataset_embeds_dim": 12,
   "encoder": {
     "dropout": 0.2,
@@ -29,6 +27,9 @@
     "multiclas": {
       "metric": "multi_acc",
       "threshold": 0.7
+    },
+    "probdistr": {
+      "metric": "avg_dist"
     },
     "multiseq": {
       "metric": "multi_acc",

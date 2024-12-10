@@ -162,30 +162,42 @@ def read_classification(
         col_idxs = {}
         for task in config['tasks']:
             task_type = config['tasks'][task]['task_type']
-            task_idx = config['tasks'][task]['column_idx']
-            # if were not training we do not need annotation
-            if task_idx >= len(data_instance):
-                if not is_train:
-                    col_idxs[task] = task_idx
-                    continue
-                else:
-                    logger.error('Annotation for task ' + task + ' is missing in ' + dataset + ':' + str(
-                        sent_counter) + ': ' + data_path)
-                    exit(1)
-            gold = data_instance[task_idx]
-            if task_type == 'regression':
-                try:
-                    gold = float(gold)
-                except ValueError:
-                    logger.error('Column ' + str(col_idxs[task]) + ' in ' + dataset + ':' + str(
-                        sent_idx) + " should have a float (for regression task)")
-                    exit(1)
-            elif task_type == 'multiclas':
-                gold = torch.tensor([vocabulary.token2id(label, task, is_train) for label in gold.split('|')],
+            if task_type == 'probdistr':
+                task_idxs = config['tasks'][task]['column_idxs']
+                col_idxs[task] = task_idxs
+                if task_idxs[-1] >= len(data_instance):
+                    if not is_train:
+                        continue
+                    else:
+                        logger.error('Annotation for task ' + task + ' is missing in ' + dataset + ':' + str(
+                            sent_counter) + ': ' + data_path)
+                        exit(1)
+
+                gold = [float(data_instance[idx]) for idx in task_idxs]
+            else: 
+                task_idx = config['tasks'][task]['column_idx']
+                col_idxs[task] = task_idx
+                # if we're not training we do not need annotation
+                if task_idx >= len(data_instance):
+                    if not is_train:
+                        continue
+                    else:
+                        logger.error('Annotation for task ' + task + ' is missing in ' + dataset + ':' + str(
+                            sent_counter) + ': ' + data_path)
+                        exit(1)
+                gold = data_instance[task_idx]
+                if task_type == 'regression':
+                    try:
+                        gold = float(gold)
+                    except ValueError:
+                        logger.error('Column ' + str(col_idxs[task]) + ' in ' + dataset + ':' + str(
+                            sent_idx) + " should have a float (for regression task)")
+                        exit(1)
+                elif task_type == 'multiclas':
+                    gold = torch.tensor([vocabulary.token2id(label, task, is_train) for label in gold.split('|')],
                                     dtype=torch.long)
-            else:
-                gold = vocabulary.token2id(gold, task, is_train)
-            col_idxs[task] = task_idx
+                else:
+                    gold = vocabulary.token2id(gold, task, is_train)
             golds[task] = gold
 
         data.append(MachampInstance(data_instance, full_input, seg_ids, golds, dataset, dataset_ids=dataset_ids_all))

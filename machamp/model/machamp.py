@@ -15,6 +15,7 @@ from machamp.metrics.perplexity import Perplexity
 from machamp.data.machamp_vocabulary import MachampVocabulary
 from machamp.model.classification_decoder import MachampClassificationDecoder
 from machamp.model.regression_decoder import MachampRegressionDecoder
+from machamp.model.probdistr_decoder import MachampProbdistributionDecoder
 from machamp.model.seq_label_decoder import MachampSeqDecoder
 from machamp.model.multiseq_decoder import MachampMultiseqDecoder
 from machamp.model.crf_label_decoder import MachampCRFDecoder
@@ -88,7 +89,7 @@ class MachampModel(torch.nn.Module):
         # that would require adaptation for any future model types.
         # Or resetting of the prediction layer
         elif 'mlm' in task_types:
-            self.mlm = AutoModelForMaskedLM.from_pretrained(mlm)
+            self.mlm = AutoModelForMaskedLM.from_pretrained(mlm, trust_remote_code=False)
         else:
             self.mlm = AutoModel.from_pretrained(mlm)
 
@@ -149,6 +150,8 @@ class MachampModel(torch.nn.Module):
 
             if task_type == 'classification':
                 decoder_type = MachampClassificationDecoder
+            if task_type == 'probdistr':
+                decoder_type = MachampProbdistributionDecoder
             elif task_type in ['seq', 'string2string', 'tok']:
                 decoder_type = MachampSeqDecoder
             elif task_type == 'seq_bio':
@@ -268,7 +271,7 @@ class MachampModel(torch.nn.Module):
             cur_task_types = self.task_types
         is_only_mlm = sum([task_type != 'mlm' for task_type in cur_task_types]) == 0
         is_only_classification = sum(
-            [task_type not in ['classification', 'regression', 'multiclas'] for task_type in cur_task_types]) == 0
+            [task_type not in ['probdistr', 'classification', 'regression', 'multiclas'] for task_type in cur_task_types]) == 0
         dont_split = is_only_mlm or is_only_classification
 
         # Run transformer model on input
@@ -279,7 +282,7 @@ class MachampModel(torch.nn.Module):
         mlm_out_token = None
         mlm_out_tok = None
 
-        if 'classification' in self.task_types or 'regression' in self.task_types or 'multiclas' in self.task_types:
+        if 'classification' in self.task_types or 'regression' in self.task_types or 'multiclas' in self.task_types or 'probdistr' in self.task_types:
             # always take first token, even if it is not a special token
             mlm_out_sent = mlm_out[:, :, :1, :].squeeze(2)
             if self.dropout != None:
@@ -321,7 +324,7 @@ class MachampModel(torch.nn.Module):
 
                 if task_type == 'mlm':# Not possible to apply scalar, already have predictions..
                     mlm_out_task = mlm_preds[:, 1:-1, :]
-                elif task_type in ['classification', 'regression', 'multiclas']:
+                elif task_type in ['classification', 'regression', 'multiclas', 'probdistr']:
                     mlm_out_task = myutils.apply_scalar(mlm_out_sent, self.layers[task], self.scalars[task])
                 elif task_type == 'tok':
                     mlm_out_task = myutils.apply_scalar(mlm_out_tok, self.layers[task], self.scalars[task])
@@ -460,7 +463,7 @@ class MachampModel(torch.nn.Module):
             if task_type == 'mlm':# Not possible to apply scalar, already have predictions..
                 continue# Not sure how to write labels, so no need to get them
                 #mlm_out_task = mlm_preds[:, 1:-1, :]
-            elif task_type in ['classification', 'regression', 'multiclas']:
+            elif task_type in ['classification', 'regression', 'multiclas', 'probdistr']:
                 mlm_out_task = myutils.apply_scalar(mlm_out_sent, self.layers[task], self.scalars[task])
             elif task_type == 'tok':
                 mlm_out_task = myutils.apply_scalar(mlm_out_tok, self.layers[task], self.scalars[task])

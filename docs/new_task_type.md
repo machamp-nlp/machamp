@@ -15,5 +15,6 @@ Basically it involves four steps:
   to take a look at the most similar of the existing decoders in `machamp/models/`.
 * Make sure the `MachampModel` model forward pass passes the right encoding (sentence/word-level)
   to the right decoder.
-
+* Add conversion of gold labels to batches in `machamp/utils/myutils.py` in `prep_batch`
+* Prediction might not work by default, and might need some adaptation in `machamp/predictor/predict.py`
 

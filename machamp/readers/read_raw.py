@@ -9,6 +9,7 @@ from machamp.data.machamp_instance import MachampInstance
 from machamp.data.machamp_vocabulary import MachampVocabulary
 from machamp.utils import tok_utils
 from machamp.utils import myutils
+from machamp.readers.read_sequence import tokenize_simple
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ def read_raw(
     unk_counter = 0
     subword_counter = 0
     has_unk = tokenizer.unk_token != None
+    has_tok_task = 'tok' in [config['tasks'][task]['task_type'] for task in config['tasks']]
     num_special_tokens = len(tokenizer.prepare_for_model([])['input_ids'])
     type_tokenizer = myutils.identify_tokenizer(tokenizer)
     script_finder = tok_utils.ScriptFinder()
@@ -72,28 +74,40 @@ def read_raw(
         if max_sents not in [None, -1] and line_idx >= max_sents:
             break
         line = line.strip()
-
-        no_unk_subwords, token_ids, _ = tok_utils.tok(line, pre_tokenizer, tokenizer, {}, script_finder, False, type_tokenizer)
-
-        offsets = torch.tensor(range(len(token_ids)), dtype=torch.long)
-        # if running out of mem:
-        #token_ids = token_ids[:2000]
-        #no_unk_subwords = no_unk_subwords[:2000]
-        token_ids = tokenizer.prepare_for_model(token_ids)['input_ids']
-        token_ids = torch.tensor(token_ids, dtype=torch.long)
-    
-        # skip empty lines
-        if len(token_ids) <= num_special_tokens:
+        if len(line) == 0:
             continue
+
+        golds = {}
+        if has_tok_task:
+            no_unk_subwords, token_ids, _ = tok_utils.tok(line, pre_tokenizer, tokenizer, {}, script_finder, False, type_tokenizer)
+
+            offsets = torch.tensor(range(len(token_ids)), dtype=torch.long)
+            # if running out of mem:
+            #token_ids = token_ids[:2000]
+            #no_unk_subwords = no_unk_subwords[:2000]
+            token_ids = tokenizer.prepare_for_model(token_ids)['input_ids']
+            token_ids = torch.tensor(token_ids, dtype=torch.long)
+    
+            # skip empty lines
+            if len(token_ids) <= num_special_tokens:
+                continue
+
+            full_data = []
+            for token in token_ids:
+                full_data.append([str(len(full_data)+1), token] + ['_'] * 8) # TODO hardcoded, doesnt work for non-UD (including classification)
+
+        else:
+            full_data = [['_', word] + ['_'] * 8 for word in line.split(' ')]
+            word_col_idx = 1
+            token_ids, offsets = tokenize_simple(tokenizer, full_data, word_col_idx, num_special_tokens, has_unk)
+            no_unk_subwords = None
+            token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
+            
         sent_counter += 1
         if has_unk:
             unk_counter += sum(token_ids == tokenizer.unk_token_id)
         subword_counter += len(token_ids) - num_special_tokens
 
-        golds = {}
-        full_data = []
-        for token in token_ids:
-            full_data.append([str(len(full_data)+1), token] + ['_'] * 8) # TODO hardcoded, doesnt work for non-UD (including classification)
 
         data.append(MachampInstance(full_data, token_ids, torch.zeros((len(token_ids)), dtype=torch.long), golds, dataset,
                                     offsets, no_unk_subwords))
