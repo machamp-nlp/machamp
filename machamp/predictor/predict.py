@@ -91,7 +91,6 @@ def to_string(full_data: List[Any],
     task_types = [config['tasks'][task]['task_type'] for task in config['tasks']]
     only_sent = sum([task_type in ['classification', 'regression', 'multiclas'] for task_type in task_types]) == \
                 len(config['tasks'])
-
     if only_sent:
         for task in config['tasks']:
             task_idx = config['tasks'][task]['column_idx']
@@ -124,14 +123,14 @@ def to_string(full_data: List[Any],
 
             # The first token has nothing to merge or split to, so it
             # has special handling (this just ensures we get into the "else"
+            # TODO hardcoded word indexes location for now (column 0)
             full_data.append([''] * 10)  # TODO 10 is hardcoded
             for subword_idx in range(len(no_unk_subwords)):
-                full_data[-1][1] += no_unk_subwords[subword_idx]
+                full_data[-1][config['word_idx'] ] += no_unk_subwords[subword_idx]
                 # if tok_pred['word_labels'][subword_idx] == 'merge':
                 if tok_pred['word_labels'][subword_idx] == 'split' and subword_idx != len(no_unk_subwords)-1:
                     full_data.append([''] * 10)
 
-            # TODO hardcoded word indexes location for now (column 0)
             for i in range(num_comments, len(full_data)):
                 full_data[i][0] = str(i - num_comments + 1)
                 for j in range(2, 10):

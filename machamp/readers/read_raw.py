@@ -97,8 +97,10 @@ def read_raw(
                 full_data.append([str(len(full_data)+1), token] + ['_'] * 8) # TODO hardcoded, doesnt work for non-UD (including classification)
 
         else:
-            full_data = [['_', word] + ['_'] * 8 for word in line.split(' ')]
-            word_col_idx = 1
+            full_data = [['_'] * 10 for word in line.split(' ')]
+            for wordIdx, word in enumerate(line.split(' ')):
+                full_data[wordIdx][config['word_idx']] = word
+            word_col_idx = config['word_idx']
             token_ids, offsets = tokenize_simple(tokenizer, full_data, word_col_idx, num_special_tokens, has_unk)
             no_unk_subwords = None
             token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
