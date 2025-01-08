@@ -147,10 +147,10 @@ class MachampModel(torch.nn.Module):
             else:
                 self.scalars[task] = None
             self.layers[task] = dataset_configs[dataset]['tasks'][task]['layers_to_use']
-
+            
             if task_type == 'classification':
                 decoder_type = MachampClassificationDecoder
-            if task_type == 'probdistr':
+            elif task_type == 'probdistr':
                 decoder_type = MachampProbdistributionDecoder
             elif task_type in ['seq', 'string2string', 'tok']:
                 decoder_type = MachampSeqDecoder
