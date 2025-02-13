@@ -360,8 +360,10 @@ def tok(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer, pre_
                     no_unk_subwords.append(subword.replace('▁', ''))
                 elif type_tokenizer == 'wordpiece':
                     no_unk_subwords.append(subword[2:] if subword.startswith('##') else subword)
+                elif type_tokenizer == 'G':
+                    no_unk_subwords.append(subword.replace('Ġ', ''))
                 else:
-                    logger.error('error, type of tokenizer unknown. The tokenization task currently only supports tokenizers that use ## or ▁')
+                    logger.error('error, type of tokenizer unknown. The tokenization task currently only supports tokenizers that use ##, Ġ,  or ▁')
                     exit(1)
 
     # Clean (de-normalize) the no_unk_subwords, 

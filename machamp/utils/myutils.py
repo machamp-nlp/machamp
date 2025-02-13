@@ -470,6 +470,8 @@ def identify_tokenizer(tokenizer: AutoTokenizer):
         return 'wordpiece'
     elif '▁' in result:
         return 'sentencepiece'
+    elif 'Ġ' in result:
+        return 'G'
     else:
         return 'other'
 

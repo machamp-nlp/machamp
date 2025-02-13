@@ -5,24 +5,25 @@
     "word_idx": 1,
     //"max_sents": 100,
     "tasks": {
+      "tok": {
+        "task_type": "tok",
+        "column_idx": -1,
+      },
       "upos": {
         "task_type": "seq",
         "column_idx": 3,
-        "additional_metrics": ["f1_macro"]
       },
       "lemma": {
         "task_type": "string2string",
         "column_idx": 2
       },
       "feats": {
-        //"task_type": "multiseq",
         "task_type": "seq",
         "column_idx": 5
       },
       "dependency": {
         "task_type": "dependency",
         "column_idx": 6,
-        "additional_metrics": ["uas"]
       }
     }
   }

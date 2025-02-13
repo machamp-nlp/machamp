@@ -265,7 +265,7 @@ class Callback:
                                   y_min=min(mins))
         else:
             plot = plot_to_string(x, title='Dev scores (y) over epochs (x)', legend_labels=labels, lines=True)
-        logger.info('\n' + '\n'.join(plot))
+        logger.info('\n' + plot)
 
     def save_model(self,
                    epoch: int,

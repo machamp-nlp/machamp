@@ -22,14 +22,14 @@ def make_file(name, task, idx, time):
     out_file.write('#SBATCH --mail-type=BEGIN,END,FAIL\n')
 
     out_file.write('\n')
-    out_file.write('module load Python/3.9.6-GCCcore-11.2.0\n\n')
+    out_file.write('module load Python/3.12.3-GCCcore-13.3.0\n\n')
     out_file.write(task)
     if run:
         cmd = 'sbatch ' + name + '.job'
         print(cmd)
     out_file.close()
-    cmd = 'sed -i "s;device [0-9];device \$CUDA_VISIBLE_DEVICES;g" ' + name + '.job'
-    os.system(cmd)
+    #cmd = 'sed -i "s;device [0-9];device \$CUDA_VISIBLE_DEVICES;g" ' + name + '.job'
+    #os.system(cmd)
 
 
 jobSize = 1

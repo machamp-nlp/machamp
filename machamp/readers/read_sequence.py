@@ -197,7 +197,7 @@ def read_sequence(
                 do_splits = config['tasks'][task]['pre_split']
 
     
-    if is_train and 'dataset_embed_idx':
+    if is_train:
         vocabulary.create_vocab('dataset_embeds', True)
 
     learn_splits = do_splits and is_train
