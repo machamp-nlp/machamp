@@ -424,6 +424,7 @@ class MachampModel(torch.nn.Module):
             tok_indices = torch.zeros((mlm_out_tok_merged.shape[0], mlm_out_tok_merged.shape[1]), dtype=torch.long,
                                       device=self.device)
 
+            num_words_per_sent = []
             for sent_idx in range(len(tok_pred)):
                 word_idx = 0
                 subword_idx = 0
@@ -434,13 +435,14 @@ class MachampModel(torch.nn.Module):
                     if tok_pred[sent_idx][subword_idx] == 'split':
                         tok_indices[sent_idx][word_idx] = subword_idx
                         word_idx += 1
+                    num_words_per_sent.append(word_idx)
                 # Add the last token if it was missed
                 if tok_pred[sent_idx][subword_idx] == 'merge':
                     tok_indices[sent_idx][word_idx] = subword_idx
                     word_idx += 1
 
             # Note that this is too large, it would be better to get 
-            # the maximum size first.
+            # the maximum size first. Should use max(num_words_per_sent)!
             mlm_out_token = torch.zeros_like(mlm_out_tok)
             for layer_idx in range(len(mlm_out_tok)):
                 for sent_idx in range(len(mlm_out_token[0])):
@@ -448,7 +450,10 @@ class MachampModel(torch.nn.Module):
                     indices = tok_indices[sent_idx][:length]
                     mlm_out_token[layer_idx][sent_idx] = mlm_out_tok[layer_idx][sent_idx][indices]
             word_mask_new = torch.zeros(word_mask.shape[0], max(mlm_out_token.shape[-2], word_mask.shape[-1]), dtype=torch.bool, device=self.device)
-            word_mask_new[:,:word_mask.shape[1]] = word_mask
+            for sent_idx in range(len(mlm_out_token[0])):
+                num_words = num_words_per_sent[sent_idx]
+                word_mask_new[sent_idx][:num_words] = 1
+
             word_mask = word_mask_new
         
         for task, task_type in zip(self.tasks, self.task_types):

@@ -349,10 +349,13 @@ def read_sequence(
                 if label != '':
                     golds[task] = vocabulary.token2id(label, task, is_train)
                 else:
-                    logger.error(
-                        "Classification label " + task + "not found. Make sure that every sentence has a comment "
-                                                         "looking like:\n# " + task + ": <LABEL>\n")
-                    exit(1)
+                    if is_train:
+                        logger.error(
+                            "Classification label " + task + "not found. Make sure that every sentence has a comment "
+                                                             "looking like:\n# " + task + ": <LABEL>\n")
+                        exit(1)
+                    else:
+                        golds[task] = vocabulary.token2id('_', task, is_train)
 
             elif task_type == 'tok':
                 golds[task] = torch.tensor(

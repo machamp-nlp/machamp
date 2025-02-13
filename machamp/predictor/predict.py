@@ -105,7 +105,6 @@ def to_string(full_data: List[Any],
     else:  # word level annotation
         has_tok = 'tok' in task_types
         if has_tok:
-
             tok_task = None
             for task in config['tasks']:
                 if config['tasks'][task]['task_type'] == 'tok':
@@ -148,13 +147,21 @@ def to_string(full_data: List[Any],
             if task_type in ['classification', 'regression']:
                 found = False
                 for comment_idx in range(num_comments):
-                    if full_data[comment_idx][0].startswith('# ' + task + ': '):
+                    if full_data[comment_idx][0].startswith('# ' + task + ': ') or full_data[comment_idx][0].startswith('# ' + task + ' = '):
+                        found = True
                         if 'probs' in preds[task]:
-                            full_data[comment_idx][0] = '# ' + task + ': ' + top_n_to_label(preds[task]['sent_labels'],
+                            full_data[comment_idx][0] = '# ' + task + ' = ' + top_n_to_label(preds[task]['sent_labels'],
                                                                                             preds[task]['probs'], conn, sep)
                         else:
-                            full_data[comment_idx][0] = '# ' + task + ': ' + preds[task]['sent_labels']
+                            full_data[comment_idx][0] = '# ' + task + ' = ' + preds[task]['sent_labels']
 
+                if not found:
+                    if 'probs' in preds[task]:
+                        full_data.insert(0, ['# ' + task + ' = ' + top_n_to_label(preds[task]['sent_labels'],
+                                                                                        preds[task]['probs'], conn, sep)])
+                    else:
+                        full_data.insert(0, ['# ' + task + ' = ' + preds[task]['sent_labels']])
+                    
             else:
                 task_idx = config['tasks'][task]['column_idx']
                 for token_idx in range(len(full_data) - num_comments):
@@ -224,6 +231,8 @@ def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_
     out_file = open(output_path, 'w')
     idx = 0
     for batch in dev_dataloader:
+        if batch == []:
+            continue
         idx += 1
         write_pred(out_file, batch, device, dev_dataset, model, data_config[dataset], raw_text, conn, sep)
     out_file.close()
