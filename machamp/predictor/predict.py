@@ -240,5 +240,6 @@ def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_
         metrics = model.get_metrics()
         report_metrics(metrics)
         eval_file = output_path + '.eval'
-        json.dump(metrics, open(eval_file, 'w'), indent=4)
+        with open(eval_file, 'w') as eval_f:
+            json.dump(metrics, eval_f, indent=4)
 

@@ -5,10 +5,10 @@
     "word_idx": 1,
     //"max_sents": 100,
     "tasks": {
-      "tok": {
+      /*"tok": {
         "task_type": "tok",
         "column_idx": -1,
-      },
+      },*/
       "upos": {
         "task_type": "seq",
         "column_idx": 3,

@@ -75,7 +75,6 @@
       ],
       "lr": 0.0001,
       //"correct_bias": false,
-      //"patience": 5, // disabled, because slanted_triangular changes the lr dynamically
       "weight_decay": 0.01
     }
   }
