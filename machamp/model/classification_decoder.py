@@ -43,7 +43,7 @@ class MachampClassificationDecoder(MachampDecoder, torch.nn.Module):
             probs = []
             class_probs = F.softmax(logits, -1)
             for sent_scores in class_probs:
-                topn = min(self.nlabels, self.topn)
+                topn = min(self.nlabels-1, self.topn)
                 topk = torch.topk(sent_scores[1:], topn)
                 labels.append([self.vocabulary.id2token(label_id + 1, self.task) for label_id in topk.indices])
                 probs.append([score.item() for score in topk.values])
