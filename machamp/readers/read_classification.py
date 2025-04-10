@@ -117,7 +117,12 @@ def read_classification(
                     'line ' + dataset + ':' + str(sent_idx) + ' doesnt\'t contain enough columns, column ' + str(
                         sent_idx) + ' is missing, should contain input.')
                 exit(1)
-            encoding = tokenizer.encode(data_instance[sent_idx].strip())[1:-1]
+            
+            encoding = tokenizer.encode(data_instance[sent_idx].strip())
+            if has_start_token:
+                encoding = encoding[1:]
+            if has_end_token:
+                encoding = encoding[:-1]
             subword_counter += len(encoding)
             if tokenizer.sep_token_id != None:
                 encoding = encoding + [copy.deepcopy(tokenizer.sep_token_id)]
