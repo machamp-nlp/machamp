@@ -50,7 +50,7 @@ class MachampBatchSampler(Sampler):
             Saves whether we are training, so that we know whether to skip
             extremely long instances or not.
         """
-        super().__init__(datasource)
+        super().__init__()
 
         self.datasource = datasource
         self.batch_size = batch_size

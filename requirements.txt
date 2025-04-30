@@ -1,9 +1,10 @@
 transformers>=4.0.0
 torch>=1.3.0
-jsonnet
 tqdm
+numpy
+jsonnet
 sentencepiece # for some language models
-#uniplot # Recommended for plots each epoch
+uniplot # Recommended for plots each epoch
 #networkx==2.5 # for cleaning UD
 #sacremoses # only for XLMTokenizer
 #protobuf==3.20.0 # only for T5

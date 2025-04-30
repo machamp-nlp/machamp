@@ -104,7 +104,7 @@ class MachampVocabulary:
         """
         return dict(self.namespaces[name])
 
-    def token2id(self, token: str, namespace: str, add_if_not_present: bool):
+    def token2id(self, token: str, namespace: str, add_if_not_present: bool, warning: bool = True):
         """
         Look up a token, and return its ID.
 
@@ -118,6 +118,9 @@ class MachampVocabulary:
             During the first reading of the training, we usually want to add 
             unknown labels, during prediction this is usually not the case, and
             the vocabulary should be fixed.
+        warning: bool
+            Whether to print warnings if not found. This is currently used to
+            not show warning for the string2string task (as they are to be expected)
         
         Returns
         -------
@@ -129,7 +132,7 @@ class MachampVocabulary:
                 self.namespaces[namespace][token] = len(self.inverse_namespaces[namespace])
                 self.inverse_namespaces[namespace].append(token)
                 return len(self.inverse_namespaces[namespace]) - 1
-            else:
+            elif warning:
                 logger.warning(token + ' can not be found in namespace ' + namespace + '. This usually means you have unseen labels in your data during prediction. This will lead to incorrect macro-f1 scores.')
                 return self.UNK_ID if self.hasUnk[namespace] else None
         if self.hasUnk[namespace]:

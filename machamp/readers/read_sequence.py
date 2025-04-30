@@ -285,7 +285,7 @@ def read_sequence(
                 # adapt labels for string2string
                 if task_type == 'string2string':
                     golds[task] = torch.tensor([vocabulary.token2id(
-                        gen_lemma_rule(token_info[word_col_idx], token_info[task_idx]), task, is_train) for token_info
+                        gen_lemma_rule(token_info[word_col_idx], token_info[task_idx]), task, is_train, warning=False) for token_info
                         in sent], dtype=torch.long)
 
                 # Special handling for multiseq, as it required a different labelfield

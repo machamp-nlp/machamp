@@ -42,7 +42,7 @@ else:
     device = 'cuda:' + str(args.device)
 
 logger.info('loading model...')
-model = torch.load(args.torch_model, map_location=device)
+model = torch.load(args.torch_model, map_location=device, weights_only=False)
 model.device = device
 
 if args.topn != None:

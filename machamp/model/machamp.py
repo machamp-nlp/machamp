@@ -83,7 +83,7 @@ class MachampModel(torch.nn.Module):
 
         # if retrain is specified, we load the MLM from a machamp model
         if retrain not in [None, '']:
-            self.mlm = torch.load(retrain).mlm
+            self.mlm = torch.load(retrain, weights_only=False).mlm
         # it could be cleaner code if we always use a normal AutoModel, 
         # and load only the prediction MLM layer in mlm_decoder. However, 
         # that would require adaptation for any future model types.

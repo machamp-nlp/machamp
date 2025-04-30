@@ -1,10 +1,12 @@
 import json
 import logging
 import os
+import sys
 from typing import List, Any, Dict
 
 import torch
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -230,7 +232,7 @@ def predict_with_paths(model, input_path, output_path, dataset, batch_size, raw_
 
     out_file = open(output_path, 'w')
     idx = 0
-    for batch in dev_dataloader:
+    for batch in tqdm(dev_dataloader, file=sys.stdout):
         if batch == []:
             continue
         idx += 1

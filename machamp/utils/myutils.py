@@ -383,12 +383,12 @@ def make_parameter_groups(
             logger.info("Group %s: %s, %s", k, list(parameter_group_names[k]), group_options)
 
         # check for unused regex
-        for regex, count in regex_use_counts.items():
-            if count == 0:
-                logger.warning(
-                    "When constructing parameter groups, %s does not match any parameter name",
-                    regex,
-                )
+        #for regex, count in regex_use_counts.items():
+        #    if count == 0:
+        #        logger.warning(
+        #            "When constructing parameter groups, %s does not match any parameter name",
+        #            regex,
+        #        )
     else:
         parameter_groups = [param for name, param in model_parameters]
 

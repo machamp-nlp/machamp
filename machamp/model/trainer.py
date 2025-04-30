@@ -162,7 +162,7 @@ def train(
     
     if resume:
         model_path = os.path.join(serialization_dir, 'model_' + str(epoch) + '.pt')
-        model = torch.load(model_path)
+        model = torch.load(model_path, weights_only=False)
     else:
         model = MachampModel(train_dataset.vocabulary, train_dataset.tasks, train_dataset.task_types,
                              parameters_config['transformer_model'], device, decoder_dropouts, 
@@ -190,16 +190,14 @@ def train(
     parameter_groups = [[first_group, {}], [second_group, {}]]
     parameter_groups = myutils.make_parameter_groups(model.named_parameters(), parameter_groups)
 
-    # TODO should switch some day, because its deprecated, but it performs better...
-    optimizer = transformers.AdamW(parameter_groups, **parameters_config['training']['optimizer'])
-    #optimizer = torch.optim.AdamW(parameter_groups, **parameters_config['training']['optimizer'])
+    optimizer = torch.optim.AdamW(parameter_groups, **parameters_config['training']['optimizer'])
     scheduler = SlantedTriangular(optimizer, parameters_config['training']['num_epochs'], len(train_dataloader),
                                   **parameters_config['training']['learning_rate_scheduler'])
     callback = Callback(serialization_dir, parameters_config['training']['num_epochs'],
                         parameters_config['training']['keep_top_n'])
 
     if resume:
-        checkpoint = torch.load(train_state_path, map_location=device)
+        checkpoint = torch.load(train_state_path, map_location=device, weights_only=False)
         callback = checkpoint['callback']
         callback.serialization_dir = serialization_dir
 
@@ -279,6 +277,7 @@ def train(
             logger.info("Removing old training state.")
             logger.info("Path: " + prev_state_path)
             os.remove(prev_state_path)
+        logger.info('')
 
     # Remove last training state, if we want to keep training, we need to 
     # reinitate the schedulers etc. anyways
@@ -302,7 +301,7 @@ def train(
         del train_dataloader
         del train_sampler
         del optimizer
-        model = torch.load(os.path.join(serialization_dir, 'model.pt'), map_location=device)
+        model = torch.load(os.path.join(serialization_dir, 'model.pt'), map_location=device, weights_only=False)
         for dataset_name in dataset_configs:
             model.reset_metrics()
             task_types = [dataset_configs[dataset_name]['tasks'][task]['task_type'] for task in dataset_configs[dataset_name]['tasks']]
