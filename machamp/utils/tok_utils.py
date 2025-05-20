@@ -332,7 +332,7 @@ def tok(orig: str, pre_tokenizer: BasicTokenizer, tokenizer: AutoTokenizer, pre_
                     tokked.append(subpart)
                     token_ids.append(tokenizer.unk_token_id)
                 elif tokenizer.unk_token in tokked_subpart:
-                    #logger.error("somehow a (part of an) unknown token has a length of more than a subword, this might disrupt the output of the tokenization.")
+                    logger.error("somehow a (part of an) unknown token has a length of more than a subword, this might disrupt the output of the tokenization.")
                     pass
                 else:
                     for subword in tokked_subpart:
@@ -555,9 +555,9 @@ def tokenize_and_annotate(
         exit(1)
 
     no_unk_subwords, token_ids, pre_tokked = tok(orig, pre_tokenizer, tokenizer, pre_splits, script_finder, do_splits, type_tokenizer)
-    #if ''.join(no_unk_subwords) != ''.join(gold).replace(' ', ''):
-        #logger.error("Error; somehow the original input does not match the gold characters:")
-        #logger.error(''.join(no_unk_subwords) + ' != \n' + ''.join(gold).replace(' ', ''))
+    if ''.join(no_unk_subwords) != ''.join(gold).replace(' ', ''):
+        logger.error("Error; somehow the original input does not match the gold characters:")
+        logger.error(''.join(no_unk_subwords) + ' != \n' + ''.join(gold).replace(' ', ''))
 
     gold = [word.replace(' ', '') for word in gold]
     gold_spaces = get_space_locations(' '.join(gold))
