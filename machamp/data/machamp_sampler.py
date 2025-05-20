@@ -105,6 +105,7 @@ class MachampBatchSampler(Sampler):
             dataset_batches[dataset] = [[]]
             inst_idx = 0
             num_words_batch = 0
+            max_len_batch = 0
             indices = list(range(len(dataset_data)))
             if self.shuffle and not self.sort_by_size:
                 random.shuffle(indices)
@@ -116,7 +117,9 @@ class MachampBatchSampler(Sampler):
                     inst_idx += 1
                     continue
 
-                if len(dataset_batches[dataset][-1]) >= self.batch_size or num_words_batch + inst_length > self.max_words:
+                max_len_batch = max(max_len_batch, inst_length)
+                cur_batch_size = len(dataset_batches[dataset][-1]) 
+                if cur_batch_size >= self.batch_size or num_words_batch + inst_length > self.max_words or (max_len_batch * cur_batch_size > 5*self.max_words and cur_batch_size > 1):
                     dataset_batches[dataset].append([])
                     num_words_batch = 0
                 num_words_batch += inst_length

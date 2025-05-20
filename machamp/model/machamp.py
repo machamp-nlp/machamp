@@ -427,7 +427,6 @@ class MachampModel(torch.nn.Module):
             num_words_per_sent = []
             for sent_idx in range(len(tok_pred)):
                 word_idx = 0
-                subword_idx = 0
                 for subword_idx in range(len(tok_pred[sent_idx])):
                     if not subword_mask[sent_idx][subword_idx + self.num_special_tokens].item():
                         subword_idx -= 1
@@ -435,11 +434,11 @@ class MachampModel(torch.nn.Module):
                     if tok_pred[sent_idx][subword_idx] == 'split':
                         tok_indices[sent_idx][word_idx] = subword_idx
                         word_idx += 1
-                    num_words_per_sent.append(word_idx)
                 # Add the last token if it was missed
                 if tok_pred[sent_idx][subword_idx] == 'merge':
                     tok_indices[sent_idx][word_idx] = subword_idx
                     word_idx += 1
+                num_words_per_sent.append(word_idx)
 
             # Note that this is too large, it would be better to get 
             # the maximum size first. Should use max(num_words_per_sent)!

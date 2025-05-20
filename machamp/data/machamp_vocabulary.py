@@ -133,7 +133,7 @@ class MachampVocabulary:
                 self.inverse_namespaces[namespace].append(token)
                 return len(self.inverse_namespaces[namespace]) - 1
             elif warning:
-                logger.warning(token + ' can not be found in namespace ' + namespace + '. This usually means you have unseen labels in your data during prediction. This will lead to incorrect macro-f1 scores.')
+                #logger.warning(token + ' can not be found in namespace ' + namespace + '. This usually means you have unseen labels in your data during prediction. This will lead to incorrect macro-f1 scores.')
                 return self.UNK_ID if self.hasUnk[namespace] else None
         if self.hasUnk[namespace]:
             return self.namespaces[namespace].get(token, 0)
