@@ -49,11 +49,16 @@ if args.resume != '':
 cmd = ' '.join(sys.argv)
 
 if args.sequential:
-    prevDir = trainer.train(name + '.0', args.parameters_config, [args.dataset_configs[0]], device, args.resume, args.retrain,
-                            args.seed, cmd)
-    for datasetIdx, dataset in enumerate(args.dataset_configs[1:]):
-        modelName = name + '.' + str(datasetIdx + 1)
-        prevDir = trainer.train(modelName, args.parameters_config, [dataset], device, None, prevDir, args.seed, cmd, args.model_dir)
-
+    if args.model_dir:
+        prevDir = trainer.train(name, args.parameters_config, [args.dataset_configs[0]], device, args.resume, args.retrain,
+                                args.seed, cmd, args.model_dir + '/0')
+        for datasetIdx, dataset in enumerate(args.dataset_configs[1:]):
+            prevDir = trainer.train(name, args.parameters_config, [dataset], device, None, prevDir, args.seed, cmd, args.model_dir + f'/{datasetIdx + 1}')
+    else:
+        prevDir = trainer.train(name + '/0', args.parameters_config, [args.dataset_configs[0]], device, args.resume, args.retrain,
+                                args.seed, cmd)
+        for datasetIdx, dataset in enumerate(args.dataset_configs[1:]):
+            modelName = name + '/' + str(datasetIdx + 1)
+            prevDir = trainer.train(modelName, args.parameters_config, [dataset], device, None, prevDir, args.seed, cmd)
 else:
     trainer.train(name, args.parameters_config, args.dataset_configs, device, args.resume, args.retrain, args.seed, cmd, args.model_dir)
