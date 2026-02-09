@@ -44,6 +44,7 @@ class MachampProbdistributionDecoder(MachampDecoder, torch.nn.Module):
         # easily do this,  as they should be written to different columns..
         # probably just using a list and an exception in the predictor 
         # would do the trick
-
-        return {'sent_labels': [str(x.item()) for x in logits]}
+        #logits = 32*3
+        
+        return {'sent_labels': [x.tolist() for x in logits]}
 

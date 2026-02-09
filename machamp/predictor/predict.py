@@ -91,17 +91,21 @@ def to_string(full_data: List[Any],
     # For word level annotation tasks, we have a different handling
     # so first detect whether we only have sentence level tasks
     task_types = [config['tasks'][task]['task_type'] for task in config['tasks']]
-    only_sent = sum([task_type in ['classification', 'regression', 'multiclas'] for task_type in task_types]) == \
+    only_sent = sum([task_type in ['classification', 'regression', 'multiclas', 'probdistr'] for task_type in task_types]) == \
                 len(config['tasks'])
     if only_sent:
         for task in config['tasks']:
-            task_idx = config['tasks'][task]['column_idx']
-            while task_idx >= len(full_data):
-                full_data.append('_')
-            if 'probs' in preds[task]:
-                full_data[task_idx] = top_n_to_label(preds[task]['sent_labels'], preds[task]['probs'])
+            if config['tasks'][task]['task_type'] == 'probdistr':
+                for task_idx, score in zip(config['tasks'][task]['column_idxs'], preds[task]['sent_labels']):
+                    full_data[task_idx] = str(score)
             else:
-                full_data[task_idx] = preds[task]['sent_labels']
+                task_idx = config['tasks'][task]['column_idx']
+                while task_idx >= len(full_data):
+                    full_data.append('_')
+                if 'probs' in preds[task]:
+                    full_data[task_idx] = top_n_to_label(preds[task]['sent_labels'], preds[task]['probs'])
+                else:
+                    full_data[task_idx] = preds[task]['sent_labels']
         return '\t'.join(full_data)
 
     else:  # word level annotation
@@ -163,7 +167,7 @@ def to_string(full_data: List[Any],
                                                                                         preds[task]['probs'], conn, sep)])
                     else:
                         full_data.insert(0, ['# ' + task + ' = ' + preds[task]['sent_labels']])
-                    
+                
             else:
                 task_idx = config['tasks'][task]['column_idx']
                 for token_idx in range(len(full_data) - num_comments):
