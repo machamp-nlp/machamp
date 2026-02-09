@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 
 from machamp.model.machamp_decoder import MachampDecoder
+import torch.nn.functional as F
 
 
 class MachampProbdistributionDecoder(MachampDecoder, torch.nn.Module):
@@ -28,6 +29,7 @@ class MachampProbdistributionDecoder(MachampDecoder, torch.nn.Module):
             mlm_out =  self.decoder_dropout(mlm_out) 
 
         logits = self.hidden_to_label(mlm_out)
+        logits = F.softmax(logits, -1)
         out_dict = {'logits': logits}
         if type(gold) != type(None):
             self.metric.score(logits, gold, None, mask)
