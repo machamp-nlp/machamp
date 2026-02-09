@@ -12,9 +12,9 @@ class MachampProbdistributionDecoder(MachampDecoder, torch.nn.Module):
         self.nlabels = len(kwargs['column_idxs'])
         self.hidden_to_label = torch.nn.Linear(input_dim, self.nlabels)
         self.hidden_to_label.to(device)
-        self.loss_function = torch.nn.CrossEntropyLoss(reduction='sum', ignore_index=-100)
-        # Not sure which loss to use, in the past we used multi_class_cross_entropy_loss and sequence_cross_entropy_with_logits from AllenNLP, 
-        # other options: nn.MSELoss nn.BCELoss
+        #self.loss_function = torch.nn.CrossEntropyLoss(reduction='sum', ignore_index=-100) # .33
+        self.loss_function = torch.nn.MSELoss() #.29
+        #self.loss_function = torch.nn.BCELoss() # CUDA error?
         self.topn = topn
 
         self.decoder_dropout = torch.nn.Dropout(decoder_dropout)
@@ -39,12 +39,5 @@ class MachampProbdistributionDecoder(MachampDecoder, torch.nn.Module):
 
     def get_output_labels(self, mlm_out, mask, gold=None):
         logits = self.forward(mlm_out, mask, gold)['logits']
-        # logits is a matrix of batch_size * n_labels
-        # however, the predictor expects strings, not sure how to most
-        # easily do this,  as they should be written to different columns..
-        # probably just using a list and an exception in the predictor 
-        # would do the trick
-        #logits = 32*3
-        
         return {'sent_labels': [x.tolist() for x in logits]}
 
