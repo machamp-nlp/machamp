@@ -8,7 +8,8 @@ class AvgDist:
         self.metric_scores = {}
 
     def score(self, preds, golds, vocabulary, mask=None):
-        self.dists.extend(torch.abs(preds.flatten() - golds.flatten()).tolist())
+        dists = torch.abs(preds - golds)
+        self.dists.extend(torch.sum(dists, dim=1).tolist())
 
     def reset(self):
         self.dists = []
