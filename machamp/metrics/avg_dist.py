@@ -8,7 +8,8 @@ class AvgDist:
         self.metric_scores = {}
 
     def score(self, preds, golds, vocabulary, mask=None):
-        dists = torch.abs(preds - golds)
+        # Following TVD from e.g. https://aclanthology.org/2022.emnlp-main.124.pdf
+        dists = torch.abs(preds - golds)/2
         self.dists.extend(torch.sum(dists, dim=1).tolist())
 
     def reset(self):
