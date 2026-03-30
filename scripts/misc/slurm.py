@@ -19,10 +19,14 @@ def make_file(name, task, idx, time):
     out_file.write('#SBATCH --time=' + time + ':00:00\n')
     out_file.write('#SBATCH --nodes=1\n')
     out_file.write('#SBATCH --nodelist=cn[3,4,5,6,7,9,10,12,13,18,19]\n')
+    #out_file.write('#SBATCH --nodelist=cn[10,12,13,19]\n')
     out_file.write('#SBATCH --gres=gpu\n')
-    out_file.write('#SBATCH --mem=20G\n')
+    out_file.write('#SBATCH --mem=40G\n')
     out_file.write('#SBATCH --mail-type=BEGIN,END,FAIL\n')
-    out_file.write('#SBATCH --partition=scavenge\n')
+    if int(time) > 24:
+        out_file.write('#SBATCH --partition=acltr\n')
+    else:
+        out_file.write('#SBATCH --partition=scavenge\n')
 
     out_file.write('\n')
     out_file.write('module load Python/3.12.3-GCCcore-13.3.0\n\n')
