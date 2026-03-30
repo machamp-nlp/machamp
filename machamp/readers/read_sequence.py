@@ -3,7 +3,7 @@ from typing import List
 
 import torch
 from transformers import AutoTokenizer
-from transformers.models.bert.tokenization_bert import BasicTokenizer
+from machamp.utils.basic_tokenizer import BasicTokenizer
 from transformers.models.bert.tokenization_bert import BertTokenizer
 from transformers.models.xlm_roberta.tokenization_xlm_roberta import XLMRobertaTokenizer
 

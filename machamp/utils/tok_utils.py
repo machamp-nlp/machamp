@@ -5,8 +5,8 @@ from typing import List
 import torch
 from transformers import AutoTokenizer
 from transformers import tokenization_utils
-from transformers.models.bert.tokenization_bert import BasicTokenizer
 
+from machamp.utils.basic_tokenizer import BasicTokenizer
 from machamp.utils.lemma_edit import min_edit_script
 
 logger = logging.getLogger(__name__)

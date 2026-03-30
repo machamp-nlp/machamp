@@ -3,8 +3,8 @@ from typing import List
 
 import torch
 from transformers import AutoTokenizer
-from transformers.models.bert.tokenization_bert import BasicTokenizer
 
+from machamp.utils.basic_tokenizer import BasicTokenizer
 from machamp.data.machamp_instance import MachampInstance
 from machamp.data.machamp_vocabulary import MachampVocabulary
 from machamp.utils import tok_utils
