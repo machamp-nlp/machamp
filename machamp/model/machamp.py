@@ -448,13 +448,16 @@ class MachampModel(torch.nn.Module):
                     length = mlm_out_token.shape[-2]
                     indices = tok_indices[sent_idx][:length]
                     mlm_out_token[layer_idx][sent_idx] = mlm_out_tok[layer_idx][sent_idx][indices]
+            # This happens if the special tokens make the mask too large 
+            if mlm_out_token.shape[-2] < word_mask.shape[-1]:
+                word_mask = word_mask[:,:mlm_out_token.shape[-2]]
             word_mask_new = torch.zeros(word_mask.shape[0], max(mlm_out_token.shape[-2], word_mask.shape[-1]), dtype=torch.bool, device=self.device)
             for sent_idx in range(len(mlm_out_token[0])):
                 num_words = num_words_per_sent[sent_idx]
                 word_mask_new[sent_idx][:num_words] = 1
-
+            
             word_mask = word_mask_new
-        
+
         for task, task_type in zip(self.tasks, self.task_types):
             # Note that this is almost a copy of forward()
             if raw_text:
