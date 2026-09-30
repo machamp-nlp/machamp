@@ -62,6 +62,7 @@ def read_raw(
     has_unk = tokenizer.unk_token != None
     has_tok_task = 'tok' in [config['tasks'][task]['task_type'] for task in config['tasks']]
     num_special_tokens = len(tokenizer.prepare_for_model([])['input_ids'])
+    start_token, end_token = myutils.get_special_tokens(tokenizer)
     type_tokenizer = myutils.identify_tokenizer(tokenizer)
     script_finder = tok_utils.ScriptFinder()
     pre_tokenizer = BasicTokenizer(strip_accents=False, do_lower_case=False, tokenize_chinese_chars=True)
@@ -101,7 +102,8 @@ def read_raw(
             for wordIdx, word in enumerate(line.split(' ')):
                 full_data[wordIdx][config['word_idx']] = word
             word_col_idx = config['word_idx']
-            token_ids, offsets = tokenize_simple(tokenizer, full_data, word_col_idx, num_special_tokens, has_unk)
+            token_ids, offsets = tokenize_simple(tokenizer, full_data, word_col_idx, start_token != None,
+                                                end_token != None, has_unk)
             no_unk_subwords = None
             token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
             

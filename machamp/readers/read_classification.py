@@ -7,6 +7,7 @@ from transformers import AutoTokenizer
 
 from machamp.data.machamp_instance import MachampInstance
 from machamp.data.machamp_vocabulary import MachampVocabulary
+from machamp.utils import myutils
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +94,9 @@ def read_classification(
     unk_counter = 0
     sent_counter = 0
     test_tok = tokenizer.encode_plus('a', 'b')
-    has_start_token = len(tokenizer.prepare_for_model([])['input_ids']) == 2
-    has_end_token = len(tokenizer.prepare_for_model([])['input_ids']) >= 1
+    start_token, end_token = myutils.get_special_tokens(tokenizer)
+    has_start_token = start_token != None
+    has_end_token = end_token != None
     has_unk_token = tokenizer.unk_token != None
     has_seg_ids = 'token_type_ids' in test_tok and 1 in test_tok['token_type_ids']
 
@@ -138,6 +140,11 @@ def read_classification(
 
         if has_end_token:
             full_input = full_input[:-1]
+        elif has_start_token and tokenizer.sep_token_id != None:
+            # there is no end token to replace the last separator, so just remove it
+            full_input = full_input[:-1]
+            if has_seg_ids:
+                seg_ids = seg_ids[:-1]
 
         if 'dataset_embed_idx' in config:
             if config['dataset_embed_idx'] == -1:

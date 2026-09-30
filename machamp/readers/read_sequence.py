@@ -77,8 +77,8 @@ def seqs2data(tabular_file: str, skip_first_line: bool = False):
         yield sent[beg_idx:], sent
 
 
-def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_idx: int, num_special_tokens: int,
-                    has_unk: bool):
+def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_idx: int, has_start_token: bool,
+                    has_end_token: bool, has_unk: bool):
     """
     A tokenizer that tokenizes each token separately (over gold tokenization). 
     We found that this is the most robust method to tokenize overall (handling
@@ -93,9 +93,10 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
         of lists.
     word_col_idx: int:
         The column index that contains the input words.
-    num_special_tokens: int
-        Number of special tokens, here assumed to be 2 (start/end token) or 1
-        (only end token)
+    has_start_token: bool
+        Whether the tokenizer adds a special start token
+    has_end_token: bool
+        Whether the tokenizer adds a special end token
     has_unk: bool
         Does the tokenizer have an unk token
     
@@ -112,16 +113,11 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
     offsets = []
     for token_idx in range(len(sent)):
         # we do not use return_tensors='pt' because we do not know the length beforehand
-        if num_special_tokens == 2:
-            tokked = tokenizer.encode(sent[token_idx][word_col_idx])[1:-1]
-        elif num_special_tokens == 1:
-            # We assume that if there is only one special token, it is the end token
-            tokked = tokenizer.encode(sent[token_idx][word_col_idx])[:-1]
-        elif num_special_tokens == 0:
-            tokked = tokenizer.encode(sent[token_idx][word_col_idx])
-        else:
-            logger.error('Number of special tokens is currently not handled: ' + str(num_special_tokens))
-            exit(1)
+        tokked = tokenizer.encode(sent[token_idx][word_col_idx])
+        if has_start_token:
+            tokked = tokked[1:]
+        if has_end_token:
+            tokked = tokked[:-1]
         if len(tokked) == 0 and has_unk:
             tokked = [tokenizer.unk_token_id]
         token_ids.extend(tokked)
@@ -183,6 +179,9 @@ def read_sequence(
     has_unk = tokenizer.unk_token_id != None
     has_tok_task = 'tok' in [config['tasks'][task]['task_type'] for task in config['tasks']]
     num_special_tokens = len(tokenizer.prepare_for_model([])['input_ids'])
+    start_token, end_token = myutils.get_special_tokens(tokenizer)
+    has_start_token = start_token != None
+    has_end_token = end_token != None
     if has_tok_task:
         pre_tokenizer = BasicTokenizer(strip_accents=False, do_lower_case=False, tokenize_chinese_chars=True)
         tokenizer.do_basic_tokenize = False
@@ -232,7 +231,7 @@ def read_sequence(
             # We assume that if we have only one special token, that it is the end token
 
         else:
-            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, num_special_tokens, has_unk)
+            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, has_start_token, has_end_token, has_unk)
             no_unk_subwords = None
         token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
 
@@ -381,7 +380,7 @@ def read_sequence(
         if no_mapping and is_train:
             # No mapping can be found, but we still want to train for the other tasks, so backoff to the gold
             # tokenization
-            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, num_special_tokens, has_unk)
+            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, has_start_token, has_end_token, has_unk)
             token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
             no_unk_subwords = tokenizer.convert_ids_to_tokens(token_ids)
             if type(tokenizer) == BertTokenizer:
