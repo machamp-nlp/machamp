@@ -7,6 +7,7 @@ from transformers import DataCollatorForLanguageModeling  # or DataCollatorForWh
 
 from machamp.data.machamp_instance import MachampInstance
 from machamp.data.machamp_vocabulary import MachampVocabulary
+from machamp.utils import myutils
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ def read_mlm(
     has_unk = tokenizer.unk_token != None
     masker = DataCollatorForLanguageModeling(tokenizer)
     num_special_tokens = len(tokenizer.prepare_for_model([])['input_ids'])
+    start_token, end_token = myutils.get_special_tokens(tokenizer)
 
     if len(config['tasks']) > 1:
         logger.error("MLM is currently only supported as single task on a dataset.")
@@ -103,12 +105,12 @@ def read_mlm(
                 exit(1)
             data_ids = [dataset] * len(input_text)-num_special_tokens
         data_ids_full = torch.zeros(len(input_text), dtype=torch.long)
-        start = 0 if num_special_tokens == 0 else 1
+        start = 0 if start_token == None else 1
         data_ids_full[start:start+len(data_ids)]
 
-        if num_special_tokens == 2:
-            output_labels = output_labels[1:-1]
-        elif num_special_tokens == 1:
+        if start_token != None:
+            output_labels = output_labels[1:]
+        if end_token != None:
             output_labels = output_labels[:-1]
         golds = {task: output_labels}
     
