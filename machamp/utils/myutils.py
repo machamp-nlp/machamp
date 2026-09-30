@@ -89,7 +89,7 @@ def prep_batch(
     device: str
         Description of cuda device to use, i.e.: "cpu" or "gpu:0"
     dataset: MachampDataset
-        Used for task-types.
+        Used for task-types and the tokenizer.
     assume_word_level: bool
         Normally, we check the gold annotations to see whether we need word
         level information (i.e. offsets); but if gold data is absent, and we
@@ -141,7 +141,10 @@ def prep_batch(
         task_type = dataset.task_to_tasktype(task)
 
         if task_type == 'tok':
-            golds[task] = torch.full((batch_size, max_subword_len - 2), -100, dtype=torch.long, device=device)
+            # there is a label for every subword except the special tokens
+            num_special_tokens = 2 - list(get_special_tokens(dataset.tokenizer)).count(None)
+            golds[task] = torch.full((batch_size, max_subword_len - num_special_tokens), -100, dtype=torch.long,
+                                     device=device)
         elif task_type == 'regression':
             golds[task] = torch.full((batch_size,), -100, dtype=torch.float, device=device)
         elif task_type == 'probdistr':

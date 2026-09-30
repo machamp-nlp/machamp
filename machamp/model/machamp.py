@@ -320,7 +320,11 @@ class MachampModel(torch.nn.Module):
                     continue # task not in current batch somehow
 
                 if task_type == 'mlm':# Not possible to apply scalar, already have predictions..
-                    mlm_out_task = mlm_preds[:, 1:-1, :]
+                    mlm_out_task = mlm_preds
+                    if self.start_token != None:
+                        mlm_out_task = mlm_out_task[:, 1:, :]
+                    if self.end_token != None:
+                        mlm_out_task = mlm_out_task[:, :-1, :]
                 elif task_type in ['classification', 'regression', 'multiclas', 'probdistr']:
                     mlm_out_task = myutils.apply_scalar(mlm_out_sent, self.layers[task], self.scalars[task])
                 elif task_type == 'tok':
