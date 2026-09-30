@@ -228,7 +228,10 @@ class MachampEncoder:
                 # get lengths, note that they include special tokens
                 lengths = []
                 for sent_idx in range(batch_size):
-                    if find_end_token in input_token_ids[sent_idx]:
+                    if self.end_token_id == None:
+                        # without end token we can not search for it (0 can also be a real token), use the mask
+                        lengths.append(subword_mask[sent_idx].sum().item())
+                    elif find_end_token in input_token_ids[sent_idx]:
                         lengths.append((torch.nonzero(input_token_ids[sent_idx] == find_end_token, as_tuple=False)[0]).item() + 1)
                     else:
                         lengths.append(len(input_token_ids[sent_idx]))

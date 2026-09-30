@@ -120,10 +120,7 @@ class MachampModel(torch.nn.Module):
         else:
             self.dropout = torch.nn.Dropout(dropout)
 
-        tokenizer_out = tokenizer.prepare_for_model([])['input_ids']
-        # we assume that if there is only one special token that it is the end token
-        self.end_token = None if len(tokenizer_out) == 0 else tokenizer_out[-1]
-        self.start_token = None if len(tokenizer_out) <= 1 else tokenizer_out[0]
+        self.start_token, self.end_token = myutils.get_special_tokens(tokenizer)
         self.num_special_tokens = 2 - [self.end_token, self.start_token].count(None)
         self.encoder = MachampEncoder(self.mlm, max_input_length, self.end_token, self.start_token)
 
