@@ -63,8 +63,8 @@ def read_mlm(
     subword_counter = 0
     has_unk = tokenizer.unk_token != None
     masker = DataCollatorForLanguageModeling(tokenizer)
-    num_special_tokens = len(tokenizer.prepare_for_model([])['input_ids'])
     start_token, end_token = myutils.get_special_tokens(tokenizer)
+    num_special_tokens = 2 - [start_token, end_token].count(None)
 
     if len(config['tasks']) > 1:
         logger.error("MLM is currently only supported as single task on a dataset.")
@@ -81,9 +81,12 @@ def read_mlm(
 
         token_ids = tokenizer.encode(line, return_tensors='pt')[0]
 
-        # truncate too long sentences
+        # truncate too long sentences (keeping the end token, if any)
         if len(token_ids) >= max_input_length:
-            token_ids = token_ids[list(range(max_input_length-1)) + [len(token_ids) - 1]]
+            if end_token != None:
+                token_ids = token_ids[list(range(max_input_length-1)) + [len(token_ids) - 1]]
+            else:
+                token_ids = token_ids[:max_input_length]
 
         # skip empty lines
         if len(token_ids) <= num_special_tokens:

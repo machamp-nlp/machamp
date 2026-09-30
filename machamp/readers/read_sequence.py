@@ -77,8 +77,7 @@ def seqs2data(tabular_file: str, skip_first_line: bool = False):
         yield sent[beg_idx:], sent
 
 
-def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_idx: int, has_start_token: bool,
-                    has_end_token: bool, has_unk: bool):
+def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_idx: int, has_unk: bool):
     """
     A tokenizer that tokenizes each token separately (over gold tokenization). 
     We found that this is the most robust method to tokenize overall (handling
@@ -93,18 +92,14 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
         of lists.
     word_col_idx: int:
         The column index that contains the input words.
-    has_start_token: bool
-        Whether the tokenizer adds a special start token
-    has_end_token: bool
-        Whether the tokenizer adds a special end token
     has_unk: bool
         Does the tokenizer have an unk token
     
     Returns
     -------
     token_ids: List[int]
-        The full list of token ids (for each subword, note that this can
-        be longer than the annotation lists)
+        The full list of token ids without special tokens (for each subword,
+        note that this can be longer than the annotation lists)
     offsets: list[int]
         The index of the last subword for every gold token. Should have
         the same length as annotation for sequence labeling tasks.
@@ -113,11 +108,7 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
     offsets = []
     for token_idx in range(len(sent)):
         # we do not use return_tensors='pt' because we do not know the length beforehand
-        tokked = tokenizer.encode(sent[token_idx][word_col_idx])
-        if has_start_token:
-            tokked = tokked[1:]
-        if has_end_token:
-            tokked = tokked[:-1]
+        tokked = tokenizer.encode(sent[token_idx][word_col_idx], add_special_tokens=False)
         if len(tokked) == 0 and has_unk:
             tokked = [tokenizer.unk_token_id]
         token_ids.extend(tokked)
@@ -178,10 +169,8 @@ def read_sequence(
     subword_counter = 0
     has_unk = tokenizer.unk_token_id != None
     has_tok_task = 'tok' in [config['tasks'][task]['task_type'] for task in config['tasks']]
-    num_special_tokens = len(tokenizer.prepare_for_model([])['input_ids'])
     start_token, end_token = myutils.get_special_tokens(tokenizer)
-    has_start_token = start_token != None
-    has_end_token = end_token != None
+    num_special_tokens = 2 - [start_token, end_token].count(None)
     if has_tok_task:
         pre_tokenizer = BasicTokenizer(strip_accents=False, do_lower_case=False, tokenize_chinese_chars=True)
         tokenizer.do_basic_tokenize = False
@@ -228,12 +217,11 @@ def read_sequence(
             # They are also not picked in a smart way; we just keep the last for each..
             if new_splits != {}:
                 vocabulary.pre_splits = new_splits
-            # We assume that if we have only one special token, that it is the end token
 
         else:
-            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, has_start_token, has_end_token, has_unk)
+            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, has_unk)
             no_unk_subwords = None
-        token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
+        token_ids = myutils.wrap_special_tokens(token_ids, start_token, end_token)
 
         dataset_ids_subwords = []
         if 'dataset_embed_idx' in config:
@@ -251,12 +239,9 @@ def read_sequence(
                 beg = offsets[word_idx-1]
             end = offsets[word_idx]
             for subword_idx in range(beg, end+1):# end+1 because inclusive
-                # 1+ for the CLS token
+                # shift by one for the start token (if any)
                 if 'dataset_embed_idx' in config:
-                    if num_special_tokens == 2:
-                        dataset_ids_subwords[1+subword_idx] = dataset_ids_words[word_idx]
-                    else:
-                        dataset_ids_subwords[1+subword_idx] = dataset_ids_words[word_idx]
+                    dataset_ids_subwords[(start_token != None) + subword_idx] = dataset_ids_words[word_idx]
 
         col_idxs = {}
         golds = {}
@@ -380,8 +365,8 @@ def read_sequence(
         if no_mapping and is_train:
             # No mapping can be found, but we still want to train for the other tasks, so backoff to the gold
             # tokenization
-            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, has_start_token, has_end_token, has_unk)
-            token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
+            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, has_unk)
+            token_ids = myutils.wrap_special_tokens(token_ids, start_token, end_token)
             no_unk_subwords = tokenizer.convert_ids_to_tokens(token_ids)
             if type(tokenizer) == BertTokenizer:
                 no_unk_subwords = [subword[:2] if subword.startswith('##') else subword for subword in no_unk_subwords]
