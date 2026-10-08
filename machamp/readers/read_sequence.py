@@ -77,7 +77,8 @@ def seqs2data(tabular_file: str, skip_first_line: bool = False):
         yield sent[beg_idx:], sent
 
 
-def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_idx: int, has_unk: bool):
+def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_idx: int, has_unk: bool, 
+                    type_tokenizer: str, first_word_also_marked: str):
     """
     A tokenizer that tokenizes each token separately (over gold tokenization). 
     We found that this is the most robust method to tokenize overall (handling
@@ -94,6 +95,10 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
         The column index that contains the input words.
     has_unk: bool
         Does the tokenizer have an unk token
+    type_tokenizer: str
+        Used to detect whether we need to add a whitespace character.
+        one of wordpiece, sentencepiece, G, other
+    first_word_also_marked: str
     
     Returns
     -------
@@ -108,7 +113,11 @@ def tokenize_simple(tokenizer: AutoTokenizer, sent: List[List[str]], word_col_id
     offsets = []
     for token_idx in range(len(sent)):
         # we do not use return_tensors='pt' because we do not know the length beforehand
-        tokked = tokenizer.encode(sent[token_idx][word_col_idx], add_special_tokens=False)
+
+        if type_tokenizer in ['G', 'sentencepiece'] and (token_idx > 0 or first_word_also_marked):
+            tokked = tokenizer.encode(' ' + sent[token_idx][word_col_idx], add_special_tokens=False)
+        else:
+            tokked = tokenizer.encode(sent[token_idx][word_col_idx], add_special_tokens=False)
         if len(tokked) == 0 and has_unk:
             tokked = [tokenizer.unk_token_id]
         token_ids.extend(tokked)
@@ -171,11 +180,12 @@ def read_sequence(
     has_tok_task = 'tok' in [config['tasks'][task]['task_type'] for task in config['tasks']]
     start_token, end_token = myutils.get_special_tokens(tokenizer)
     num_special_tokens = 2 - [start_token, end_token].count(None)
+    type_tokenizer = myutils.identify_tokenizer(tokenizer)
+    first_word_also_marked = ''.join(tokenizer.tokenize('a')) != 'a'
     if has_tok_task:
         pre_tokenizer = BasicTokenizer(strip_accents=False, do_lower_case=False, tokenize_chinese_chars=True)
         tokenizer.do_basic_tokenize = False
         script_finder = tok_utils.ScriptFinder()
-        type_tokenizer = myutils.identify_tokenizer(tokenizer)
 
     all_sents = list(seqs2data(data_path))
     do_splits = False
@@ -219,7 +229,7 @@ def read_sequence(
                 vocabulary.pre_splits = new_splits
 
         else:
-            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, has_unk)
+            token_ids, offsets = tokenize_simple(tokenizer, sent, word_col_idx, has_unk, type_tokenizer, first_word_also_marked)
             no_unk_subwords = None
         token_ids = myutils.wrap_special_tokens(token_ids, start_token, end_token)
 
