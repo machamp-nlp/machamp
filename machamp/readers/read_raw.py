@@ -61,7 +61,8 @@ def read_raw(
     subword_counter = 0
     has_unk = tokenizer.unk_token != None
     has_tok_task = 'tok' in [config['tasks'][task]['task_type'] for task in config['tasks']]
-    num_special_tokens = len(tokenizer.prepare_for_model([])['input_ids'])
+    start_token, end_token = myutils.get_special_tokens(tokenizer)
+    num_special_tokens = 2 - [start_token, end_token].count(None)
     type_tokenizer = myutils.identify_tokenizer(tokenizer)
     script_finder = tok_utils.ScriptFinder()
     pre_tokenizer = BasicTokenizer(strip_accents=False, do_lower_case=False, tokenize_chinese_chars=True)
@@ -85,8 +86,7 @@ def read_raw(
             # if running out of mem:
             #token_ids = token_ids[:2000]
             #no_unk_subwords = no_unk_subwords[:2000]
-            token_ids = tokenizer.prepare_for_model(token_ids)['input_ids']
-            token_ids = torch.tensor(token_ids, dtype=torch.long)
+            token_ids = myutils.wrap_special_tokens(token_ids, start_token, end_token)
     
             # skip empty lines
             if len(token_ids) <= num_special_tokens:
@@ -101,9 +101,9 @@ def read_raw(
             for wordIdx, word in enumerate(line.split(' ')):
                 full_data[wordIdx][config['word_idx']] = word
             word_col_idx = config['word_idx']
-            token_ids, offsets = tokenize_simple(tokenizer, full_data, word_col_idx, num_special_tokens, has_unk)
+            token_ids, offsets = tokenize_simple(tokenizer, full_data, word_col_idx, has_unk)
             no_unk_subwords = None
-            token_ids = tokenizer.prepare_for_model(token_ids, return_tensors='pt')['input_ids']
+            token_ids = myutils.wrap_special_tokens(token_ids, start_token, end_token)
             
         sent_counter += 1
         if has_unk:

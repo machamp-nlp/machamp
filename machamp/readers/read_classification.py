@@ -1,4 +1,3 @@
-import copy
 import logging
 from typing import List
 
@@ -7,6 +6,7 @@ from transformers import AutoTokenizer
 
 from machamp.data.machamp_instance import MachampInstance
 from machamp.data.machamp_vocabulary import MachampVocabulary
+from machamp.utils import myutils
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +93,9 @@ def read_classification(
     unk_counter = 0
     sent_counter = 0
     test_tok = tokenizer.encode_plus('a', 'b')
-    has_start_token = len(tokenizer.prepare_for_model([])['input_ids']) == 2
-    has_end_token = len(tokenizer.prepare_for_model([])['input_ids']) >= 1
+    start_token, end_token = myutils.get_special_tokens(tokenizer)
+    has_start_token = start_token != None
+    has_end_token = end_token != None
     has_unk_token = tokenizer.unk_token != None
     has_seg_ids = 'token_type_ids' in test_tok and 1 in test_tok['token_type_ids']
 
@@ -106,11 +107,11 @@ def read_classification(
     for sent_counter, data_instance in enumerate(lines2data(data_path, config['skip_first_line'])):
         if max_sents != -1 and sent_counter >= max_sents:
             break
-        # We use the following format 
-        # input: <CLS> sent1 <SEP> sent2 <SEP> sent3 ...
+        # We use the following format (depending on which special tokens the tokenizer uses)
+        # input: <CLS> sent1 <SEP> sent2 <SEP> sent3 ... <SEP>
         # type_ids: 0 0 .. 1 1 .. 0 0 .. 1 1 ..
         full_input = []
-        seg_ids = [0]
+        seg_ids = []
         for counter, sent_idx in enumerate(sent_idxs):
             if sent_idx >= len(data_instance):
                 logger.error(
@@ -118,26 +119,19 @@ def read_classification(
                         sent_idx) + ' is missing, should contain input.')
                 exit(1)
             
-            encoding = tokenizer.encode(data_instance[sent_idx].strip())
-            if has_start_token:
-                encoding = encoding[1:]
-            if has_end_token:
-                encoding = encoding[:-1]
+            encoding = tokenizer.encode(data_instance[sent_idx].strip(), add_special_tokens=False)
             subword_counter += len(encoding)
-            if tokenizer.sep_token_id != None:
-                encoding = encoding + [copy.deepcopy(tokenizer.sep_token_id)]
             if len(encoding) == 0:
                 logger.warning("empty sentence found in line " + str(
                     sent_counter) + ', column ' + str(sent_idx) + ' replaced with UNK token')
                 if has_unk_token:
                     encoding.append(tokenizer.unk_token_id)
+            # sentences are separated by the sep token (if any)
+            if tokenizer.sep_token_id != None and counter < len(sent_idxs) - 1:
+                encoding = encoding + [tokenizer.sep_token_id]
 
-            if has_seg_ids:
-                seg_ids.extend([counter % 2] * len(encoding))
+            seg_ids.extend([counter % 2] * len(encoding))
             full_input.extend(encoding)
-
-        if has_end_token:
-            full_input = full_input[:-1]
 
         if 'dataset_embed_idx' in config:
             if config['dataset_embed_idx'] == -1:
@@ -146,8 +140,12 @@ def read_classification(
                 dataset_ids_subwords = [vocabulary.token2id(data_instance[config['dataset_embed_idx']], 'dataset_embeds', is_train) for token in full_input]
 
         unk_counter += full_input.count(tokenizer.unk_token_id)
-        full_input = tokenizer.prepare_for_model(full_input)['input_ids']
-        full_input = torch.tensor(full_input, dtype=torch.long)
+        full_input = myutils.wrap_special_tokens(full_input, start_token, end_token)
+        # the special tokens get the segment id of their neighbour
+        if has_seg_ids:
+            seg_ids = seg_ids[:1] * has_start_token + seg_ids + seg_ids[-1:] * has_end_token
+        else:
+            seg_ids = [0] * len(full_input)
         seg_ids = torch.tensor(seg_ids, dtype=torch.long)
 
         dataset_ids_all = []

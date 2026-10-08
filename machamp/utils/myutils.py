@@ -89,7 +89,7 @@ def prep_batch(
     device: str
         Description of cuda device to use, i.e.: "cpu" or "gpu:0"
     dataset: MachampDataset
-        Used for task-types.
+        Used for task-types and the tokenizer.
     assume_word_level: bool
         Normally, we check the gold annotations to see whether we need word
         level information (i.e. offsets); but if gold data is absent, and we
@@ -141,7 +141,10 @@ def prep_batch(
         task_type = dataset.task_to_tasktype(task)
 
         if task_type == 'tok':
-            golds[task] = torch.full((batch_size, max_subword_len - 2), -100, dtype=torch.long, device=device)
+            # there is a label for every subword except the special tokens
+            num_special_tokens = 2 - list(get_special_tokens(dataset.tokenizer)).count(None)
+            golds[task] = torch.full((batch_size, max_subword_len - num_special_tokens), -100, dtype=torch.long,
+                                     device=device)
         elif task_type == 'regression':
             golds[task] = torch.full((batch_size,), -100, dtype=torch.float, device=device)
         elif task_type == 'probdistr':
@@ -445,6 +448,68 @@ def apply_scalar(mlm_out: torch.tensor, layers: List, scalar: ScalarMix):
         return scalar(mlm_out[layers])
     else:
         return mlm_out[layers[0]]
+
+
+def get_special_tokens(tokenizer: AutoTokenizer):
+    """
+    Finds the special start and end token that the tokenizer adds around
+    the input with encode(). We can not simply count them, because if
+    there is only one it can be either a start token (e.g. BOS-only
+    tokenizers) or an end token (e.g. T5). We use encode() and not
+    prepare_for_model(), because for some tokenizers (e.g. mmBERT, Llama-3)
+    only encode() adds the special tokens.
+
+    Parameters
+    ----------
+    tokenizer: AutoTokenizer
+        the tokenizer to inspect
+
+    Returns
+    -------
+    start_token: int
+        the id of the start token, None if there is none
+    end_token: int
+        the id of the end token, None if there is none
+    """
+    content = tokenizer.encode('a', add_special_tokens=False)
+    tokenizer_out = tokenizer.encode('a')
+    num_before = next((idx for idx in range(len(tokenizer_out) - len(content) + 1)
+                       if tokenizer_out[idx:idx + len(content)] == content), None)
+    if num_before is None:
+        logger.error('Could not find the input in the output of the tokenizer: ' +
+                     str(tokenizer.convert_ids_to_tokens(tokenizer_out)))
+        exit(1)
+    num_after = len(tokenizer_out) - num_before - len(content)
+    if num_before > 1 or num_after > 1:
+        logger.error('Tokenizer adds more than one special token at the start or end, this is not handled: ' +
+                     str(tokenizer.convert_ids_to_tokens(tokenizer_out)))
+        exit(1)
+    start_token = tokenizer_out[0] if num_before == 1 else None
+    end_token = tokenizer_out[-1] if num_after == 1 else None
+    return start_token, end_token
+
+
+def wrap_special_tokens(token_ids: List[int], start_token: int, end_token: int):
+    """
+    Adds the special start and end token (if any) around the input, as
+    found by get_special_tokens.
+
+    Parameters
+    ----------
+    token_ids: List[int]
+        the subword ids of the input, without special tokens
+    start_token: int
+        the id of the start token, None if there is none
+    end_token: int
+        the id of the end token, None if there is none
+
+    Returns
+    -------
+    token_ids: torch.tensor
+        the subword ids including the special tokens
+    """
+    return torch.tensor(([] if start_token == None else [start_token]) + list(token_ids) +
+                        ([] if end_token == None else [end_token]), dtype=torch.long)
 
 
 def identify_tokenizer(tokenizer: AutoTokenizer):
